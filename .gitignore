@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.*.local
+*.pem
+*.key
+credentials*.json
+
+# local dev data (file-backed store) — never commit real data
+data/
+*.db
+*.sqlite*
+
+# vite / playwright
+apps/web/dist/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# prisma engines / generated client
+node_modules/.prisma/
+
+.DS_Store

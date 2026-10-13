@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-teal-700;
+}

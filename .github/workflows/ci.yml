@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      RATE_LIMIT_DISABLED: "1"
+      OUTBOX_AUTODRAIN: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:validate
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run test:contracts
+      # Advisory scan: fails loudly in the log but does not block while
+      # transitive-only criticals (see docs/OPERATIONS.md) await upstream fixes.
+      - name: Vulnerability scan (advisory)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: scopelock_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/scopelock_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/scopelock_test
+      RATE_LIMIT_DISABLED: "1"
+      OUTBOX_AUTODRAIN: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Migrations must apply cleanly to a fresh database…
+      - run: npx prisma migrate deploy --schema prisma/schema.prisma
+      # …and the migrated database must match the Prisma schema exactly.
+      - run: >-
+          npx prisma migrate diff
+          --from-url "$DATABASE_URL"
+          --to-schema-datamodel prisma/schema.prisma
+          --script --exit-code
+      - run: npm run build:packages
+      - run: npx vitest run tests/prisma-smoke.test.ts
+        working-directory: apps/api
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build-test
+    env:
+      RATE_LIMIT_DISABLED: "1"
+      OUTBOX_AUTODRAIN: "false"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: npm run e2e
