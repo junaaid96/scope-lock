@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ActivityEvent, AiAnalysisRow } from "../lib/types.js";
+import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate } from "../components/ui.js";
 
 export function ActivityPage(): JSX.Element {
@@ -23,8 +24,8 @@ export function ActivityPage(): JSX.Element {
       <PageTitle
         title="Activity"
         subtitle="Append-only audit trail: every state change, who made it, and when."
-        actions={<Link to={`/projects/${projectId}`}><Button variant="secondary" size="sm">Back to project</Button></Link>}
       />
+      <ProjectSubnav projectId={projectId} />
       {events.length === 0 ? <Empty title="No activity yet" /> : (
         <Card>
           <ul className="space-y-3">

@@ -2,8 +2,7 @@ import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-rou
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/query.js";
 import { AuthProvider, useSession } from "./lib/auth.js";
-import { Centered, Shell } from "./components/layout.js";
-import { Spinner } from "./components/ui.js";
+import { Centered, LoadingScreen, Shell } from "./components/layout.js";
 import { LoginPage } from "./pages/Login.js";
 import { RegisterPage } from "./pages/Register.js";
 import { AcceptInvitePage } from "./pages/AcceptInvite.js";
@@ -13,6 +12,7 @@ import { ProjectPage } from "./pages/Project.js";
 import { ScopePage } from "./pages/Scope.js";
 import { ChangePage } from "./pages/Change.js";
 import { InboxPage } from "./pages/Inbox.js";
+import { TimelinePage } from "./pages/Timeline.js";
 import { ReviewPage } from "./pages/Review.js";
 import { ActivityPage } from "./pages/Activity.js";
 import { HealthPage } from "./pages/Health.js";
@@ -21,18 +21,14 @@ import { OrgSettingsPage } from "./pages/OrgSettings.js";
 function RequireAuth(): JSX.Element {
   const { session, loading } = useSession();
   if (loading) {
-    return (
-      <Centered>
-        <Spinner />
-      </Centered>
-    );
+    return <LoadingScreen />;
   }
   if (!session) return <Navigate to="/login" replace />;
   return <Outlet />;
 }
 
 const router = createBrowserRouter([
-  { path: "/login", element: <Centered><LoginPage /></Centered> },
+  { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <Centered><RegisterPage /></Centered> },
   { path: "/accept-invite/:token", element: <Centered><AcceptInvitePage /></Centered> },
   { path: "/reset-password", element: <Centered><ResetPasswordPage /></Centered> },
@@ -47,6 +43,7 @@ const router = createBrowserRouter([
           { path: "/inbox", element: <InboxPage /> },
           { path: "/projects/:id", element: <ProjectPage /> },
           { path: "/projects/:id/scope", element: <ScopePage /> },
+          { path: "/projects/:id/timeline", element: <TimelinePage /> },
           { path: "/projects/:id/changes/:changeId", element: <ChangePage /> },
           { path: "/projects/:id/activity", element: <ActivityPage /> },
           { path: "/projects/:id/health", element: <HealthPage /> },

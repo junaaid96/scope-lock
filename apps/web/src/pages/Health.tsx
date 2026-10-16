@@ -1,8 +1,9 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ScopeHealth } from "../lib/types.js";
-import { Badge, Button, Card, ErrorBanner, PageTitle, Spinner } from "../components/ui.js";
+import { ProjectSubnav } from "../components/layout.js";
+import { Badge, Card, ErrorBanner, PageTitle, Spinner } from "../components/ui.js";
 
 export function HealthPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
@@ -25,8 +26,8 @@ export function HealthPage(): JSX.Element {
       <PageTitle
         title="Scope health"
         subtitle="Explainable signals — every input is listed, never a black-box score."
-        actions={<Link to={`/projects/${projectId}`}><Button variant="secondary" size="sm">Back to project</Button></Link>}
       />
+      <ProjectSubnav projectId={projectId} />
       <Card>
         <div className="flex items-center gap-3">
           <span aria-label={`Health score ${h.score} of 5`} className="text-3xl font-semibold">{h.score}<span className="text-lg text-slate-400">/5</span></span>

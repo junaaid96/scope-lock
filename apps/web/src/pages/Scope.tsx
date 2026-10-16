@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll, ApiError } from "../lib/api.js";
 import type { AttachmentRow, EvidenceRow, RequirementRow, Revision, ScopeVersion } from "../lib/types.js";
+import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatDate, statusTone } from "../components/ui.js";
 
 interface Diff {
@@ -75,13 +76,9 @@ export function ScopePage(): JSX.Element {
       <PageTitle
         title="Scope ledger"
         subtitle="The versioned record of what was agreed. Published versions are immutable."
-        actions={
-          <>
-            <Link to={`/projects/${projectId}`}><Button variant="secondary" size="sm">Back to project</Button></Link>
-            {!draft ? <Button size="sm" onClick={() => setShowDraft(true)}>New draft</Button> : null}
-          </>
-        }
+        actions={!draft ? <Button size="sm" onClick={() => setShowDraft(true)}>New draft</Button> : null}
       />
+      <ProjectSubnav projectId={projectId} />
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
       <div className="grid gap-5 md:grid-cols-3">
         <Card className="md:col-span-1">

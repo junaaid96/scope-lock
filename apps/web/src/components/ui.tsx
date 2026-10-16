@@ -145,6 +145,49 @@ export function Spinner(): JSX.Element {
   );
 }
 
+/** Shared tab bar (inbox sections, project sections). */
+export function Tabs<T extends string>({ tabs, active, onChange, label }: {
+  tabs: Array<{ id: T; label: string }>;
+  active: T;
+  onChange: (id: T) => void;
+  label: string;
+}): JSX.Element {
+  return (
+    <div className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label={label}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={active === t.id}
+          onClick={() => onChange(t.id)}
+          className={`whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium ${
+            active === t.id
+              ? "border border-b-0 border-slate-200 bg-white text-teal-800"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Keyboard hint, e.g. <Kbd>Ctrl K</Kbd>. */
+export function Kbd({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <kbd className="inline-flex items-center gap-0.5 rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] font-medium text-slate-600">
+      {children}
+    </kbd>
+  );
+}
+
+/** Pulsing content placeholder for loading views. */
+export function Skeleton({ className }: { className?: string }): JSX.Element {
+  return <div aria-hidden="true" className={cn("animate-pulse rounded-md bg-slate-200 motion-reduce:animate-none", className ?? "h-4 w-full")} />;
+}
+
 export function Empty({ title, hint }: { title: string; hint?: string }): JSX.Element {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center">

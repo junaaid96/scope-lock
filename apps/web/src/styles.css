@@ -9,3 +9,13 @@ body {
 :focus-visible {
   @apply outline-2 outline-offset-2 outline-teal-700;
 }
+
+::selection {
+  background-color: #ccfbf1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

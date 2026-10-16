@@ -22,6 +22,9 @@ export default defineConfig({
         PORT: String(API_PORT),
         WEB_URL: `http://localhost:${WEB_PORT}`,
         API_URL: `http://localhost:${API_PORT}`,
+        // Blank DATABASE_URL so a local .env cannot redirect e2e to Postgres;
+        // the suite requires the :memory: store for isolation and speed.
+        DATABASE_URL: "",
         DATA_FILE: ":memory:",
         RATE_LIMIT_DISABLED: "1",
         OUTBOX_AUTODRAIN: "false",

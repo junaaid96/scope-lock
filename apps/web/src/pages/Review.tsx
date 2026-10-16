@@ -3,7 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import type { ReviewPackage } from "../lib/types.js";
-import { Badge, Button, Card, ErrorBanner, Field, Spinner, Textarea, formatDate, statusTone } from "../components/ui.js";
+import { LoadingScreen } from "../components/layout.js";
+import { Badge, Button, Card, ErrorBanner, Field, Textarea, formatDate, statusTone } from "../components/ui.js";
 
 interface ReviewData {
   status: string;
@@ -28,7 +29,7 @@ export function ReviewPage(): JSX.Element {
   });
 
   if (review.isLoading) {
-    return <Centered><Spinner /></Centered>;
+    return <LoadingScreen message="Loading the review package…" />;
   }
   if (review.isError || !review.data) {
     return (
@@ -196,10 +197,15 @@ function DecisionForm({ refParam, accent, onDecided }: { refParam: string; accen
   return (
     <form onSubmit={(e) => void submit(e)} className="mt-6 border-t border-slate-200 pt-4">
       <h2 className="font-medium">Your decision</h2>
-      <div className="mt-2 flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Decision">
+      <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Decision">
         {(["APPROVED", "REJECTED", "CHANGES_REQUESTED"] as const).map((d) => (
-          <label key={d} className="flex items-center gap-1">
-            <input type="radio" name="decision" value={d} checked={decision === d} onChange={() => setDecision(d)} />
+          <label
+            key={d}
+            className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
+              decision === d ? "border-teal-700 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-700 hover:border-slate-300"
+            }`}
+          >
+            <input type="radio" name="decision" value={d} checked={decision === d} onChange={() => setDecision(d)} className="accent-teal-700" />
             {d.replace("_", " ")}
           </label>
         ))}

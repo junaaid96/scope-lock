@@ -1,6 +1,9 @@
 # ScopeLock
 
-> A shared system of record for client scope, change requests, approvals, and delivery evidence.
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-teal.svg)](LICENSE)
+
+> Open-source shared system of record for client scope, change requests, approvals, and delivery evidence.
 
 ScopeLock answers four questions without searching through email, chat, and meeting notes:
 
@@ -61,13 +64,176 @@ npm run dev:web
 Open http://localhost:5173, register an account (this creates your workspace),
 and follow the pilot loop: create a client → create a project → publish a
 scope baseline → submit a change → assess impact → send for approval → decide
-from the review link.
+from the review link. After seeding the portfolio demo (below), the login page
+offers one-click sign-in for the agency and every client approver.
+
+## Setup & run (detailed)
+
+### 1. Prerequisites
+
+- **Node.js ≥ 22** (`node --version`) and **npm ≥ 10** (`npm --version`).
+  The repo pins `engines: node >= 22` — older runtimes fail at install.
+- **Git** for cloning.
+- **PostgreSQL 16+** — only if you want a production-like run. Local
+  development needs nothing else: storage, email, realtime, and AI all have
+  local/log fallbacks (see [Environment variables](#environment-variables)).
+
+```bash
+git clone <your-fork-or-repo-url> scopelock
+cd scopelock
+node --version  # expect v22+
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+This is an npm workspaces monorepo (`apps/*`, `packages/*`). The
+`postinstall` hook builds `packages/domain` + `packages/contracts` and
+generates the Prisma client, so no manual build step is needed.
+
+### 3. Configure the environment
+
+```bash
+cp .env.example .env
+```
+
+`.env.example` documents every supported variable — the defaults run
+out of the box with file-backed storage (`DATA_FILE=./data/scopelock.json`).
+Only set what you need:
+
+| Goal | Variables |
+| --- | --- |
+| Zero-dependency dev | nothing (defaults) |
+| Postgres (local or Neon) | `DATABASE_URL` (direct host, not the pooler — see note below) |
+| AI features | `GROQ_API_KEY` (empty = deterministic fallbacks) |
+| Real uploads/email/realtime | `R2_*`, `EMAIL_API_KEY` + `EMAIL_FROM`, `ABLY_API_KEY` |
+
+> **Neon users:** use the **direct** connection string for local `DATABASE_URL`.
+> The transaction-mode pooler drops the multi-statement transactions that
+> scope publish and approval decisions rely on (same database, stable
+> transactions). The portfolio seed switches to the direct host automatically
+> when it detects `-pooler` in the URL.
+
+### 4. Prepare the database (Postgres only — skip for file mode)
+
+```bash
+# Local Postgres:
+createdb scopelock
+DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma migrate deploy --schema prisma/schema.prisma
+
+# ...or point DATABASE_URL at your provider in .env, then simply:
+npx prisma migrate deploy --schema prisma/schema.prisma
+```
+
+The API reads `.env` itself, so once `DATABASE_URL` is set there you can drop
+the inline prefix. If you see `The table 'public.*' does not exist`, the
+migrations were never applied — run the command above.
+
+### 5. Seed a demo workspace (optional, recommended)
+
+```bash
+npm run seed            # tiny Acme/Globex workspace (file or Postgres)
+npm run seed:portfolio  # full 16-project CodeJBorg workspace (see below)
+```
+
+Both seeds are idempotent-ish: `seed` skips when its users exist,
+`seed:portfolio` resumes and skips finished work. Seed-time emails/realtime
+events are suppressed, so nothing leaks to real providers.
+
+### 6. Run the app (two terminals)
+
+```bash
+# Terminal 1 — Express API with hot reload
+npm run dev:api          # http://localhost:4000  (health: /healthz, /readyz)
+
+# Terminal 2 — Vite web client with hot reload
+npm run dev:web          # http://localhost:5173
+```
+
+Verify the API is up: `curl http://localhost:4000/healthz` → `200`.
+Then open http://localhost:5173 and register, or use the demo logins.
+
+### 7. Run the checks
+
+```bash
+npm run typecheck        # tsc --noEmit across every workspace
+npm run lint             # ESLint, zero warnings allowed
+npm run test             # domain unit tests + API integration suite
+npm run test:contracts   # API envelope + pagination contract suite
+npm run e2e              # Playwright suite (builds API first, uses :memory: store)
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| `The table 'public.*' does not exist` | Run `npx prisma migrate deploy --schema prisma/schema.prisma` |
+| `Transaction not found` / publish fails on Neon | Switch `DATABASE_URL` to the direct (non-pooler) host; restart `dev:api` |
+| `Project limit reached for the FREE plan (3)` | Expected on fresh orgs — upgrade in org settings, or seed less |
+| `EADDRINUSE` on `:4000` / `:5173` | Another server holds the port — stop it or set `PORT=` (API) |
+| `401` on `/auth/me` before login | Normal — it just means "no session yet" |
+| e2e suite talks to your real DB | Fixed in `playwright.config.ts` (`DATABASE_URL: ""` forces `:memory:`); pull latest |
+| `engine Unsupported` at install | Upgrade Node to ≥ 22 (`nvm install 22` / volta / fnm) |
 
 To load a demo workspace instead:
 
 ```bash
 npm run seed           # uses DATA_FILE (or DATABASE_URL when set to postgres)
 ```
+
+### Demo workspace (portfolio seed)
+
+A richer alternative to `npm run seed`: builds a "CodeJBorg" workspace from a
+real 16-project portfolio catalogue, driving the actual HTTP API end to end.
+
+```bash
+npm run seed:portfolio   # resumable; skips work a previous run already did
+```
+
+Log in at http://localhost:5173 (or use the one-click demo buttons on the login page):
+
+- Agency: `demo@codejborg.studio` / `password1234`
+- Clients (all / `password1234`): `nazmul@greenbiotech.test`,
+  `tanvir@haat.test`, `sakib@quickfood.test`, `rahim@privateclient.test`,
+  `sadia@healthops.test`
+
+What's inside:
+
+- **10 clients, 16 projects** — real names, overviews, tech stacks, live/repo
+  links, BDT budgets. The 6 client projects keep their real client names
+  (Green Biotech ×2, Arvix ×2, Al Noor, Nibash); the rest are grouped under
+  realistic owners plus a CodeJBorg Labs client for internal products.
+- **Published scope baselines on all 16** — 102 requirements total, each with
+  acceptance criteria, assumptions, and exclusions.
+- **Six showcase lifecycles** covering every state:
+  - Green Biotech ERP — change approved by the client → amended into scope v2
+    (check the v1/v2 diff) → implemented, with delivery evidence and a
+    decision note
+  - Haat — change awaiting decision (review link is printed at the end of the
+    seed run; also visible in the client inbox as `tanvir@haat.test`)
+  - QuickFood — estimating, with an answered clarification round
+  - Nibash — rejected with a reason
+  - HealthOps — two changes bundled into one approval, approved in-app
+  - InterEd — fresh request awaiting triage
+
+Suggested click path: log in as the agency → open Green Biotech ERP → scope
+(v1 vs v2) → change CHG-001 (full audit trail) → activity. Then open the Haat
+review link in an incognito window to see the client side.
+
+Notes:
+
+- Data lives in [prisma/portfolio-data.json](prisma/portfolio-data.json),
+  script in [prisma/seed-portfolio.ts](prisma/seed-portfolio.ts). Seed-time
+  outbox rows are marked delivered so no demo emails or realtime events leak
+  to real providers.
+- Against Neon/Postgres, use the **direct** (non-pooler) connection string for
+  `DATABASE_URL` locally: the transaction-mode pooler drops the
+  multi-statement transactions that publish/decide rely on. The seed script
+  switches to the direct host automatically when it detects `-pooler` in the
+  URL.
 
 ### Storage modes
 
@@ -93,6 +259,23 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 Production refuses to boot without a ≥32-char `AUTH_SECRET`, a `DATABASE_URL`,
 and non-localhost `WEB_URL`/`API_URL`/`AUTH_URL`.
 
+## Tour the app
+
+- **Command palette** (`Ctrl/⌘+K` or the header search box) — jump to any
+  project, page, or setting; contextual project links; `/?create=` shortcuts.
+- **Project board** (project → Board tab) — change requests as a Kanban board
+  with drag-and-drop and per-card Move controls (same transitions the API
+  enforces).
+- **Timeline** (project → Timeline) — baselines, submissions, review packages,
+  and decisions in chronological order, with milestone strip and kind filters.
+- **Inbox** — pending decisions plus project notifications in one place with
+  mark-read; the header/sidebar badge always equals what the page shows.
+- **Change page** — workflow stepper from draft to implemented, impact,
+  clarifications, evidence, and exports.
+- **Review links** — login-free client decisions with immutable packages,
+  selectable verdict cards, and binding-confirmation copy.
+- Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
+
 ## Scripts
 
 | Command | What it does |
@@ -103,8 +286,9 @@ and non-localhost `WEB_URL`/`API_URL`/`AUTH_URL`.
 | `npm run lint` | ESLint with zero-warning tolerance |
 | `npm run test` | domain unit tests + full API integration suite |
 | `npm run test:contracts` | API contract suite (envelopes + pagination) |
-| `npm run e2e` | Playwright pilot loop + accessibility specs |
+| `npm run e2e` | Playwright suite (pilot loop, palette, board, timeline, inbox, accessibility) |
 | `npm run seed` | demo workspace seed |
+| `npm run seed:portfolio` | full 16-project portfolio demo workspace |
 | `npm run prisma:validate` | Prisma schema validation |
 | `TEST_DATABASE_URL=… npx vitest run tests/prisma-smoke.test.ts` (in `apps/api`) | live-Postgres migration + store smoke test |
 
@@ -150,7 +334,7 @@ credentials (enforced by a security regression test).
 | Unit | `packages/domain/tests` | transitions, diff, checksum, health, money, policy |
 | API integration | `apps/api/tests` | tenant scoping, atomic workflows, presigned-URL authz |
 | Contract | `apps/api/tests/contract.test.ts` | error envelope + cursor pagination consistency |
-| E2E | `apps/web/e2e/pilot-loop.spec.ts` | register → baseline → change → approval → decision |
+| E2E | `apps/web/e2e/*.spec.ts` | register → baseline → change → approval → decision, plus palette, board, timeline, and inbox-badge specs |
 | Security regression | `apps/api/tests/security.test.ts` | IDOR, token expiry/reuse, CSRF, secret leaks |
 | AI evaluation | `apps/api/tests/ai.test.ts` | invented-ID rejection, fallback, injection resistance |
 | Accessibility | `apps/web/e2e/a11y.spec.ts` | axe scans (serious/critical) on login + dashboard |
@@ -185,3 +369,59 @@ vulnerability scan.
   quality and AI suggestion acceptance.
 - `GET /api/v1/organizations/:id/metrics` — weekly active projects.
 - `/healthz` / `/readyz` — liveness and storage readiness probes.
+
+## Open source & contributing
+
+ScopeLock is free and open-source software under the [MIT License](LICENSE)
+— use it for client work, host it yourself, fork it, and shape it to your
+agency's process.
+
+### Report issues
+
+Open a GitHub issue with steps to reproduce, expected vs actual behavior,
+and the relevant API log line (it carries a `correlationId`). For security
+reports, email the maintainers privately instead of filing a public issue —
+see [Security model](#security-model) for what is covered.
+
+### Contribute code
+
+1. **Fork** the repo and clone your fork, then follow
+   [Setup & run](#setup--run-detailed) above.
+2. **Branch** from `main`: `git checkout -b feat/short-name`
+   (or `fix/…`, `docs/…`).
+3. **Change** as little as possible to solve the problem. Match surrounding
+   conventions: the Express API owns all business logic and authorization,
+   React never touches the database or provider credentials, and every
+   protected action checks membership server-side (see
+   [Architecture rules](#architecture-rules-enforced-in-code)).
+4. **Verify** with the same gates CI runs (`.github/workflows/ci.yml`):
+
+   | Gate | Command | Covers |
+   | --- | --- | --- |
+   | Schema | `npm run prisma:validate` | Prisma schema validity |
+   | Build | `npm run build` | packages → API → web compile |
+   | Types | `npm run typecheck` | `tsc --noEmit` in every workspace |
+   | Lint | `npm run lint` | ESLint, zero warnings |
+   | Unit + API | `npm run test` | domain rules + API integration suite |
+   | Contracts | `npm run test:contracts` | error envelopes + pagination |
+   | Postgres | `TEST_DATABASE_URL=…` smoke + `migrate deploy` | migrations apply cleanly |
+   | E2E + a11y | `npm run e2e` | Playwright flows + axe scans (serious/critical) |
+   | Deps | `npm audit --omit=dev --audit-level=high` | advisory vulnerability scan |
+
+5. **Test your change**: bug fixes must add a regression test, new API
+   behavior needs integration coverage, and user-facing web flows need a
+   Playwright spec (see `apps/web/e2e/`). Never weaken an existing test to
+   make a change pass.
+6. **Document** user-visible behavior in this README where users will look
+   for it (setup, tour, env vars, scripts).
+7. **Open a PR** against `main` with a clear description, linked issue, and
+   verification evidence (which gates you ran). Keep PRs focused — one
+   concern per PR.
+
+New here? Issues labeled `good first issue` are the fastest way in
+(suggested starter areas: e2e coverage for the board/timeline edge cases,
+accessibility polish, docs).
+
+## License
+
+MIT © CodeJBorg — see [LICENSE](LICENSE) for the full text.

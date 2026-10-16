@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeDetail, RequirementRow } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatDate, formatMoney, statusTone } from "../components/ui.js";
+import { ProjectSubnav } from "../components/layout.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, formatMoney, statusTone } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
 
 const MANUAL_STATUSES = ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "WITHDRAWN"];
@@ -62,14 +63,15 @@ export function ChangePage(): JSX.Element {
       <PageTitle
         title={`${c.number}: ${c.title}`}
         subtitle={`Governing baseline: ${c.governingVersion ? `v${c.governingVersion.sequence}` : "none published yet"}`}
-        actions={<Link to={`/projects/${projectId}`}><Button variant="secondary" size="sm">Back to project</Button></Link>}
       />
+      <ProjectSubnav projectId={projectId} />
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <Badge tone={statusTone(c.status)}>{c.status}</Badge>
         {c.classification ? <Badge>{c.classification}</Badge> : null}
         <Badge>Source: {c.source}</Badge>
       </div>
+      <WorkflowStepper status={c.status} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
@@ -265,6 +267,53 @@ function TriageDialog({ change, onClose, onSave }: { change: ChangeDetail; onClo
         <Button className="w-full" onClick={() => onSave(classification, rationale)}>Save classification</Button>
       </div>
     </Dialog>
+  );
+}
+
+/** Linear workflow progress: Draft → Submitted → Triage → Estimating → Approval → Approved → Implemented. */
+function WorkflowStepper({ status }: { status: string }): JSX.Element {
+  const steps = [
+    { id: "DRAFT", label: "Draft" },
+    { id: "SUBMITTED", label: "Submitted" },
+    { id: "TRIAGING", label: "Triage" },
+    { id: "ESTIMATING", label: "Estimating" },
+    { id: "PENDING_APPROVAL", label: "Approval" },
+    { id: "APPROVED", label: "Approved" },
+    { id: "IMPLEMENTED", label: "Implemented" },
+  ];
+  const current = steps.findIndex((s) => s.id === status);
+  const sideNote =
+    status === "NEEDS_CLARIFICATION"
+      ? "Waiting on answers — the workflow resumes at triage or estimation."
+      : status === "REJECTED"
+        ? "Rejected by the client — revise the estimate or withdraw it."
+        : status === "WITHDRAWN"
+          ? "Withdrawn — reopen it as a draft to continue."
+          : null;
+  return (
+    <div className="mb-5">
+      <ol className="flex flex-wrap items-center gap-y-2" aria-label="Workflow progress">
+        {steps.map((s, i) => {
+          const state = current === -1 ? "todo" : i < current ? "done" : i === current ? "current" : "todo";
+          return (
+            <li key={s.id} className="flex items-center" aria-current={state === "current" ? "step" : undefined}>
+              {i > 0 ? <span aria-hidden="true" className={cn("mx-1.5 h-px w-4 sm:w-6", i <= current ? "bg-teal-600" : "bg-slate-300")} /> : null}
+              <span
+                className={cn(
+                  "whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
+                  state === "done" && "bg-teal-100 text-teal-900",
+                  state === "current" && "bg-teal-700 text-white",
+                  state === "todo" && "bg-slate-100 text-slate-500",
+                )}
+              >
+                {s.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      {sideNote ? <p className="mt-2 text-xs text-slate-600">{sideNote}</p> : null}
+    </div>
   );
 }
 

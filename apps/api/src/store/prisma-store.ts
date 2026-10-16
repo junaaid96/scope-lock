@@ -303,7 +303,14 @@ export class PrismaStore implements Store {
 
   async transaction<T>(fn: (tx: Store) => Promise<T>): Promise<T> {
     if (this.inTx) return fn(this);
-    return this.root.$transaction(async (tx) => fn(new PrismaStore(this.root, tx, true)));
+    // Multi-statement domain transactions (publish, decision) issue 10-20+
+    // sequential queries; over serverless Postgres (Neon) that exceeds
+    // Prisma's 5s interactive-transaction default. 30s keeps large publishes
+    // reliable without changing any semantics.
+    return this.root.$transaction(async (tx) => fn(new PrismaStore(this.root, tx, true)), {
+      maxWait: 10000,
+      timeout: 30000,
+    });
   }
 
   // ----- Users / sessions -----

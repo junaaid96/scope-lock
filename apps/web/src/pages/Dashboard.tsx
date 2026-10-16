@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
@@ -23,8 +23,15 @@ export function DashboardPage(): JSX.Element {
     enabled: Boolean(activeOrg),
   });
 
-  const [showClient, setShowClient] = useState(false);
-  const [showProject, setShowProject] = useState(false);
+  // Deep-linkable dialogs for the command palette (`/?create=project|client`).
+  const [params, setParams] = useSearchParams();
+  const [showClient, setShowClient] = useState(params.get("create") === "client");
+  const [showProject, setShowProject] = useState(params.get("create") === "project");
+  const closeDialogs = (): void => {
+    setShowClient(false);
+    setShowProject(false);
+    void setParams({}, { replace: true });
+  };
 
   if (!session) return <Spinner />;
   if (!activeOrg) return <Empty title="No organizations yet" hint="Create one to get started." />;
@@ -56,29 +63,56 @@ export function DashboardPage(): JSX.Element {
       ) : (projects.data ?? []).length === 0 ? (
         <Empty title="No projects yet" hint="Create a project for a client, then publish its first scope baseline." />
       ) : (
-        <ul className="space-y-3">
-          {(projects.data ?? []).map((p) => (
-            <li key={p.id}>
-              <Link to={`/projects/${p.id}`} className="block rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:border-teal-600">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-base font-semibold text-slate-900">{p.name}</span>
-                  <Badge tone={statusTone(p.status)}>{p.status}</Badge>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
-                  <span>{p.openChanges} open change{p.openChanges === 1 ? "" : "s"}</span>
-                  <span>{p.pendingApprovals} awaiting decision</span>
-                  {p.myInbox > 0 ? <span className="font-medium text-teal-800">{p.myInbox} need{p.myInbox === 1 ? "s" : ""} your decision</span> : null}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ProjectGroups projects={projects.data ?? []} clients={clients.data ?? []} />
       )}
       <ClientsCard orgId={activeOrg.id} clients={clients.data ?? []} loading={clients.isLoading} />
-      {showClient && activeOrg ? <ClientDialog orgId={activeOrg.id} onClose={() => setShowClient(false)} /> : null}
+      {showClient && activeOrg ? <ClientDialog orgId={activeOrg.id} onClose={closeDialogs} /> : null}
       {showProject && activeOrg ? (
-        <ProjectDialog orgId={activeOrg.id} clients={clients.data ?? []} onClose={() => setShowProject(false)} />
+        <ProjectDialog orgId={activeOrg.id} clients={clients.data ?? []} onClose={closeDialogs} />
       ) : null}
+    </div>
+  );
+}
+
+/** Projects grouped under their client, so a full workspace stays scannable. */
+function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; clients: Client[] }): JSX.Element {
+  const nameOf = new Map(clients.map((c) => [c.id, c.company ? `${c.name} · ${c.company}` : c.name]));
+  const groups = new Map<string, ProjectListItem[]>();
+  for (const p of projects) {
+    const key = p.clientId;
+    const list = groups.get(key) ?? [];
+    list.push(p);
+    groups.set(key, list);
+  }
+  const ordered = [...groups.entries()].sort((a, b) =>
+    (nameOf.get(a[0]) ?? "Other").localeCompare(nameOf.get(b[0]) ?? "Other"),
+  );
+  return (
+    <div className="space-y-6">
+      {ordered.map(([clientId, items]) => (
+        <section key={clientId} aria-label={nameOf.get(clientId) ?? "Other"}>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+            {nameOf.get(clientId) ?? "Other"}
+          </h2>
+          <ul className="space-y-3">
+            {items.map((p) => (
+              <li key={p.id}>
+                <Link to={`/projects/${p.id}`} className="block rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-teal-600">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-base font-semibold text-slate-900">{p.name}</span>
+                    <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
+                    <span>{p.openChanges} open change{p.openChanges === 1 ? "" : "s"}</span>
+                    <span>{p.pendingApprovals} awaiting decision</span>
+                    {p.myInbox > 0 ? <span className="font-medium text-teal-800">{p.myInbox} need{p.myInbox === 1 ? "s" : ""} your decision</span> : null}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

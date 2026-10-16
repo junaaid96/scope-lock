@@ -4,7 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeListItem, ProjectDetail } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatMoney, statusTone } from "../components/ui.js";
+import { ProjectSubnav } from "../components/layout.js";
+import { ChangeBoard } from "../components/change-board.js";
+
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
 
 export function ProjectPage(): JSX.Element {
@@ -16,7 +19,7 @@ export function ProjectPage(): JSX.Element {
   });
   const [showChange, setShowChange] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [tab, setTab] = useState<"changes" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -30,14 +33,12 @@ export function ProjectPage(): JSX.Element {
         subtitle={`${p.client?.name ?? "No client"} · ${p.currency} · governing baseline: ${p.counts.publishedSequence ? `v${p.counts.publishedSequence}` : "none yet"}`}
         actions={
           <>
-            <Link to={`/projects/${p.id}/scope`}><Button variant="secondary" size="sm">Scope ledger</Button></Link>
-            <Link to={`/projects/${p.id}/activity`}><Button variant="secondary" size="sm">Activity</Button></Link>
-            <Link to={`/projects/${p.id}/health`}><Button variant="secondary" size="sm">Health</Button></Link>
             {canManage ? <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>Edit project</Button> : null}
             <Button size="sm" onClick={() => setShowChange(true)}>New change request</Button>
           </>
         }
       />
+      <ProjectSubnav projectId={p.id} />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
         <span className="text-sm text-slate-600">{p.counts.openChanges} open changes</span>
@@ -45,19 +46,18 @@ export function ProjectPage(): JSX.Element {
         {p.budgetMinor ? <span className="text-sm text-slate-600">Budget {formatMoney(p.budgetMinor, p.currency)}</span> : null}
       </div>
 
-      <div className="mb-4 flex gap-1 border-b border-slate-200" role="tablist" aria-label="Project sections">
-        {(["changes", "members", "bundles", "notes"] as const).map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={`rounded-t-md px-4 py-2 text-sm font-medium ${tab === t ? "bg-white text-teal-800 border border-b-0 border-slate-200" : "text-slate-600 hover:text-slate-900"}`}
-          >
-            {t[0]?.toUpperCase()}{t.slice(1)}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Project sections"
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "changes" as const, label: `Changes (${(changes.data ?? []).length})` },
+          { id: "board" as const, label: "Board" },
+          { id: "members" as const, label: "Members" },
+          { id: "bundles" as const, label: "Bundles" },
+          { id: "notes" as const, label: "Notes" },
+        ]}
+      />
 
       {tab === "changes" ? (
         changes.isLoading ? <Spinner /> : (changes.data ?? []).length === 0 ? (
@@ -66,7 +66,7 @@ export function ProjectPage(): JSX.Element {
           <ul className="space-y-3">
             {(changes.data ?? []).map((c) => (
               <li key={c.id}>
-                <Link to={`/projects/${p.id}/changes/${c.id}`} className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-600">
+                <Link to={`/projects/${p.id}/changes/${c.id}`} className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-teal-600">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium text-slate-900">{c.number}: {c.title}</span>
                     <Badge tone={statusTone(c.status)}>{c.status}</Badge>
@@ -84,6 +84,7 @@ export function ProjectPage(): JSX.Element {
           </ul>
         )
       ) : null}
+      {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}
       {tab === "members" ? <MembersTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}
