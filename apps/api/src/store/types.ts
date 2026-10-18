@@ -614,6 +614,8 @@ export interface AIAnalysis {
   changeRequestId: string | null;
   kind: AIKind;
   inputRefs: Record<string, unknown>;
+  /** Provider that served the call ("groq" | "openai"); "none" for fallbacks/failures. */
+  provider: string;
   model: string;
   promptVersion: string;
   output: unknown;

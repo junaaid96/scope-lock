@@ -21,10 +21,12 @@ lives in [README.md](../README.md); product direction lives in
   token/secret/url/prompt-bearing keys; session tokens, signed URLs, raw
   prompts, and document contents must never be logged.
 
-## 2. AI (Groq) data flow
+## 2. AI provider data flow
 
-Provider: Groq API, default model `openai/gpt-oss-120b`, called **only** from
-`apps/api/src/modules/ai/` (server-side).
+Providers: Groq API (default model `openai/gpt-oss-120b`) and OpenAI
+(`gpt-4o-mini`), called **only** from `apps/api/src/modules/ai/`
+(server-side). `AI_PROVIDER` selects the primary; when it fails, the other
+configured provider serves the request and the usage log records who served.
 
 What is sent per capability (minimum authorized text only):
 
@@ -44,13 +46,15 @@ Controls:
   included.
 - Structured JSON outputs are Zod-validated; malformed output and invented
   requirement IDs are rejected (`droppedInventedIds` is recorded).
-- Every call stores model, prompt-template version, source record IDs,
-  latency, outcome, and reviewer disposition — not secrets or retained raw
-  sensitive content. Review dispositions feed the AI acceptance metric.
-- Timeouts (10s scanner-style budget on Groq calls) + retry on safe transient
-  failures only; rate-limited (`ai` group: 30/min) and quota-counted per plan.
-- Empty `GROQ_API_KEY` (or `AI_ENABLED=false`, or org/project opt-out) falls
-  back to deterministic results; the manual workflow is always available.
+- Every call stores provider, model, prompt-template version, source record
+  IDs, latency, outcome, and reviewer disposition — not secrets or retained
+  raw sensitive content. Review dispositions feed the AI acceptance metric.
+- Timeouts (10s scanner-style budget on provider calls) + retry on safe
+  transient failures only; rate-limited (`ai` group: 30/min) and
+  quota-counted per plan.
+- No configured provider (or `AI_ENABLED=false`, or org/project opt-out)
+  falls back to deterministic results; the manual workflow is always
+  available.
 - Quoted project text is framed as data (`DATA ONLY`), and injection-like
   fixtures are covered in `apps/api/tests/ai.test.ts`.
 

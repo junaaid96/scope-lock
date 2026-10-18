@@ -16,6 +16,9 @@ const EnvSchema = z.object({
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(168),
   GROQ_API_KEY: z.string().default(""),
   GROQ_MODEL: z.string().default("openai/gpt-oss-120b"),
+  OPENAI_API_KEY: z.string().default(""),
+  OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  AI_PROVIDER: z.enum(["groq", "openai"]).default("groq"),
   AI_ENABLED: z
     .string()
     .default("true")

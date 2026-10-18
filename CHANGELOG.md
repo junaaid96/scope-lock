@@ -38,6 +38,9 @@ All notable changes to ScopeLock are documented here. Format follows
   line items in CSV (RFC 4180) or JSON, with per-currency totals, pricing
   mode, override reasons, and allowance draw status. Contract tab card
   with period pickers; every export is audit-logged.
+- AI provider seam: `AiProvider` interface with Groq and OpenAI adapters,
+  ordered failover (`AI_PROVIDER` primary), and the serving provider
+  recorded in the AI usage log. Deterministic fallbacks unchanged.
 
 ## [0.1.0] - 2026-10-16
 

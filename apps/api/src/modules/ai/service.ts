@@ -3,7 +3,7 @@ import type { AIKind } from "@scopelock/domain";
 import type { Env } from "../../env.js";
 import { currentPeriod, type AIAnalysis, type Project, type Store, type User } from "../../store/index.js";
 import { assertAiQuota } from "../../lib/limits.js";
-import { groqJson } from "./groq.js";
+import { completeWithFailover, resolveProviders, type AiProvider } from "./providers.js";
 import { PROMPT_VERSION, SYSTEM_BASE, clarifyPrompt, comparePrompt, driftPrompt, extractPrompt, memoryPrompt, proposalPrompt } from "./prompts.js";
 import {
   ClarificationsResponseSchema,
@@ -24,14 +24,14 @@ export interface AiContext {
   orgAiEnabled: boolean;
 }
 
-async function gate(ctx: AiContext): Promise<{ fallback: boolean }> {
+async function gate(ctx: AiContext): Promise<{ providers: AiProvider[] }> {
   if (!ctx.env.AI_ENABLED || !ctx.orgAiEnabled || !ctx.project.settings.aiEnabled) {
     throw DomainError.unprocessable("AI assistance is disabled for this project. Use the manual workflow.", {
       code: "AI_DISABLED",
     });
   }
   await assertAiQuota(ctx.store, ctx.organizationId, ctx.plan);
-  return { fallback: ctx.env.GROQ_API_KEY.length === 0 };
+  return { providers: resolveProviders(ctx.env) };
 }
 
 async function record(
@@ -40,14 +40,22 @@ async function record(
   inputRefs: Record<string, unknown>,
   output: unknown,
   status: AIAnalysis["status"],
-  extra?: { latencyMs?: number | null; error?: string | null; changeRequestId?: string | null; usage?: AIAnalysis["usage"] },
+  extra?: {
+    latencyMs?: number | null;
+    error?: string | null;
+    changeRequestId?: string | null;
+    usage?: AIAnalysis["usage"];
+    provider?: string;
+    model?: string;
+  },
 ): Promise<AIAnalysis> {
   const analysis = await ctx.store.createAIAnalysis({
     projectId: ctx.project.id,
     changeRequestId: extra?.changeRequestId ?? null,
     kind,
     inputRefs,
-    model: ctx.env.GROQ_MODEL,
+    provider: extra?.provider ?? "none",
+    model: extra?.model ?? ctx.env.GROQ_MODEL,
     promptVersion: PROMPT_VERSION,
     output: output ?? {},
     status,
@@ -70,17 +78,17 @@ function parseJson(text: string): unknown {
 
 /** Requirement extraction. No deterministic fallback — manual entry is the fallback. */
 export async function extractRequirements(ctx: AiContext, sourceText: string, sourceLabel: string): Promise<AIAnalysis> {
-  const { fallback } = await gate(ctx);
-  if (fallback) {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
     return record(ctx, "EXTRACT", { sourceLabel, chars: sourceText.length }, { requirements: [], assumptions: [], exclusions: [] }, "FALLBACK", {
       error: "AI provider is not configured; enter requirements manually.",
     });
   }
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, { system: SYSTEM_BASE, user: extractPrompt(sourceLabel, sourceText), maxTokens: 4000 });
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: extractPrompt(sourceLabel, sourceText), maxTokens: 4000 });
     const output = ExtractRequirementsResponseSchema.parse(parseJson(result.text));
-    return record(ctx, "EXTRACT", { sourceLabel, chars: sourceText.length }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage });
+    return record(ctx, "EXTRACT", { sourceLabel, chars: sourceText.length }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model });
   } catch (err) {
     return record(ctx, "EXTRACT", { sourceLabel }, {}, "FAILED", { error: String(err).slice(0, 500) });
   }
@@ -98,11 +106,11 @@ export async function analyzeScopeDrift(
   requestText: string,
   candidates: Array<{ requirementId: string; stableKey: string; title: string; description: string; acceptanceCriteria: string[] }>,
 ): Promise<DriftResult> {
-  const { fallback } = await gate(ctx);
+  const { providers } = await gate(ctx);
   const deterministic = detectDrift(requestText, candidates);
   const validIds = new Set(candidates.map((c) => c.requirementId));
 
-  if (fallback) {
+  if (providers.length === 0) {
     const analysis = await record(
       ctx,
       "DRIFT",
@@ -116,7 +124,7 @@ export async function analyzeScopeDrift(
 
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, {
+    const result = await completeWithFailover(providers, ctx.env, {
       system: SYSTEM_BASE,
       user: driftPrompt(requestText, JSON.stringify(candidates.map((c) => ({ requirementId: c.requirementId, stableKey: c.stableKey, title: c.title, description: c.description.slice(0, 800) })))),
       maxTokens: 2500,
@@ -131,7 +139,7 @@ export async function analyzeScopeDrift(
       { changeRequestId: changeId, candidateIds: [...validIds] },
       { ...parsed, links, droppedInventedIds: dropped },
       "SUCCEEDED",
-      { latencyMs: Date.now() - started, usage: result.usage, changeRequestId: changeId },
+      { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model, changeRequestId: changeId },
     );
     return { analysis, deterministic };
   } catch (err) {
@@ -145,8 +153,8 @@ export async function analyzeScopeDrift(
 
 /** Clarification questions with a template fallback when the provider is down. */
 export async function generateClarifications(ctx: AiContext, changeId: string, requestText: string, maxQuestions: number): Promise<AIAnalysis> {
-  const { fallback } = await gate(ctx);
-  if (fallback) {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
     const templates = [
       "What should happen when the user encounters an error in this flow?",
       "Who is allowed to use this, and are there roles or permissions involved?",
@@ -161,9 +169,9 @@ export async function generateClarifications(ctx: AiContext, changeId: string, r
   }
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, { system: SYSTEM_BASE, user: clarifyPrompt(requestText, maxQuestions), maxTokens: 1200 });
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: clarifyPrompt(requestText, maxQuestions), maxTokens: 1200 });
     const output = ClarificationsResponseSchema.parse(parseJson(result.text));
-    return record(ctx, "CLARIFY", { changeRequestId: changeId }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, changeRequestId: changeId });
+    return record(ctx, "CLARIFY", { changeRequestId: changeId }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model, changeRequestId: changeId });
   } catch (err) {
     return record(ctx, "CLARIFY", { changeRequestId: changeId }, {}, "FAILED", { error: String(err).slice(0, 500), changeRequestId: changeId });
   }
@@ -177,8 +185,8 @@ export async function draftProposal(
   impact: Record<string, unknown>,
   tone: string,
 ): Promise<AIAnalysis> {
-  const { fallback } = await gate(ctx);
-  if (fallback) {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
     return record(ctx, "PROPOSAL", { changeRequestId: changeId }, { subject: "", summary: "", bullets: [] }, "FALLBACK", {
       changeRequestId: changeId,
       error: "AI provider not configured; draft the proposal manually from the impact record.",
@@ -186,9 +194,9 @@ export async function draftProposal(
   }
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, { system: SYSTEM_BASE, user: proposalPrompt(JSON.stringify(impact), requestText, tone), maxTokens: 2000 });
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: proposalPrompt(JSON.stringify(impact), requestText, tone), maxTokens: 2000 });
     const output = ProposalDraftResponseSchema.parse(parseJson(result.text));
-    return record(ctx, "PROPOSAL", { changeRequestId: changeId }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, changeRequestId: changeId });
+    return record(ctx, "PROPOSAL", { changeRequestId: changeId }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model, changeRequestId: changeId });
   } catch (err) {
     return record(ctx, "PROPOSAL", { changeRequestId: changeId }, {}, "FAILED", { error: String(err).slice(0, 500), changeRequestId: changeId });
   }
@@ -196,19 +204,19 @@ export async function draftProposal(
 
 /** Decision-memory summary over authorized project history. */
 export async function summarizeMemory(ctx: AiContext, question: string, history: unknown[]): Promise<AIAnalysis> {
-  const { fallback } = await gate(ctx);
-  if (fallback) {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
     return record(ctx, "MEMORY", { question }, { relevantDecisions: [] }, "FALLBACK", {
       error: "AI provider not configured; browse the decision list manually.",
     });
   }
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, { system: SYSTEM_BASE, user: memoryPrompt(JSON.stringify(history).slice(0, 12000), question), maxTokens: 2000 });
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: memoryPrompt(JSON.stringify(history).slice(0, 12000), question), maxTokens: 2000 });
     const parsed = MemoryResponseSchema.parse(parseJson(result.text));
     const validIds = new Set((history as Array<{ approvalId: string }>).map((h) => h.approvalId));
     const relevantDecisions = parsed.relevantDecisions.filter((d) => validIds.has(d.approvalId));
-    return record(ctx, "MEMORY", { question }, { ...parsed, relevantDecisions }, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage });
+    return record(ctx, "MEMORY", { question }, { ...parsed, relevantDecisions }, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model });
   } catch (err) {
     return record(ctx, "MEMORY", { question }, {}, "FAILED", { error: String(err).slice(0, 500) });
   }
@@ -216,17 +224,17 @@ export async function summarizeMemory(ctx: AiContext, question: string, history:
 
 /** Plain-language agreement comparison. The structural diff remains canonical. */
 export async function compareVersions(ctx: AiContext, diff: unknown): Promise<AIAnalysis> {
-  const { fallback } = await gate(ctx);
-  if (fallback) {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
     return record(ctx, "COMPARE", {}, { summary: "", highlights: [] }, "FALLBACK", {
       error: "AI provider not configured; the structural diff below is the complete record.",
     });
   }
   const started = Date.now();
   try {
-    const result = await groqJson(ctx.env, { system: SYSTEM_BASE, user: comparePrompt(JSON.stringify(diff).slice(0, 12000)), maxTokens: 2000 });
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: comparePrompt(JSON.stringify(diff).slice(0, 12000)), maxTokens: 2000 });
     const output = CompareResponseSchema.parse(parseJson(result.text));
-    return record(ctx, "COMPARE", {}, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage });
+    return record(ctx, "COMPARE", {}, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model });
   } catch (err) {
     return record(ctx, "COMPARE", {}, {}, "FAILED", { error: String(err).slice(0, 500) });
   }

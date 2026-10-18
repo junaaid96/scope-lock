@@ -816,6 +816,7 @@ model AIAnalysis {
   changeRequestId String?
   kind            AIKind
   inputRefs       Json     @default("{}")
+  provider        String   @default("groq")
   model           String
   promptVersion   String
   output          Json     @default("{}")

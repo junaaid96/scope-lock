@@ -1616,6 +1616,7 @@ export class PrismaStore implements Store {
           changeRequestId: data.changeRequestId,
           kind: data.kind,
           inputRefs: J(data.inputRefs),
+          provider: data.provider,
           model: data.model,
           promptVersion: data.promptVersion,
           output: J(data.output),

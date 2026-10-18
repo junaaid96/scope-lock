@@ -174,6 +174,25 @@ describe("prisma postgres smoke", () => {
         }),
       ).rejects.toThrow("boom");
       expect((await store.listAllowancePools(project.id)).map((p) => p.name)).toEqual(["Smoke Pool"]);
+      // AI usage log from migration 0006 records the serving provider.
+      const analysis = await store.createAIAnalysis({
+        projectId: project.id,
+        changeRequestId: null,
+        kind: "CLARIFY",
+        inputRefs: {},
+        provider: "openai",
+        model: "stub-model",
+        promptVersion: "v-test",
+        output: {},
+        status: "SUCCEEDED",
+        usage: null,
+        latencyMs: 12,
+        error: null,
+        reviewerDisposition: null,
+        reviewedBy: null,
+        createdBy: user.id,
+      });
+      expect((await store.findAIAnalysisById(analysis.id))?.provider).toBe("openai");
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {

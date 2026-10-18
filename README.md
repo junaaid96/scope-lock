@@ -108,7 +108,7 @@ Only set what you need:
 | --- | --- |
 | Zero-dependency dev | nothing (defaults) |
 | Postgres (local or Neon) | `DATABASE_URL` (direct host, not the pooler — see note below) |
-| AI features | `GROQ_API_KEY` (empty = deterministic fallbacks) |
+| AI features | `GROQ_API_KEY` and/or `OPENAI_API_KEY` (empty = deterministic fallbacks; `AI_PROVIDER` picks the primary) |
 | Real uploads/email/realtime | `R2_*`, `EMAIL_API_KEY` + `EMAIL_FROM`, `ABLY_API_KEY` |
 
 > **Neon users:** use the **direct** connection string for local `DATABASE_URL`.
@@ -353,8 +353,10 @@ See [.env.example](.env.example) for the complete list. Highlights:
 
 - `AUTH_SECRET` — session/token signing (≥32 chars in production; random per
   process in dev/test when empty)
-- `GROQ_API_KEY` / `GROQ_MODEL` (`openai/gpt-oss-120b`) — server-only AI;
-  empty key = deterministic fallbacks, manual workflow unaffected
+- `GROQ_API_KEY` / `GROQ_MODEL` (`openai/gpt-oss-120b`) and `OPENAI_API_KEY` /
+  `OPENAI_MODEL` (`gpt-4o-mini`) — server-only AI providers; `AI_PROVIDER`
+  picks the primary and the other serves as failover. Empty keys =
+  deterministic fallbacks, manual workflow unaffected
 - `AI_ENABLED` — global kill switch; organizations and projects can also opt out
 - `R2_*` — Cloudflare R2 object storage; unset = local signed-URL driver
 - `ABLY_API_KEY` — realtime fan-out; unset = REST polling stays correct
