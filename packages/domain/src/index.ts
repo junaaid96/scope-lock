@@ -16,3 +16,4 @@ export * from "./invoice.js";
 export * from "./inbound.js";
 export * from "./policies.js";
 export * from "./options.js";
+export * from "./stepup.js";
