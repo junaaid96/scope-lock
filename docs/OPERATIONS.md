@@ -93,6 +93,28 @@ project `settings.aiEnabled=false`.
   production) runs the same ingest without a signature — see the Intake tab
   “Simulate email…” button.
 
+### GitHub linking
+
+- Staff opt in per project (Integrations tab), then connect: one connection
+  per provider, webhook secret shown once (`ghsec_…`, sealed at rest under
+  `AUTH_SECRET` — rotating `AUTH_SECRET` invalidates it, so rotate
+  connection secrets too).
+- Configure the repository webhook as `application/json` with `pull_request`
+  + `push` events to the shown URL. The receiver verifies
+  `X-Hub-Signature-256` (`sha256=<hmac-sha256(secret, rawBody)>`, constant
+  time) and dedupes `X-GitHub-Delivery` ids for 7 days; unknown events are
+  ignored, malformed known events rejected, disabled connections dropped.
+- Only identifiers are stored (repo PR numbers, commit shas, titles, parsed
+  `CHG-###`/`REQ-###` refs, merged state) — never code. Pushes count as
+  merged only on the repository's default branch (max 100 commits per push).
+- Resolved `CHG-###` refs auto-link to changes (idempotent); merged work
+  with no approved link feeds the Health page. External events never change
+  scope state (versions, requirements, changes, decisions untouched).
+- Debugging: the Integrations tab lists observed work; connection lifecycle
+  and each effective delivery are audit-logged (`external.connection.*`,
+  `external.observed`). Linear/Jira reuse the `ExternalProvider` interface
+  (`apps/api/src/lib/providers/`) when they land.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,

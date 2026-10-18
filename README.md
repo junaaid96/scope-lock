@@ -353,6 +353,11 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   (shown once, hashed, rotatable) and HMAC-signed event deliveries with
   a delivery log and replay. The integration surface is specified at
   `GET /api/openapi.json`.
+- **GitHub linking** (project → Integrations, staff opt-in) — connect a
+  repository webhook; merged PRs and pushes are traced back to `CHG-###`
+  / `REQ-###` mentions. Only identifiers are stored, and merged work
+  with no approved link surfaces on the Health page. External events
+  never change scope state.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

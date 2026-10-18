@@ -111,6 +111,16 @@ All notable changes to ScopeLock are documented here. Format follows
   (`API_KEY_RATE_LIMIT_PER_MIN`). Org settings UI plus a generated
   OpenAPI spec served at `GET /api/openapi.json`
   (`npm run openapi [-- --check]`).
+- GitHub linking: per-project provider connections (opt-in) with webhook
+  secrets shown once and a signature-verified receiver
+  (`X-Hub-Signature-256`, delivery-id replay protection). `pull_request`
+  and `push` events are normalized to minimal observed work — identifiers
+  only, never code — with `CHG-###`/`REQ-###` refs parsed from PR titles,
+  bodies, branches, and commit messages. Resolved changes auto-link;
+  merged work with no approved link feeds the Health page (unapproved
+  implementation + a new unlinked-work signal). External events never
+  change scope state. Linear/Jira plug in behind the same provider
+  interface later.
 
 ## [0.1.0] - 2026-10-16
 
