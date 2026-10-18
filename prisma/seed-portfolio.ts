@@ -768,6 +768,87 @@ async function main(): Promise<void> {
     console.log("showcase: green-biotech no-charge change approved -> implemented (absorbed)");
   }
 
+  // Allowance pool showcase on Haat: granted by the client, drawn by an
+  // approved change, objected, then upheld (resumable on existing pools).
+  if ((await store.listAllowancePools(projectIds["haat-marketplace"] as string)).length === 0) {
+    const slug = "haat-marketplace";
+    const projectId = projectIds[slug] as string;
+    const haat = clientLogins.haat as { agent: Agent; userId: string };
+    const poolBody = (await expectOk(
+      await owner.agent.post(`/api/v1/projects/${projectId}/allowance-pools`).send({
+        name: "Sprint buffer",
+        kind: "AMOUNT",
+        totalMinor: 20000000,
+        currency: "BDT",
+        objectionWindowHours: 72,
+        enabled: true,
+      }),
+      "seed allowance pool",
+      [201],
+    )) as { id: string };
+    const grantBody = (await expectOk(
+      await owner.agent.post(`/api/v1/allowance-pools/${poolBody.id}/approval-requests`).send({
+        approverUserIds: [haat.userId],
+        expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+      }),
+      "seed pool grant",
+      [201],
+    )) as { reviewUrls: string[] };
+    const grantToken = (grantBody.reviewUrls[0] as string).split("/review/")[1] as string;
+    await expectOk(
+      await request(app).post(`/api/v1/approval-requests/${grantToken}/decisions`).send({
+        decision: "APPROVED",
+        comment: "Buffer approved for the quarter.",
+        confirm: true,
+      }),
+      "seed grant decision",
+      [201],
+    );
+    const ch = await createChange(slug, {
+      title: "Rider payout report",
+      description: "Weekly rider payout summary for the seller center: completed deliveries, tips, and adjustments.",
+    });
+    let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+    v = await transition(ch.id, slug, "TRIAGING", v);
+    v = await transition(ch.id, slug, "ESTIMATING", v);
+    await recordImpact(ch.id, slug, { effortDays: 3, priceMinor: 4500000, timelineDays: 5, confidence: "MEDIUM" });
+    await linkRequirement(ch.id, slug);
+    const drawBody = (await expectOk(
+      await owner.agent.post(`/api/v1/change-requests/${ch.id}/approval-requests`).send({
+        approverUserIds: [haat.userId],
+        expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+        allowancePoolId: poolBody.id,
+      }),
+      "seed pool-linked send",
+      [201],
+    )) as { reviewUrls: string[] };
+    const drawToken = (drawBody.reviewUrls[0] as string).split("/review/")[1] as string;
+    await expectOk(
+      await request(app).post(`/api/v1/approval-requests/${drawToken}/decisions`).send({
+        decision: "APPROVED",
+        comment: "Approved, draw from the buffer.",
+        confirm: true,
+      }),
+      "seed draw decision",
+      [201],
+    );
+    const drawDown = await store.findDrawDownByChange(ch.id);
+    if (!drawDown) throw new Error("seed draw-down missing");
+    await expectOk(
+      await haat.agent.post(`/api/v1/allowance-draw-downs/${drawDown.id}/object`).send({ reason: "The payout report looks high — please double-check the hours." }),
+      "seed objection",
+    );
+    await expectOk(
+      await owner.agent.post(`/api/v1/allowance-draw-downs/${drawDown.id}/resolve`).send({
+        resolution: "UPHOLD",
+        note: "Re-checked against the estimate: 3 days at the agreed rate. The draw stands.",
+      }),
+      "seed resolution",
+    );
+    await sweepOutbox(store);
+    console.log("showcase: haat allowance pool granted -> drawn -> objected -> upheld");
+  }
+
   // Default rate card + estimate templates for the portfolio org (resumable).
   {
     const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {

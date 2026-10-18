@@ -28,6 +28,12 @@ All notable changes to ScopeLock are documented here. Format follows
   items with contingency and optional tax lines, computed impact pricing
   with frozen snapshots, and overrides with recorded reasons. Cards that
   priced an impact freeze their rates; agency staff only.
+- Change allowance pools: pre-agreed hours/amount buffers that approved
+  changes draw from. The pool itself is granted by a recorded client
+  decision; every draw notifies the client with a configurable objection
+  window, objections pause for lead resolution (uphold or release back).
+  Project Allowance tab, grant terms on review links, draw-down visibility
+  on the change page.
 
 ## [0.1.0] - 2026-10-16
 
