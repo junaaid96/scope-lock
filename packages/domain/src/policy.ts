@@ -41,6 +41,7 @@ export type Action =
   | "ratecard.manage"
   | "allowance.manage"
   | "allowance.object"
+  | "intake.manage"
   | "notifications.view";
 
 export interface AccessContext {
@@ -114,6 +115,7 @@ export function can(ctx: AccessContext, action: Action): boolean {
     case "bundle.manage":
     case "evidence.verify":
     case "external.manage":
+    case "intake.manage":
       return isProjectLead(ctx);
     case "change.submit":
     case "file.upload":

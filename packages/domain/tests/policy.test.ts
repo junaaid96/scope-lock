@@ -58,6 +58,13 @@ describe("policy", () => {
     expect(can({ orgRole: "OWNER", projectRole: null }, "allowance.object")).toBe(false);
   });
 
+  it("lets agency leads manage intake links", () => {
+    expect(can({ orgRole: "MEMBER", projectRole: "LEAD" }, "intake.manage")).toBe(true);
+    expect(can({ orgRole: "OWNER", projectRole: null }, "intake.manage")).toBe(true);
+    expect(can({ orgRole: "MEMBER", projectRole: "MEMBER" }, "intake.manage")).toBe(false);
+    expect(can(clientApprover, "intake.manage")).toBe(false);
+  });
+
   it("keeps rate cards with agency staff and management with admins", () => {
     expect(can({ orgRole: "OWNER", projectRole: null }, "ratecard.manage")).toBe(true);
     expect(can({ orgRole: "ADMIN", projectRole: null }, "ratecard.manage")).toBe(true);

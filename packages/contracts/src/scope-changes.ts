@@ -68,7 +68,7 @@ export const UpdateEvidenceSchema = z.object({ status: EvidenceStatusSchema });
 export const CreateChangeSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(12000),
-  source: z.enum(["CLIENT", "AGENCY"]).default("CLIENT"),
+  source: z.enum(["CLIENT", "AGENCY", "INTAKE_FORM"]).default("CLIENT"),
 });
 export const UpdateChangeSchema = z.object({
   expectedVersion: z.number().int().min(0),
