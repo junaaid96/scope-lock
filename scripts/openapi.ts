@@ -16,6 +16,7 @@ import {
   CreateWebhookSchema,
   ExternalConnectionViewSchema,
   ExternalWorkItemViewSchema,
+  MemorySearchResponseSchema,
   NotificationPreferencesViewSchema,
   UpdateExternalConnectionSchema,
   UpdateNotificationPreferencesSchema,
@@ -172,6 +173,7 @@ const ExternalWorkItemView = schemaOf(ExternalWorkItemViewSchema);
 const UpdateNotificationPreferences = schemaOf(UpdateNotificationPreferencesSchema);
 const NotificationPreferencesView = schemaOf(NotificationPreferencesViewSchema);
 const UpdateOrgSlack = schemaOf(UpdateOrgSlackSchema);
+const MemorySearchResponse = schemaOf(MemorySearchResponseSchema);
 const eventEnum = WebhookEventSchema.options as unknown as string[];
 
 function err(description: string): Record<string, unknown> {
@@ -208,6 +210,7 @@ const spec = {
     { name: "Webhooks", description: "Outgoing event subscriptions with HMAC-signed deliveries." },
     { name: "External integrations", description: "Provider webhook intake (GitHub) and observed work identifiers." },
     { name: "Notification channels", description: "Per-user channel preferences and the org Slack connection." },
+    { name: "Decision memory", description: "Search decided approvals; access-filtered before ranking." },
   ],
   security: sessionOrKey,
   paths: {
@@ -581,6 +584,32 @@ const spec = {
         },
       },
     },
+    "/organizations/{id}/memory/search": {
+      get: {
+        tags: ["Decision memory"],
+        summary: "Search past decisions",
+        description:
+          "Lexical ranking over decided approvals (semantic pgvector ranking only when Postgres and an " +
+          "embeddings provider are configured, with silent lexical fallback). Results are filtered by the " +
+          "requester's project access before ranking and carry verbatim excerpts plus links — no generated conclusions.",
+        security: sessionOnly,
+        parameters: [
+          orgParam(),
+          { name: "q", in: "query", required: true, schema: { type: "string", minLength: 2, maxLength: 200 }, description: "Search text." },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 50, default: 10 }, description: "Max results." },
+        ],
+        responses: {
+          "200": {
+            description: "Ranked past decisions with the effective mode.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/MemorySearchResponse" } } },
+          },
+          "400": err("Invalid query."),
+          "401": err("Authentication required."),
+          "403": err("Not an organization member."),
+          "404": err("Organization not found."),
+        },
+      },
+    },
   },
   webhooks: Object.fromEntries(
     eventEnum.map((event) => [
@@ -626,6 +655,7 @@ const spec = {
       UpdateNotificationPreferences,
       NotificationPreferencesView,
       UpdateOrgSlack,
+      MemorySearchResponse,
       ExternalConnectionView,
       CreateExternalConnection,
       UpdateExternalConnection,

@@ -27,6 +27,10 @@
     {
       "name": "Notification channels",
       "description": "Per-user channel preferences and the org Slack connection."
+    },
+    {
+      "name": "Decision memory",
+      "description": "Search decided approvals; access-filtered before ranking."
     }
   ],
   "security": [
@@ -1499,6 +1503,106 @@
           }
         }
       }
+    },
+    "/organizations/{id}/memory/search": {
+      "get": {
+        "tags": [
+          "Decision memory"
+        ],
+        "summary": "Search past decisions",
+        "description": "Lexical ranking over decided approvals (semantic pgvector ranking only when Postgres and an embeddings provider are configured, with silent lexical fallback). Results are filtered by the requester's project access before ranking and carry verbatim excerpts plus links — no generated conclusions.",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200
+            },
+            "description": "Search text."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            },
+            "description": "Max results."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked past decisions with the effective mode.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemorySearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Organization not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -1816,6 +1920,84 @@
         },
         "required": [
           "slackWebhookUrl"
+        ],
+        "additionalProperties": false
+      },
+      "MemorySearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "lexical",
+              "semantic"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "approvalId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "projectId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "projectName": {
+                  "type": "string"
+                },
+                "changeId": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "changeNumber": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "title": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "decidedAt": {
+                  "type": "string"
+                },
+                "excerpt": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "approvalId",
+                "projectId",
+                "projectName",
+                "changeId",
+                "changeNumber",
+                "title",
+                "outcome",
+                "decidedAt",
+                "excerpt",
+                "link"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "query",
+          "mode",
+          "data"
         ],
         "additionalProperties": false
       },
