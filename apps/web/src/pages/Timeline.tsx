@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeDetail, ChangeListItem, ScopeVersion } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, formatDate } from "../components/ui.js";
+import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, formatDate, PageSkeleton } from "../components/ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 type EntryKind = "milestone" | "change" | "approval" | "decision";
@@ -66,7 +66,7 @@ export function TimelinePage(): JSX.Element {
     enabled: !changes.isLoading && !changes.isError,
   });
 
-  if (versions.isLoading || changes.isLoading) return <Spinner />;
+  if (versions.isLoading || changes.isLoading) return <PageSkeleton />;
   if (versions.isError) return <ErrorBanner message={errorMessage(versions.error)} />;
   if (changes.isError) return <ErrorBanner message={errorMessage(changes.error)} />;
 
@@ -166,7 +166,7 @@ export function TimelinePage(): JSX.Element {
             <li key={e.id} className="relative flex gap-3 py-2.5 pl-6">
               <span aria-hidden="true" className={`absolute left-0 top-4 h-2.5 w-2.5 -translate-x-[7px] rounded-full ${DOT[e.tone]}`} />
               <div className="min-w-0 flex-1">
-                <Link to={e.to} className="text-sm font-medium text-slate-900 hover:text-teal-800">
+                <Link to={e.to} className="text-sm font-medium text-slate-900 hover:text-link">
                   {e.title}
                 </Link>
                 <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">

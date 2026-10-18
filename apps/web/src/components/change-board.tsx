@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ChangeListItem } from "../lib/types.js";
-import { Badge, Empty, ErrorBanner, Spinner, formatMoney, statusTone } from "./ui.js";
+import { Badge, Empty, ErrorBanner, formatMoney, statusTone, PageSkeleton } from "./ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 interface Column {
@@ -101,7 +101,7 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
     move(change, column.dropTo);
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <PageSkeleton />;
   if (changes.length === 0) {
     return <Empty title={t("board.emptyTitle")} hint={t("board.emptyHint")} />;
   }
@@ -134,9 +134,9 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
                     key={c.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/change-id", c.id)}
-                    className="cursor-grab rounded-md border border-slate-200 bg-white p-3 shadow-sm active:cursor-grabbing"
+                    className="cursor-grab rounded-md border border-slate-200 bg-surface p-3 shadow-card active:cursor-grabbing"
                   >
-                    <Link to={`/projects/${projectId}/changes/${c.id}`} className="block font-medium text-slate-900 hover:text-teal-800">
+                    <Link to={`/projects/${projectId}/changes/${c.id}`} className="block font-medium text-slate-900 hover:text-link">
                       {c.number}: {c.title}
                     </Link>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -153,7 +153,7 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
                           disabled={busy}
                           defaultValue=""
                           onChange={(e) => { if (e.target.value) move(c, e.target.value); e.target.value = ""; }}
-                          className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1 py-1 text-xs text-slate-800"
+                          className="min-w-0 flex-1 rounded border border-slate-300 bg-surface px-1 py-1 text-xs text-slate-800"
                         >
                           <option value="">{t("board.selectPlaceholder")}</option>
                           {(MANUAL_MOVES[c.status] ?? []).map((s) => (

@@ -66,7 +66,7 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
             </p>
             <ul className="mt-2 space-y-2">
               {matches.map((m) => (
-                <li key={m.requirementId} className="rounded-md border border-slate-200 bg-white p-2 text-sm">
+                <li key={m.requirementId} className="rounded-md border border-slate-200 bg-surface p-2 text-sm">
                   <p className="font-medium">
                     {m.stableKey} <Badge tone={m.risk === "HIGH" ? "amber" : "slate"}>{m.risk}</Badge>
                   </p>

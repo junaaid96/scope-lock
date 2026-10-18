@@ -45,7 +45,7 @@ export function ResetPasswordPage(): JSX.Element {
           </form>
         )}
         <p className="mt-4 text-center text-sm text-slate-600">
-          <Link to="/login" className="font-medium text-teal-800 underline">{t("auth.backToLogin")}</Link>
+          <Link to="/login" className="font-medium text-link underline">{t("auth.backToLogin")}</Link>
         </p>
       </Card>
     );
@@ -56,7 +56,7 @@ export function ResetPasswordPage(): JSX.Element {
       <h1 className="mb-1 text-xl font-semibold">{t("auth.choosePasswordTitle")}</h1>
       {done ? (
         <p className="text-sm text-slate-700">
-          {t("auth.passwordUpdated")}{" "}<Link to="/login" className="font-medium text-teal-800 underline">{t("auth.login")}</Link>
+          {t("auth.passwordUpdated")}{" "}<Link to="/login" className="font-medium text-link underline">{t("auth.login")}</Link>
         </p>
       ) : (
         <form onSubmit={(e) => void confirmForm.handleSubmit(async (v) => {

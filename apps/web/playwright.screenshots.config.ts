@@ -18,6 +18,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: Number(process.env.SHOT_SCALE ?? 1),
     animations: "disabled",
     trace: "retain-on-failure",
   },

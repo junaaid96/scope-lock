@@ -16,7 +16,7 @@ import { IntegrationsTab } from "../components/github.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 import { ImportDialog } from "../components/import.js";
 
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone, PageSkeleton, SkeletonCards } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
 
 export function ProjectPage(): JSX.Element {
@@ -33,7 +33,7 @@ export function ProjectPage(): JSX.Element {
   const [parkedOnly, setParkedOnly] = useState(false);
   const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "actuals" | "intake" | "policy" | "integrations" | "members" | "bundles" | "notes">("changes");
 
-  if (project.isLoading) return <Spinner />;
+  if (project.isLoading) return <PageSkeleton />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
   const p = project.data;
   const canManage = p.myRole === "LEAD" || p.myRole === null; // org admins see null role but can manage
@@ -54,9 +54,9 @@ export function ProjectPage(): JSX.Element {
       <ProjectSubnav projectId={p.id} />
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
-        <span className="text-sm text-slate-600">{t("project.openChanges", { count: p.counts.openChanges })}</span>
-        <span className="text-sm text-slate-600">{t("project.awaitingDecision", { count: p.counts.pendingApprovals })}</span>
-        {p.budgetMinor ? <span className="text-sm text-slate-600">{t("project.budget", { amount: formatMoney(p.budgetMinor, p.currency) })}</span> : null}
+        <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.openChanges", { count: p.counts.openChanges })}</span>
+        <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.awaitingDecision", { count: p.counts.pendingApprovals })}</span>
+        {p.budgetMinor ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.budget", { amount: formatMoney(p.budgetMinor, p.currency) })}</span> : null}
       </div>
 
       <Tabs
@@ -79,7 +79,7 @@ export function ProjectPage(): JSX.Element {
       />
 
       {tab === "changes" ? (
-        changes.isLoading ? <Spinner /> : (changes.data ?? []).length === 0 ? (
+        changes.isLoading ? <SkeletonCards count={3} /> : (changes.data ?? []).length === 0 ? (
           <Empty title={t("project.noChanges")} hint={t("project.noChangesHint")} />
         ) : (
           <div>
@@ -94,15 +94,15 @@ export function ProjectPage(): JSX.Element {
             <ul className="space-y-3">
               {(changes.data ?? []).filter((c) => !parkedOnly || c.status === "PARKED").map((c) => (
               <li key={c.id}>
-                <Link to={`/projects/${p.id}/changes/${c.id}`} className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-teal-600">
+                <Link to={`/projects/${p.id}/changes/${c.id}`} className="lift block rounded-xl border border-slate-200 bg-surface p-4 shadow-card hover:border-teal-600">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-slate-900">{c.number}: {c.title}</span>
+                    <span className="font-semibold text-slate-900">{c.number}: {c.title}</span>
                     <Badge tone={statusTone(c.status)}>{c.status}</Badge>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-4 text-sm text-slate-600">
                     {c.classification ? <span>{c.classification}</span> : null}
                     {c.impact?.priceMinor !== null && c.impact?.priceMinor !== undefined ? (
-                      <span>{formatMoney(c.impact.priceMinor, c.impact.currency ?? p.currency)}</span>
+                      <span className="font-medium tabular-nums text-slate-800">{formatMoney(c.impact.priceMinor, c.impact.currency ?? p.currency)}</span>
                     ) : null}
                     <span>{c.linkCount === 1 ? t("project.linkOne", { count: c.linkCount }) : t("project.links", { count: c.linkCount })}</span>
                   </div>
@@ -427,7 +427,7 @@ function BundlesTab({ projectId, canManage }: { projectId: string; canManage: bo
       ))}
       {canManage ? (
         <Card>
-          <h3 className="mb-2 font-medium">{t("project.newBundle")}</h3>
+          <h3 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("project.newBundle")}</h3>
           <div className="space-y-3">
             <Field label={t("project.bundleName")} htmlFor="bundle-name">
               <Input id="bundle-name" value={name} onChange={(e) => setName(e.target.value)} />

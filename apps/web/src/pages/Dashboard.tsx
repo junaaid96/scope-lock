@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
 import type { Client, ProjectListItem } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, ICONS, Icon, Input, PageTitle, Select, Skeleton, SkeletonCards, Spinner, Textarea, cn, statusTone, PageSkeleton } from "../components/ui.js";
 import { OrgContractStrip } from "../components/contract.js";
 import { MemorySearchPanel } from "../components/memory.js";
 
@@ -37,7 +37,7 @@ export function DashboardPage(): JSX.Element {
     void setParams({}, { replace: true });
   };
 
-  if (!session) return <Spinner />;
+  if (!session) return <PageSkeleton />;
   if (!activeOrg) return <Empty title={t("dashboard.noOrgs")} hint={t("dashboard.noOrgsHint")} />;
 
   return (
@@ -60,10 +60,11 @@ export function DashboardPage(): JSX.Element {
           </>
         }
       />
+      <StatRow projects={projects.data ?? []} loading={projects.isLoading} />
       <OrgContractStrip organizationId={activeOrg.id} />
       <MemorySearchPanel organizationId={activeOrg.id} />
       {projects.isLoading ? (
-        <Spinner />
+        <div className="mt-6"><SkeletonCards count={3} /></div>
       ) : projects.isError ? (
         <ErrorBanner message={errorMessage(projects.error)} />
       ) : (projects.data ?? []).length === 0 ? (
@@ -77,6 +78,32 @@ export function DashboardPage(): JSX.Element {
         <ProjectDialog orgId={activeOrg.id} clients={clients.data ?? []} onClose={closeDialogs} />
       ) : null}
     </div>
+  );
+}
+
+function StatRow({ projects, loading }: { projects: ProjectListItem[]; loading: boolean }): JSX.Element {
+  const { t, number } = useLocale();
+  const sum = (pick: (p: ProjectListItem) => number): number => projects.reduce((n, p) => n + pick(p), 0);
+  const stats = [
+    { label: t("dashboard.statProjects"), value: projects.length, icon: ICONS.folder, tone: "text-teal-700 bg-teal-50 ring-teal-200/70" },
+    { label: t("dashboard.statOpen"), value: sum((p) => p.openChanges), icon: ICONS.git, tone: "text-sky-700 bg-sky-50 ring-sky-200/70" },
+    { label: t("dashboard.statAwaiting"), value: sum((p) => p.pendingApprovals), icon: ICONS.clock, tone: "text-amber-700 bg-amber-50 ring-amber-200/70" },
+    { label: t("dashboard.statMine"), value: sum((p) => p.myInbox), icon: ICONS.inbox, tone: "text-emerald-700 bg-emerald-50 ring-emerald-200/70" },
+  ];
+  return (
+    <dl className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {stats.map((s) => (
+        <div key={s.label} className="lift grid grid-cols-[auto_1fr] items-center gap-x-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-card">
+          <span aria-hidden="true" className={cn("row-span-2 flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset", s.tone)}>
+            <Icon d={s.icon} className="size-5" />
+          </span>
+          <dt className="min-w-0 truncate text-xs font-medium text-slate-500">{s.label}</dt>
+          <dd className="text-2xl font-semibold tabular-nums tracking-tight text-slate-900">
+            {loading ? <Skeleton className="mt-1 h-6 w-10" /> : number(s.value)}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -98,21 +125,29 @@ function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; cli
     <div className="space-y-6">
       {ordered.map(([clientId, items]) => (
         <section key={clientId} aria-label={nameOf.get(clientId) ?? t("dashboard.other")}>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+          <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
             {nameOf.get(clientId) ?? t("dashboard.other")}
           </h2>
-          <ul className="space-y-3">
+          <ul className="grid gap-3 md:grid-cols-2">
             {items.map((p) => (
               <li key={p.id}>
-                <Link to={`/projects/${p.id}`} className="block rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-teal-600">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-base font-semibold text-slate-900">{p.name}</span>
-                    <Badge tone={statusTone(p.status)}>{p.status}</Badge>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
-                    <span>{p.openChanges === 1 ? t("dashboard.openChangeOne", { count: p.openChanges }) : t("dashboard.openChanges", { count: p.openChanges })}</span>
-                    <span>{t("dashboard.awaitingDecision", { count: p.pendingApprovals })}</span>
-                    {p.myInbox > 0 ? <span className="font-medium text-teal-800">{p.myInbox === 1 ? t("dashboard.needDecisionOne", { count: p.myInbox }) : t("dashboard.needDecisionOther", { count: p.myInbox })}</span> : null}
+                <Link to={`/projects/${p.id}`} className="lift group block h-full rounded-xl border border-slate-200 bg-surface p-5 shadow-card hover:border-teal-600">
+                  <div className="flex items-start gap-3">
+                    <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-50 to-sky-50 text-sm font-semibold text-link-strong ring-1 ring-inset ring-teal-200/70">
+                      {p.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="truncate text-base font-semibold text-slate-900">{p.name}</span>
+                        <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                        <span>{p.openChanges === 1 ? t("dashboard.openChangeOne", { count: p.openChanges }) : t("dashboard.openChanges", { count: p.openChanges })}</span>
+                        <span>{t("dashboard.awaitingDecision", { count: p.pendingApprovals })}</span>
+                      </div>
+                      {p.myInbox > 0 ? <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-link-strong ring-1 ring-inset ring-teal-200/70">{p.myInbox === 1 ? t("dashboard.needDecisionOne", { count: p.myInbox }) : t("dashboard.needDecisionOther", { count: p.myInbox })}</p> : null}
+                    </div>
+                    <Icon d={ICONS.chevron} className="mt-1 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-600" />
                   </div>
                 </Link>
               </li>
@@ -168,7 +203,7 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
   });
   return (
     <Card className="mt-6">
-      <h2 className="mb-2 font-medium">{t("dashboard.clients")}</h2>
+      <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("dashboard.clients")}</h2>
       {loading ? <Spinner /> : clients.length === 0 ? (
         <Empty title={t("dashboard.noClients")} hint={t("dashboard.noClientsHint")} />
       ) : (

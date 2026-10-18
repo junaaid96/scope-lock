@@ -6,6 +6,22 @@ All notable changes to ScopeLock are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **UI/UX redesign into a modern SaaS interface.** New sidebar app shell with a
+  command-palette search bar, user card and mobile/tablet drawer; design tokens
+  (CSS-variable palettes, Inter typeface, elevation and motion scales) with a
+  light/dark theme that follows the OS and has a persisted toggle; refined
+  buttons, fields, tabs, badges with status dots, dialogs, tables and empty
+  states; shimmering skeleton loading states; KPI stat cards and richer project
+  cards on the dashboard; a score gauge on scope health; a polished login and a
+  new public landing page at `/welcome`. Motion is transform-only and honours
+  `prefers-reduced-motion`. All routes, copy and accessible names are unchanged
+  (31 Playwright specs incl. axe pass).
+- `npm run screenshots` now captures 32 screens across every role (public,
+  agency, client approver, mobile, dark, Bangla) into `docs/screenshots/`, and
+  the README gallery uses them.
+
 ### Added
 
 - Production deployment path: `apps/api/Dockerfile`, `apps/web/Dockerfile`

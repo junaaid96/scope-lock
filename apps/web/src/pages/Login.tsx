@@ -8,7 +8,7 @@ import { LoginSchema } from "@scopelock/contracts";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import { invalidateAll } from "../lib/query.js";
 import { CreditPill } from "../components/credit.js";
-import { Button, Card, ErrorBanner, Field, Input } from "../components/ui.js";
+import { Button, Card, ErrorBanner, Field, Input, LogoMark, Wordmark } from "../components/ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 
@@ -155,29 +155,34 @@ export function LoginPage(): JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-[400px] shrink-0 flex-col bg-teal-800 px-10 py-12 text-white lg:flex">
-        <p className="text-xl font-semibold tracking-tight">ScopeLock</p>
-        <p className="mt-2 text-sm text-teal-100">{t("auth.heroTagline")}</p>
-        <ol className="mt-10 space-y-6">
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="relative hidden w-[460px] shrink-0 flex-col overflow-hidden bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 px-12 py-12 text-white lg:flex">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-teal-300/20 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -left-16 size-96 rounded-full bg-sky-400/20 blur-3xl" />
+        <Link to="/welcome" className="relative inline-flex items-center gap-2.5 text-xl font-semibold tracking-tight" aria-label="ScopeLock">
+          <LogoMark className="size-9 bg-white/15 from-transparent to-transparent ring-white/30" />
+          ScopeLock
+        </Link>
+        <p className="relative mt-3 max-w-xs text-[15px] leading-relaxed text-teal-50/90">{t("auth.heroTagline")}</p>
+        <ol className="relative mt-12 space-y-5">
           {HIGHLIGHTS.map((h, i) => (
-            <li key={h.title} className="flex gap-4">
-              <span aria-hidden="true" className="font-mono text-sm text-teal-300">0{i + 1}</span>
+            <li key={h.title} className="flex gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/15 font-mono text-xs font-semibold text-teal-100">0{i + 1}</span>
               <div>
                 <p className="text-sm font-semibold">{h.title}</p>
-                <p className="mt-0.5 text-sm text-teal-100">{h.body}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-teal-50/80">{h.body}</p>
               </div>
             </li>
           ))}
         </ol>
-        <p className="mt-auto pt-10 text-xs text-teal-200">{t("auth.heroFooter")}</p>
+        <p className="relative mt-auto pt-10 text-xs text-teal-100/80">{t("auth.heroFooter")}</p>
       </aside>
 
-      <main className="flex flex-1 items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <p className="mb-6 text-center text-xl font-semibold tracking-tight lg:hidden">ScopeLock</p>
-          <Card>
-            <h1 className="mb-1 text-xl font-semibold">{t("auth.login")}</h1>
+      <main className="bg-aurora flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md animate-fade-up">
+          <Link to="/welcome" className="mb-6 flex justify-center lg:hidden" aria-label="ScopeLock"><Wordmark /></Link>
+          <Card className="p-6 shadow-lift sm:p-8">
+            <h1 className="mb-1 text-2xl font-semibold tracking-tight">{t("auth.login")}</h1>
             <p className="mb-5 text-sm text-slate-600">{t("auth.loginSubtitle")}</p>
             {ticket ? (
               <form onSubmit={(e) => void onChallenge(e)} className="space-y-4">
@@ -211,7 +216,7 @@ export function LoginPage(): JSX.Element {
                     {methods.google && (
                       <a
                         href="/api/v1/auth/oauth/google/start"
-                        className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
+                        className="tap flex-1 rounded-xl border border-slate-200 bg-surface px-3 py-2 text-center text-sm font-medium text-slate-800 shadow-card transition-colors hover:border-slate-300 hover:bg-slate-50"
                       >
                         {t("auth.continueGoogle")}
                       </a>
@@ -219,7 +224,7 @@ export function LoginPage(): JSX.Element {
                     {methods.github && (
                       <a
                         href="/api/v1/auth/oauth/github/start"
-                        className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
+                        className="tap flex-1 rounded-xl border border-slate-200 bg-surface px-3 py-2 text-center text-sm font-medium text-slate-800 shadow-card transition-colors hover:border-slate-300 hover:bg-slate-50"
                       >
                         {t("auth.continueGithub")}
                       </a>
@@ -245,9 +250,9 @@ export function LoginPage(): JSX.Element {
               </div>
             )}
             <p className="mt-4 text-center text-sm text-slate-600">
-              {t("auth.noAccount")}{" "}<Link to="/register" className="font-medium text-teal-800 underline">{t("auth.createOne")}</Link>
+              {t("auth.noAccount")}{" "}<Link to="/register" className="font-medium text-link underline-offset-2 hover:underline">{t("auth.createOne")}</Link>
               {" · "}
-              <Link to="/reset-password" className="font-medium text-teal-800 underline">{t("auth.resetPasswordLink")}</Link>
+              <Link to="/reset-password" className="font-medium text-link underline-offset-2 hover:underline">{t("auth.resetPasswordLink")}</Link>
             </p>
             {ticket ? null : (
               <div className="mt-6 border-t border-slate-200 pt-4">
@@ -260,7 +265,7 @@ export function LoginPage(): JSX.Element {
                         type="button"
                         disabled={demoBusy !== null}
                         onClick={() => void loginAsDemo(a.email)}
-                        className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:border-teal-600 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="lift w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-sm transition-colors hover:border-teal-600 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <span className="block font-medium text-slate-900">
                           {demoBusy === a.email ? t("auth.signingIn") : a.label}

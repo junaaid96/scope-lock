@@ -50,7 +50,7 @@ function ArrowUpRightIcon({ className }: { className?: string }): JSX.Element {
 function CreditName({ className }: { className?: string }): JSX.Element {
   return (
     <span className={cn("font-semibold", className)}>
-      <span className="text-teal-700">&lt;</span>CodeJBorg<span className="text-teal-700"> /&gt;</span>
+      <span className="text-link">&lt;</span>CodeJBorg<span className="text-link"> /&gt;</span>
     </span>
   );
 }
@@ -65,7 +65,7 @@ export function CreditPill({ className }: { className?: string }): JSX.Element {
       rel="noopener noreferrer"
       aria-label={t("credit.visit")}
       className={cn(
-        "group inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-1.5 pr-3 font-mono text-[11px] tracking-wide text-slate-600 transition-colors duration-300 hover:border-teal-600 hover:bg-teal-50 hover:text-slate-900",
+        "group inline-flex items-center gap-2 rounded-full border border-slate-300 bg-surface py-1.5 pl-1.5 pr-3 font-mono text-[11px] tracking-wide text-slate-600 transition-colors duration-300 hover:border-teal-600 hover:bg-teal-50 hover:text-slate-900",
         className,
       )}
     >

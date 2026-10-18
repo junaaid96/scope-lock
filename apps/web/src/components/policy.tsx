@@ -211,7 +211,7 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
         </Card>
       ) : null}
       {error ? <ErrorBanner message={error} /> : null}
-      {saved ? <p role="status" className="text-sm font-medium text-teal-800">{t("policy.saved")}</p> : null}
+      {saved ? <p role="status" className="text-sm font-medium text-link">{t("policy.saved")}</p> : null}
       <div className="flex flex-wrap gap-2">
         {current.length < 5 ? (
           <Button

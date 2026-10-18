@@ -5,9 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ScopeLock — the shared system of record for client scope, change requests, and approvals." />
     <title>ScopeLock</title>
+    <meta name="theme-color" content="#0f766e" />
+    <script>
+      // Apply the saved theme before first paint (no flash). Default: follow the OS.
+      (function () {
+        try {
+          var c = localStorage.getItem("sl-theme") || "system";
+          var d = c === "dark" || (c === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (d) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
     <style>
       /* Boot splash: replaced by React on mount. Plain CSS — no Tailwind this early. */
       .boot-splash { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; }
+      .dark .boot-splash { background: #0b1019; } .dark .boot-splash p { color: #f1f5f9; } .dark .boot-spin { border-color: #232d3f; border-top-color: #14b8a6; }
       .boot-splash p { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0f172a; }
       .boot-spin { width: 32px; height: 32px; border-radius: 9999px; border: 3px solid #e2e8f0; border-top-color: #0f766e; animation: boot-spin 0.9s linear infinite; }
       @keyframes boot-spin { to { transform: rotate(360deg); } }

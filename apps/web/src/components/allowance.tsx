@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { AllowanceDrawDownView, AllowancePoolView } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, Textarea, formatDate, formatMoney, statusTone } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Textarea, formatDate, formatMoney, statusTone, PageSkeleton } from "./ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 function drawTone(status: string): "green" | "amber" | "red" | "slate" {
@@ -27,7 +27,7 @@ export function AllowanceTab({ projectId, currency, myRole, canManage }: { proje
   };
   const canObject = myRole === "CLIENT_ADMIN" || myRole === "CLIENT_APPROVER";
 
-  if (pools.isLoading) return <Spinner />;
+  if (pools.isLoading) return <PageSkeleton />;
   if (pools.isError) return <ErrorBanner message={errorMessage(pools.error)} />;
   const list = pools.data ?? [];
 
@@ -69,7 +69,7 @@ function PoolCard({ pool, projectId, currency, canManage, canObject, onChanged }
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold">{pool.name}</h3>
+        <h3 className="text-base font-semibold tracking-tight">{pool.name}</h3>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={pool.kind === "HOURS" ? "blue" : "slate"}>{pool.kind}</Badge>
           <Badge tone={statusTone(pool.status)}>{pool.status}</Badge>

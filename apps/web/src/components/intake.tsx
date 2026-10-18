@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, Textarea, formatDate, statusTone } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Textarea, formatDate, statusTone, PageSkeleton } from "./ui.js";
 
 interface IntakeLinkRow {
   id: string;
@@ -37,7 +37,7 @@ export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
     void client.invalidateQueries({ queryKey: ["intake-links", projectId] });
   };
 
-  if (links.isLoading) return <Spinner />;
+  if (links.isLoading) return <PageSkeleton />;
   if (links.isError) return <ErrorBanner message={errorMessage(links.error)} />;
   const list = links.data ?? [];
 
@@ -51,7 +51,7 @@ export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
       </div>
       {fresh ? (
         <Card>
-          <h3 className="font-medium">{t("intakeAdmin.linkReady")}</h3>
+          <h3 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("intakeAdmin.linkReady")}</h3>
           <p className="mt-1 break-all text-sm text-slate-700">{fresh.url}</p>
           <p className="mt-2 text-sm text-slate-600">{t("intakeAdmin.embedHint")}</p>
           <pre className="mt-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{`<iframe src="${fresh.url}" width="100%" height="720" title="${fresh.name} ${t("intakeAdmin.requestForm")}"></iframe>`}</pre>
@@ -88,7 +88,7 @@ function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => v
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold">{link.name}</h3>
+        <h3 className="text-base font-semibold tracking-tight">{link.name}</h3>
         <Badge tone={link.revokedAt ? "red" : statusTone("SENT")}>{link.revokedAt ? "REVOKED" : "LIVE"}</Badge>
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
@@ -135,13 +135,13 @@ function MailboxSection({ projectId }: { projectId: string }): JSX.Element {
     onError: (err) => setError(errorMessage(err)),
   });
 
-  if (boxes.isLoading) return <Spinner />;
+  if (boxes.isLoading) return <PageSkeleton />;
   if (boxes.isError) return <ErrorBanner message={errorMessage(boxes.error)} />;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold">{t("intakeAdmin.inboundEmail")}</h3>
+        <h3 className="text-base font-semibold tracking-tight">{t("intakeAdmin.inboundEmail")}</h3>
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>{t("intakeAdmin.newMailbox")}</Button>
           <Button size="sm" variant="ghost" onClick={() => setSimulating(true)}>{t("intakeAdmin.simulate")}</Button>

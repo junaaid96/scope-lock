@@ -50,7 +50,7 @@ export function OptionsCard({
   return (
     <Card>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("options.title")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("options.title")}</h2>
         {!frozen && options.length < 4 ? (
           <Button size="sm" variant="secondary" onClick={() => setShowAdd(true)}>{t("options.add")}</Button>
         ) : null}

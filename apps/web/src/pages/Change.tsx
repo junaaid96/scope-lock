@@ -6,7 +6,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { AllowancePoolView, ChangeDetail, EstimateTemplate, ProjectDetail, RateCard, RequirementRow } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Textarea, cn, formatDate, statusTone, PageSkeleton } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
 import { OptionsCard } from "../components/options.js";
 import { ActualsCard, PriceSuggestions } from "../components/actuals.js";
@@ -58,7 +58,7 @@ export function ChangePage(): JSX.Element {
     onError: (err) => setError(errorMessage(err)),
   });
 
-  if (detail.isLoading) return <Spinner />;
+  if (detail.isLoading) return <PageSkeleton />;
   if (detail.isError || !detail.data) return <ErrorBanner message={errorMessage(detail.error)} />;
   const c = detail.data;
 
@@ -88,7 +88,7 @@ export function ChangePage(): JSX.Element {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card>
-            <h2 className="mb-1 font-medium">{t("change.request")}</h2>
+            <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.request")}</h2>
             <p className="whitespace-pre-wrap text-sm text-slate-800">{c.description}</p>
             {c.classificationRationale ? <p className="mt-2 text-sm text-slate-600">{t("change.classificationText", { rationale: c.classificationRationale })}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ export function ChangePage(): JSX.Element {
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">{t("change.impactTitle")}</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("change.impactTitle")}</h2>
               <Button size="sm" variant="secondary" onClick={() => setShowImpact(true)}>{t("change.recordImpact")}</Button>
             </div>
             {!c.impact ? <Empty title={t("change.noImpact")} /> : (
@@ -143,7 +143,7 @@ export function ChangePage(): JSX.Element {
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">{t("change.linkedTitle")}</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("change.linkedTitle")}</h2>
               <Button size="sm" variant="secondary" onClick={() => setShowLink(true)}>{t("change.addLink")}</Button>
             </div>
             {c.links.length === 0 ? <Empty title={t("change.noLinks")} hint={t("change.noLinksHint")} /> : (
@@ -165,7 +165,7 @@ export function ChangePage(): JSX.Element {
           </Card>
 
           <Card>
-            <h2 className="mb-2 font-medium">{t("change.clarifications")}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.clarifications")}</h2>
             {c.clarifications.length === 0 ? <Empty title={t("change.noQuestions")} /> : (
               <ul className="space-y-2 text-sm">
                 {c.clarifications.map((q) => (
@@ -180,7 +180,7 @@ export function ChangePage(): JSX.Element {
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">{t("change.attachments")}</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("change.attachments")}</h2>
               <UploadBox projectId={projectId} linked={{ linkedType: "CHANGE", linkedId: c.id }} onDone={refresh} />
             </div>
             {(c.attachments ?? []).length === 0 ? <Empty title={t("change.noAttachments")} /> : (
@@ -199,7 +199,7 @@ export function ChangePage(): JSX.Element {
           </Card>
 
           <Card>
-            <h2 className="mb-2 font-medium">{t("change.externalTitle")}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.externalTitle")}</h2>
             {c.externalLinks.length === 0 ? <p className="text-sm text-slate-600">{t("change.noneLinked")}</p> : (
               <ul className="space-y-1 text-sm">
                 {c.externalLinks.map((e) => (
@@ -212,7 +212,7 @@ export function ChangePage(): JSX.Element {
 
         <div className="space-y-5">
           <Card>
-            <h2 className="mb-2 font-medium">{t("change.decision")}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.decision")}</h2>
             {c.sendBlockers.length > 0 && c.status !== "PENDING_APPROVAL" ? (
               <ul className="mb-3 list-disc pl-5 text-xs text-amber-800">
                 {c.sendBlockers.map((b) => <li key={b}>{b}</li>)}
@@ -242,10 +242,10 @@ export function ChangePage(): JSX.Element {
                   </span>
                   <span className="text-xs text-slate-500">{t("change.expiresOn", { date: formatDate(a.expiresAt) })}</span>
                   {a.invalidatedReason ? <p className="text-xs text-red-700">{t("change.invalidated", { reason: a.invalidatedReason })}</p> : null}
-                  {a.chosenOptionId ? <p className="text-xs text-teal-800">{t("change.choseOption", { label: (a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?" })}</p> : null}
+                  {a.chosenOptionId ? <p className="text-xs text-link">{t("change.choseOption", { label: (a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?" })}</p> : null}
                   {(a.status === "SENT" || a.status === "DECIDED") ? (
                     <p className="text-xs">
-                      <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${a.id}/pdf`} download>
+                      <a className="font-medium text-link underline" href={`/api/v1/approval-requests/${a.id}/pdf`} download>
                         {t("change.changeOrderPdf")}
                       </a>
                     </p>
@@ -268,7 +268,7 @@ export function ChangePage(): JSX.Element {
             ) : null}
           </Card>
           <Card>
-            <h2 className="mb-2 font-medium">{t("change.export")}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.export")}</h2>
             <ExportButton projectId={projectId} changeId={c.id} />
           </Card>
         </div>
@@ -352,7 +352,7 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
               <span
                 className={cn(
                   "whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
-                  state === "done" && "bg-teal-100 text-teal-900",
+                  state === "done" && "bg-teal-100 text-link-strong",
                   state === "current" && "bg-teal-700 text-white",
                   state === "todo" && "bg-slate-100 text-slate-600",
                 )}
@@ -874,7 +874,7 @@ function DriftPanel({ changeId, projectId, onDone }: { changeId: string; project
           </p>
           {result.output.note ? <p className="text-xs text-slate-500">{result.output.note}</p> : null}
           {result.output.links.filter((l) => !dismissed.includes(l.requirementId)).map((l) => (
-            <div key={l.requirementId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
+            <div key={l.requirementId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-surface p-2">
               <span>
                 <Badge>{t("change.aiBadge")}</Badge> {keyById.get(l.requirementId)?.stableKey ?? l.requirementId}
                 {" "}({Math.round(l.confidence * 100)}%): {l.explanation}
@@ -944,7 +944,7 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
       {questions ? (
         <ul className="mt-2 space-y-1 text-sm">
           {questions.map((q) => (
-            <li key={q} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
+            <li key={q} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-surface p-2">
               <span>{q}</span>
               <Button size="sm" variant="secondary" disabled={useQuestion.isPending} onClick={() => useQuestion.mutate(q)}>{t("change.useAsQuestion")}</Button>
             </li>
@@ -952,7 +952,7 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
         </ul>
       ) : null}
       {draft ? (
-        <div className="mt-2 rounded-md border border-slate-200 bg-white p-2">
+        <div className="mt-2 rounded-md border border-slate-200 bg-surface p-2">
           <Textarea aria-label={t("change.proposalDraftAria")} rows={6} value={draftText} onChange={(e) => setDraftText(e.target.value)} />
           {draft.bullets.length > 0 ? (
             <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">{draft.bullets.map((b) => <li key={b}>{b}</li>)}</ul>

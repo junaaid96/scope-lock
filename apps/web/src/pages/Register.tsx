@@ -51,7 +51,7 @@ export function RegisterPage(): JSX.Element {
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-slate-600">
-        {t("auth.haveAccount")}{" "}<Link to="/login" className="font-medium text-teal-800 underline">{t("auth.login")}</Link>
+        {t("auth.haveAccount")}{" "}<Link to="/login" className="font-medium text-link underline">{t("auth.login")}</Link>
       </p>
     </Card>
   );

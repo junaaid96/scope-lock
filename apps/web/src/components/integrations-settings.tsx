@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { ApiKeyView, WebhookDeliveryView, WebhookView } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, PageSkeleton } from "./ui.js";
 
 function staffOnly(error: unknown): boolean {
   return error instanceof ApiError && error.status === 403;
@@ -84,7 +84,7 @@ export function ApiKeysCard({ organizationId, canManage }: { organizationId: str
   return (
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("integrations.apiKeys")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("integrations.apiKeys")}</h2>
         {canManage ? <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>{t("integrations.newKey")}</Button> : null}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("integrations.apiKeysHint")}</p>
@@ -240,7 +240,7 @@ export function WebhooksCard({ organizationId, canManage }: { organizationId: st
   return (
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("integrations.webhooks")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("integrations.webhooks")}</h2>
         {canManage ? <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>{t("integrations.newWebhook")}</Button> : null}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("integrations.webhooksHint")}</p>
@@ -427,7 +427,7 @@ function DeliveryLog({ organizationId, hookId }: { organizationId: string; hookI
     void load(null);
   }, [hookId]);
 
-  if (loading && items.length === 0) return <Spinner />;
+  if (loading && items.length === 0) return <PageSkeleton />;
   return (
     <div className="mt-2 rounded-md border border-slate-200 p-3">
       <h3 className="text-sm font-medium text-slate-900">{t("integrations.deliveries")}</h3>
