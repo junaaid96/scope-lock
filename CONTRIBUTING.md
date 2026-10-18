@@ -43,7 +43,11 @@ template for defects and the feature-request template for proposals.
    make a change pass.
 6. **Document** user-visible behavior in the README where users will look
    for it (setup, tour, env vars, scripts). New environment variables go in
-   `.env.example` too.
+   `.env.example` too. New UI strings go in
+   `apps/web/src/lib/i18n/messages.en.json` and render via `useLocale()`'s
+   `t()` (money/date/number via its `money`/`date`/`number` helpers);
+   `node scripts/check-i18n.mjs` (also a CI step) fails on unknown or
+   dynamically constructed keys.
 7. **Open a PR** against `main` with a clear description, linked issue, and
    verification evidence (which gates you ran). Keep PRs focused — one
    concern per PR.

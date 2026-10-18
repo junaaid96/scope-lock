@@ -17,6 +17,9 @@ All notable changes to ScopeLock are documented here. Format follows
   the maintainer contact address is confirmed).
 - `npm run screenshots`: portfolio-seeded Playwright captures in
   `docs/screenshots`, embedded in the README tour.
+- i18n infrastructure: English message catalog + `useLocale()` (`t()`,
+  Intl money/date/number), with a CI missing-key check. Bangla,
+  per-user language, and full string extraction follow in Phase 6.
 
 ## [0.1.0] - 2026-10-16
 

@@ -1,0 +1,9 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "empty": "Nothing here yet",
+    "notAvailable": "—"
+  }
+}
