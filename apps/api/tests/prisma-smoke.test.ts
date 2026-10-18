@@ -194,6 +194,11 @@ describe("prisma postgres smoke", () => {
       expect(pool.status).toBe("PROPOSED");
       expect((await store.findAllowancePoolById(pool.id))?.name).toBe("Smoke Pool");
       expect(await store.listAllowancePools(project.id)).toHaveLength(1);
+      // Draw links persist through updateChange (regression: the Prisma
+      // update map silently dropped drawAllowancePoolId).
+      const linked = await store.updateChange(change.id, { drawAllowancePoolId: pool.id, version: change.version + 1 });
+      expect(linked.drawAllowancePoolId).toBe(pool.id);
+      expect((await store.findChangeById(change.id))?.drawAllowancePoolId).toBe(pool.id);
       const active = await store.updateAllowancePool(pool.id, { status: "ACTIVE" });
       expect(active.enabled).toBe(true);
       await store.touchAllowancePool(pool.id);

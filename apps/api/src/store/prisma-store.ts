@@ -1101,6 +1101,7 @@ export class PrismaStore implements Store {
           ...(patch.classification !== undefined ? { classification: patch.classification } : {}),
           ...(patch.classificationRationale !== undefined ? { classificationRationale: patch.classificationRationale } : {}),
           ...(patch.bundleId !== undefined ? { bundleId: patch.bundleId } : {}),
+          ...(patch.drawAllowancePoolId !== undefined ? { drawAllowancePoolId: patch.drawAllowancePoolId } : {}),
           ...(patch.version !== undefined ? { version: patch.version } : {}),
           ...(patch.decidedAt !== undefined ? { decidedAt: patch.decidedAt ? asDate(patch.decidedAt) : null } : {}),
           ...(patch.implementedAt !== undefined ? { implementedAt: patch.implementedAt ? asDate(patch.implementedAt) : null } : {}),
@@ -1983,11 +1984,14 @@ export class PrismaStore implements Store {
   }
 
   async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">): Promise<AuditEvent> {
-    // Ensure the head row exists in its own autocommit statement first: a
-    // unique violation inside an interactive transaction would abort it, so
-    // the create-on-missing race must settle before the tx opens. The
-    // lock + insert + head-update then commit atomically below.
-    await this.root.auditChainHead.createMany({
+    // Ensure the head row exists on THIS client (the tx client when inTx).
+    // skipDuplicates renders ON CONFLICT DO NOTHING, which never raises, so
+    // it is safe inside an interactive transaction — and it must be: a
+    // second append on the same chain in one tx would otherwise wait on a
+    // separate connection for the row lock its own tx holds (self-deadlock
+    // until the tx timeout). Outside a tx this.db is the root client, so a
+    // standalone append still settles the create-on-missing race first.
+    await this.db.auditChainHead.createMany({
       data: [{ chainKey: auditChainKey(data), headHash: GENESIS_PREV_HASH, eventCount: 0 }],
       skipDuplicates: true,
     });
