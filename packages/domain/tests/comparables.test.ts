@@ -26,6 +26,10 @@ describe("rankComparables", () => {
     expect(twice.map((r) => r.changeId)).toEqual(["chg_1", "chg_2"]);
     expect(rankComparables("Dashboard", "", twins, 1)).toHaveLength(1);
     expect(rankComparables("!!!", "", twins, 10)).toEqual([]);
+    // Two-letter tokens never rank: "on" must not match "monthly".
+    expect(
+      rankComparables("Payroll", "go on live", [{ changeId: "chg_x", title: "Other", description: "monthly" }], 10),
+    ).toEqual([]);
   });
 });
 

@@ -29,8 +29,12 @@ export function rankComparables(
   candidates: ComparableCandidate[],
   limit: number,
 ): RankedComparable[] {
-  const query = `${targetTitle}\n${targetDescription}`;
-  const terms = tokenizeQuery(query);
+  // Two-letter tokens ("on", "to") substring-match almost everything, so
+  // comparables rank on significant terms only. The shared primitive keeps
+  // its own floor; this filter is the suggestion feature's concern.
+  const terms = tokenizeQuery(`${targetTitle}\n${targetDescription}`).filter((t) => t.length >= 3);
+  if (terms.length === 0) return [];
+  const query = terms.join(" ");
   const ranked: RankedComparable[] = [];
   for (const c of candidates) {
     const score = scoreLexical(query, { title: c.title, text: c.description });
