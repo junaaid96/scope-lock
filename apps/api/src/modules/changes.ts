@@ -565,6 +565,9 @@ export function changeRoutes(ctx: AppContext): Router {
           exclusions: input.exclusions,
           notes: input.notes ?? null,
           confidence: input.confidence,
+          actualEffortDays: null,
+          actualPriceMinor: null,
+          actualNotes: null,
           createdBy: auth.user.id,
         });
         await tx.updateChange(change.id, { version: change.version + 1 });

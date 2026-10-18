@@ -105,6 +105,9 @@ describe("prisma postgres smoke", () => {
         exclusions: [],
         notes: null,
         confidence: "HIGH",
+        actualEffortDays: null,
+        actualPriceMinor: null,
+        actualNotes: null,
         rateCardId: card.id,
         templateId: template.id,
         pricing: {
@@ -127,6 +130,13 @@ describe("prisma postgres smoke", () => {
       });
       expect(impact.pricing?.computedMinor).toBe(92400);
       expect((await store.findLatestImpact(change.id))?.overrideReason).toBeNull();
+      const withActuals = await store.recordActuals(change.id, {
+        actualEffortDays: 3,
+        actualPriceMinor: 120000,
+        actualNotes: "Took a day longer than estimated",
+      });
+      expect(withActuals.actualPriceMinor).toBe(120000);
+      expect((await store.findLatestImpact(change.id))?.actualEffortDays).toBe(3);
       expect(await store.countImpactsByRateCard(card.id)).toBe(1);
       await store.deleteEstimateTemplate(template.id);
       expect(await store.listEstimateTemplates(org.id)).toHaveLength(0);

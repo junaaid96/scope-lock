@@ -731,6 +731,18 @@ export class MemoryStore implements Store {
     return row;
   }
 
+  async recordActuals(
+    changeRequestId: string,
+    patch: Pick<ChangeImpact, "actualEffortDays" | "actualPriceMinor" | "actualNotes">,
+  ): Promise<ChangeImpact> {
+    const latest = await this.findLatestImpact(changeRequestId);
+    if (!latest) throw new Error(`No impact to record actuals on: ${changeRequestId}`);
+    const updated = { ...latest, ...patch, updatedAt: nowIso() };
+    this.tables.impacts.set(latest.id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
   async createChangeLink(data: Omit<ChangeLink, "id" | "createdAt">): Promise<ChangeLink> {
     const row: ChangeLink = { id: newId("lnk"), createdAt: nowIso(), ...data };
     this.tables.changeLinks.set(row.id, row);

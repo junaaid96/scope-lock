@@ -1064,8 +1064,25 @@ export class PrismaStore implements Store {
           templateId: data.templateId,
           pricing: data.pricing === null ? Prisma.JsonNull : J(data.pricing),
           overrideReason: data.overrideReason,
+          actualEffortDays: data.actualEffortDays,
+          actualPriceMinor: data.actualPriceMinor,
+          actualNotes: data.actualNotes,
           createdBy: data.createdBy,
         },
+      }),
+    );
+  }
+
+  async recordActuals(
+    changeRequestId: string,
+    patch: Pick<ChangeImpact, "actualEffortDays" | "actualPriceMinor" | "actualNotes">,
+  ): Promise<ChangeImpact> {
+    const latest = await this.findLatestImpact(changeRequestId);
+    if (!latest) throw new Error(`No impact to record actuals on: ${changeRequestId}`);
+    return mapImpact(
+      await this.db.changeImpact.update({
+        where: { id: latest.id },
+        data: { actualEffortDays: patch.actualEffortDays, actualPriceMinor: patch.actualPriceMinor, actualNotes: patch.actualNotes },
       }),
     );
   }

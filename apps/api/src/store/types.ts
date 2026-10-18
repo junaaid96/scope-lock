@@ -280,6 +280,10 @@ export interface ChangeImpact {
   templateId: string | null;
   pricing: ImpactPricing | null;
   overrideReason: string | null;
+  /** Actuals recorded after implementation; null until recorded. */
+  actualEffortDays: number | null;
+  actualPriceMinor: number | null;
+  actualNotes: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

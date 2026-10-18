@@ -489,6 +489,9 @@ model ChangeImpact {
   templateId     String?
   pricing        Json?
   overrideReason String?
+  actualEffortDays Float?
+  actualPriceMinor Int?
+  actualNotes    String?
   createdBy      String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt

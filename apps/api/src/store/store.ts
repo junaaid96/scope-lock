@@ -137,6 +137,11 @@ export interface Store {
   findLatestImpact(changeRequestId: string): Promise<ChangeImpact | null>;
   listImpacts(changeRequestId: string): Promise<ChangeImpact[]>;
   createImpact(data: Omit<ChangeImpact, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeImpact>;
+  /** Patch actuals onto the latest impact; throws when the change has no impact yet. */
+  recordActuals(
+    changeRequestId: string,
+    patch: Pick<ChangeImpact, "actualEffortDays" | "actualPriceMinor" | "actualNotes">,
+  ): Promise<ChangeImpact>;
   findOptionById(id: string): Promise<ChangeOption | null>;
   listOptionsByChange(changeRequestId: string): Promise<ChangeOption[]>;
   createOption(data: Omit<ChangeOption, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeOption>;

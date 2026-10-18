@@ -1466,6 +1466,9 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         exclusions: chosen.exclusions,
         notes: `Chosen option "${chosen.label}" (decided ${now}).${chosen.notes ? ` ${chosen.notes}` : ""}`,
         confidence: "MEDIUM",
+        actualEffortDays: null,
+        actualPriceMinor: null,
+        actualNotes: null,
         createdBy: args.approverUserId ?? fresh.createdBy,
       });
       await tx.updateApproval(fresh.id, { chosenOptionId: optionId });
