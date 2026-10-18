@@ -192,6 +192,7 @@ export function changeRoutes(ctx: AppContext): Router {
         submitterId: auth.user.id,
         bundleId: null,
         amendmentVersionId: null,
+        drawAllowancePoolId: null,
       });
       await audit(ctx.store, {
         organizationId: access.org.id,
@@ -265,6 +266,10 @@ export function changeRoutes(ctx: AppContext): Router {
       );
       const decisions = (await Promise.all(approvals.map((a) => ctx.store.listDecisions(a.id)))).flat();
       const sendBlockers = await getSendBlockers(ctx.store, change);
+      const [drawPool, drawDown] = await Promise.all([
+        change.drawAllowancePoolId ? ctx.store.findAllowancePoolById(change.drawAllowancePoolId) : Promise.resolve(null),
+        ctx.store.findDrawDownByChange(change.id),
+      ]);
       res.json({
         ...change,
         impact,
@@ -278,6 +283,10 @@ export function changeRoutes(ctx: AppContext): Router {
         attachments: attachments.filter((a) => a.linkedType === "CHANGE" && a.linkedId === change.id),
         externalLinks: externalLinks.filter((e) => e.changeRequestId === change.id),
         sendBlockers,
+        drawPool: drawPool ? { id: drawPool.id, name: drawPool.name, kind: drawPool.kind, status: drawPool.status, enabled: drawPool.enabled } : null,
+        drawDown: drawDown
+          ? { id: drawDown.id, hours: drawDown.hours, amountMinor: drawDown.amountMinor, status: drawDown.status, objectionDeadline: drawDown.objectionDeadline }
+          : null,
       });
     }),
   );

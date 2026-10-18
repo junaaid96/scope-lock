@@ -26,6 +26,7 @@ import { aiRoutes } from "./modules/ai-routes.js";
 import { activityRoutes } from "./modules/activity.js";
 import { ledgerRoutes } from "./modules/ledger.js";
 import { pricingRoutes } from "./modules/pricing.js";
+import { allowanceRoutes } from "./modules/allowance.js";
 import { notificationRoutes } from "./modules/notifications.js";
 import { externalRoutes } from "./modules/external.js";
 
@@ -93,6 +94,7 @@ export function createApp(ctx: AppContext): Express {
   v1.use(activityRoutes(ctx));
   v1.use(ledgerRoutes(ctx));
   v1.use(pricingRoutes(ctx));
+  v1.use(allowanceRoutes(ctx));
   v1.use(notificationRoutes(ctx));
   v1.use(externalRoutes(ctx));
   app.use("/api/v1", v1);

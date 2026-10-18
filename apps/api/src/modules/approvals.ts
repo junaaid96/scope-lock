@@ -8,7 +8,10 @@ import {
   DomainError,
   assertTransition,
   checksumOf,
+  drawAmountFor,
+  drawBlocker,
   newToken,
+  objectionDeadline,
   sha256Hex,
 } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
@@ -155,7 +158,7 @@ async function buildBundlePackage(store: Store, bundle: Bundle): Promise<ReviewP
   };
 }
 
-async function resolveApprovers(
+export async function resolveApprovers(
   store: Store,
   projectId: string,
   userIds: string[],
@@ -202,6 +205,26 @@ export function approvalRoutes(ctx: AppContext): Router {
       throw DomainError.unprocessable("This proposal is not ready to send", { blockers });
     }
     if (Date.parse(input.expiresAt) <= Date.now()) throw DomainError.unprocessable("Expiry must be in the future");
+    // Optional allowance draw-source: validated now, coverage re-checked at decision time.
+    let drawPoolId: string | null | undefined;
+    if ("allowancePoolId" in input) {
+      drawPoolId = input.allowancePoolId ?? null;
+      if (drawPoolId) {
+        const pool = await ctx.store.findAllowancePoolById(drawPoolId);
+        if (!pool || pool.projectId !== change.projectId) throw DomainError.notFound("Allowance pool not found");
+        if (!pool.enabled || pool.status !== "ACTIVE") throw DomainError.unprocessable("Allowance pool is not active");
+        const impact = await ctx.store.findLatestImpact(change.id);
+        const draw = drawAmountFor({ kind: pool.kind, priceMinor: impact?.priceMinor ?? null, effortDays: impact?.effortDays ?? null });
+        const blocker = drawBlocker({
+          kind: pool.kind,
+          totalHours: pool.totalHours,
+          totalMinor: pool.totalMinor,
+          drawDowns: await ctx.store.listDrawDownsByPool(pool.id),
+          draw,
+        });
+        if (blocker) throw DomainError.unprocessable(blocker);
+      }
+    }
     const approvers = await resolveApprovers(ctx.store, change.projectId, input.approverUserIds, input.approverEmails);
     const pkg = await buildChangePackage(ctx.store, change);
     pkg.title = input.title ?? `${change.number}: ${change.title}`;
@@ -212,6 +235,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         projectId: change.projectId,
         changeRequestId: change.id,
         bundleId: null,
+        allowancePoolId: null,
         title: pkg.title,
         package: pkg,
         checksum,
@@ -238,7 +262,11 @@ export function approvalRoutes(ctx: AppContext): Router {
         });
       }
       assertTransition(ChangeTransitions, change.status, "PENDING_APPROVAL", "change");
-      await tx.updateChange(change.id, { status: "PENDING_APPROVAL", version: change.version + 1 });
+      await tx.updateChange(change.id, {
+        status: "PENDING_APPROVAL",
+        version: change.version + 1,
+        ...(drawPoolId !== undefined ? { drawAllowancePoolId: drawPoolId } : {}),
+      });
       for (const old of await tx.listApprovalsForChange(change.id)) {
         if (old.id !== created.id && (old.status === "INVALIDATED" || old.status === "EXPIRED") && !old.supersededBy) {
           await tx.updateApproval(old.id, { supersededBy: created.id });
@@ -263,34 +291,14 @@ export function approvalRoutes(ctx: AppContext): Router {
       properties: { changeNumber: change.number },
       actorId: auth.user.id,
     });
-    for (const approver of approvers) {
-      const body = `“${pkg.title}” needs your decision by ${input.expiresAt}. Open your inbox to review the exact package.`;
-      if (approver.userId) {
-        await notify(ctx.store, {
-          userId: approver.userId,
-          projectId: access.project.id,
-          organizationId: access.org.id,
-          type: "APPROVAL_REQUESTED",
-          title: `Decision needed: ${pkg.title}`,
-          body,
-          link: "/inbox",
-          email: { to: approver.email, subject: `Decision needed: ${pkg.title}`, text: `${body}\n\nReview: ${ctx.env.WEB_URL}/inbox` },
-        });
-      } else {
-        await ctx.store.enqueueOutbox({
-          type: "EMAIL",
-          payload: {
-            to: approver.email,
-            subject: `Decision needed: ${pkg.title}`,
-            text: `${body}\n\nReview: ${ctx.env.WEB_URL}/inbox`,
-            organizationId: access.org.id,
-            projectId: access.project.id,
-            notificationType: "APPROVAL_REQUESTED",
-          },
-          idempotencyKey: `send:${approval.id}:${approver.email}`,
-        });
-      }
-    }
+    await notifyApprovalRequested(ctx, {
+      orgId: access.org.id,
+      projectId: access.project.id,
+      approvalId: approval.id,
+      title: pkg.title,
+      expiresAt: input.expiresAt,
+      approvers,
+    });
     return { approval, reviewTokens: tokens };
   }
 
@@ -341,6 +349,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           projectId: bundle.projectId,
           changeRequestId: null,
           bundleId: bundle.id,
+          allowancePoolId: null,
           title: pkg.title,
           package: pkg,
           checksum,
@@ -632,6 +641,48 @@ interface DecideInput {
 }
 
 /** Shared decision core: immutable decision bound to the reviewed checksum. */
+/** Approval-requested fan-out, shared by change, bundle, and allowance sends. */
+export async function notifyApprovalRequested(
+  ctx: AppContext,
+  args: {
+    orgId: string;
+    projectId: string;
+    approvalId: string;
+    title: string;
+    expiresAt: string;
+    approvers: Array<{ userId: string | null; email: string }>;
+  },
+): Promise<void> {
+  for (const approver of args.approvers) {
+    const body = `“${args.title}” needs your decision by ${args.expiresAt}. Open your inbox to review the exact package.`;
+    if (approver.userId) {
+      await notify(ctx.store, {
+        userId: approver.userId,
+        projectId: args.projectId,
+        organizationId: args.orgId,
+        type: "APPROVAL_REQUESTED",
+        title: `Decision needed: ${args.title}`,
+        body,
+        link: "/inbox",
+        email: { to: approver.email, subject: `Decision needed: ${args.title}`, text: `${body}\n\nReview: ${ctx.env.WEB_URL}/inbox` },
+      });
+    } else {
+      await ctx.store.enqueueOutbox({
+        type: "EMAIL",
+        payload: {
+          to: approver.email,
+          subject: `Decision needed: ${args.title}`,
+          text: `${body}\n\nReview: ${ctx.env.WEB_URL}/inbox`,
+          organizationId: args.orgId,
+          projectId: args.projectId,
+          notificationType: "APPROVAL_REQUESTED",
+        },
+        idempotencyKey: `send:${args.approvalId}:${approver.email}`,
+      });
+    }
+  }
+}
+
 async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: DecideInput): Promise<unknown> {
   if (approval.status !== "SENT") {
     throw DomainError.conflict(`This package is ${approval.status}; first decision already recorded`, {
@@ -734,6 +785,92 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       correlationId: ctxInfo?.correlationId ?? "no-correlation",
       ip: ctxInfo?.ip ?? args.req.ip ?? null,
     });
+    // Allowance grant decisions activate the pool itself — the grant IS the
+    // client-approved decision, so draw-downs never become auto-approval.
+    if (fresh.allowancePoolId) {
+      const pool = await tx.findAllowancePoolById(fresh.allowancePoolId);
+      if (!pool || pool.projectId !== approval.projectId) throw DomainError.notFound("Allowance pool not found");
+      if (args.input.decision === "APPROVED") {
+        if (pool.status !== "PROPOSED") throw DomainError.conflict("This allowance pool is no longer awaiting a grant decision");
+        await tx.updateAllowancePool(pool.id, { status: "ACTIVE", grantDecisionId: created.id });
+        await tx.appendAuditEvent({
+          organizationId: project.organizationId,
+          projectId: project.id,
+          actorId: args.approverUserId,
+          actorEmail: args.approverEmail,
+          action: "allowance.activated",
+          targetType: "ALLOWANCE_POOL",
+          targetId: pool.id,
+          before: { status: pool.status },
+          after: { status: "ACTIVE", grantDecisionId: created.id },
+          correlationId: ctxInfo?.correlationId ?? "no-correlation",
+          ip: ctxInfo?.ip ?? args.req.ip ?? null,
+        });
+      }
+    }
+    // Approved changes with a linked pool draw down in the same transaction.
+    // Direct change approvals only: bundle approvals ignore draw links. The
+    // touch serializes concurrent decisions so two approvals cannot overdraw.
+    if (args.input.decision === "APPROVED" && fresh.changeRequestId) {
+      const change = targetChanges.find((c) => c.id === fresh.changeRequestId);
+      if (change?.drawAllowancePoolId) {
+        const pool = await tx.findAllowancePoolById(change.drawAllowancePoolId);
+        if (!pool || pool.projectId !== approval.projectId) throw DomainError.notFound("Allowance pool not found");
+        if (!pool.enabled || pool.status !== "ACTIVE") throw DomainError.conflict("The linked allowance pool is no longer active");
+        await tx.touchAllowancePool(pool.id);
+        if (await tx.findDrawDownByChange(change.id)) {
+          throw DomainError.conflict("This change already drew from its allowance pool");
+        }
+        const impact = await tx.findLatestImpact(change.id);
+        const draw = drawAmountFor({ kind: pool.kind, priceMinor: impact?.priceMinor ?? null, effortDays: impact?.effortDays ?? null });
+        const drawBlockerMessage = drawBlocker({
+          kind: pool.kind,
+          totalHours: pool.totalHours,
+          totalMinor: pool.totalMinor,
+          drawDowns: await tx.listDrawDownsByPool(pool.id),
+          draw,
+        });
+        if (drawBlockerMessage) throw DomainError.conflict(drawBlockerMessage);
+        const notifiedAt = nowIso();
+        const drawDown = await tx.createDrawDown({
+          poolId: pool.id,
+          changeRequestId: change.id,
+          hours: draw.hours,
+          amountMinor: draw.amountMinor,
+          notifiedAt,
+          objectionDeadline: objectionDeadline(notifiedAt, pool.objectionWindowHours),
+        });
+        await tx.appendAuditEvent({
+          organizationId: project.organizationId,
+          projectId: project.id,
+          actorId: args.approverUserId,
+          actorEmail: args.approverEmail,
+          action: "allowance.drawn",
+          targetType: "ALLOWANCE_DRAW_DOWN",
+          targetId: drawDown.id,
+          after: { changeId: change.id, hours: draw.hours, amountMinor: draw.amountMinor, objectionDeadline: drawDown.objectionDeadline },
+          correlationId: ctxInfo?.correlationId ?? "no-correlation",
+          ip: ctxInfo?.ip ?? args.req.ip ?? null,
+        });
+        const amount = pool.kind === "AMOUNT" ? `${pool.currency} ${((draw.amountMinor ?? 0) / 100).toFixed(2)}` : `${draw.hours}h`;
+        for (const m of await tx.listProjectMembers(approval.projectId)) {
+          if (m.role !== "CLIENT_ADMIN" && m.role !== "CLIENT_APPROVER") continue;
+          const user = await tx.findUserById(m.userId);
+          if (!user) continue;
+          const body = `${amount} drew from “${pool.name}” for ${change.number} (${change.title}). Object by ${drawDown.objectionDeadline} if you disagree.`;
+          await notify(tx, {
+            userId: user.id,
+            projectId: approval.projectId,
+            organizationId: project.organizationId,
+            type: "ALLOWANCE_DRAWN",
+            title: `Allowance draw: ${change.number}`,
+            body,
+            link: `/projects/${approval.projectId}`,
+            email: { to: user.email, subject: `Allowance draw: ${change.number}`, text: body },
+          });
+        }
+      }
+    }
     return created;
   });
 
