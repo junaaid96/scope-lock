@@ -159,6 +159,23 @@ All notable changes to ScopeLock are documented here. Format follows
   with sealed challenge cookies and UV-gated MFA bypass; last-method
   deletion/unlink is refused. Login page, security settings, virtual
   authenticator e2e, migration 0023.
+- Full i18n + Bangla: all 1,255 UI strings extracted to typed catalogs with
+  a complete `bn` translation, per-user language (header switcher persisted
+  to preferences), Intl money/date/number per locale, and review + verify
+  pages rendered in the project/org default language. The CI check now
+  enforces en/bn key and placeholder parity; locale e2e covers switching,
+  persistence, and review-link defaults. Migration 0024 (`User.locale`).
+
+### Fixed
+
+- Postgres audit chain self-deadlock: the head-row ensure ran on a separate
+  connection, so any transaction appending twice to one chain (allowance
+  grants, requirement-accepting decisions) waited on its own row lock until
+  the 30s timeout. The ensure now runs on the calling client, with a
+  same-chain double-append regression test.
+- Postgres allowance draws: `PrismaStore.updateChange` silently dropped
+  `drawAllowancePoolId`, so pool-linked sends never drew on Postgres. The
+  field now persists, covered by the Prisma smoke round-trip.
 
 ## [0.1.0] - 2026-10-16
 

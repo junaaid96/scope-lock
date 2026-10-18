@@ -1873,6 +1873,13 @@
           },
           "notifyWhatsapp": {
             "type": "boolean"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "bn"
+            ]
           }
         },
         "additionalProperties": false
@@ -1897,6 +1904,13 @@
           },
           "notifyWhatsapp": {
             "type": "boolean"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "bn"
+            ]
           }
         },
         "required": [
@@ -1904,7 +1918,8 @@
           "phoneE164",
           "notifyEmail",
           "notifySms",
-          "notifyWhatsapp"
+          "notifyWhatsapp",
+          "locale"
         ],
         "additionalProperties": false
       },
