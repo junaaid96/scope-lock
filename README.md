@@ -325,6 +325,11 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   pick the decision rule per package (any approver decides, all must
   approve, or approvers vote in order), with an optional per-send override
   in every send dialog.
+- **Proposal options** (change page) — 2–4 priced alternatives the client
+  picks between on the review link. The pick becomes the change's
+  effective impact; every approver must agree on the same one.
+- **Parked** (board column + changes filter) — shelve work that is not
+  ready and revive it into a new submission later.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

@@ -907,6 +907,93 @@ async function main(): Promise<void> {
     }
   }
 
+  // Proposal-options showcase on QuickFood: Full/Reduced alternatives, the
+  // client picks Reduced, and the ledger prices the pick (resumable).
+  {
+    const slug = "quickfood-delivery-app";
+    const quickfood = clientLogins.quickfood as { userId: string };
+    const changes = (await expectOk(
+      await owner.agent.get(`/api/v1/projects/${projectIds[slug]}/change-requests?limit=100`),
+      "list quickfood changes",
+    )) as { data: Array<{ title: string }> };
+    if (!changes.data.some((c) => c.title === "Express delivery slots")) {
+      const ch = await createChange(slug, {
+        title: "Express delivery slots",
+        description: "30-minute express delivery windows in Dhanmondi and Gulshan, with rider incentives for on-time drop-offs.",
+      });
+      let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+      v = await transition(ch.id, slug, "TRIAGING", v);
+      v = await transition(ch.id, slug, "ESTIMATING", v);
+      const full = (await expectOk(
+        await owner.agent.post(`/api/v1/change-requests/${ch.id}/options`).send({
+          label: "Full",
+          description: "Express slots in both zones with incentive payouts",
+          effortDays: 8,
+          priceMinor: 6000000,
+          timelineDays: 10,
+        }),
+        "seed option full",
+        [201],
+      )) as { id: string };
+      const reduced = (await expectOk(
+        await owner.agent.post(`/api/v1/change-requests/${ch.id}/options`).send({
+          label: "Reduced",
+          description: "Dhanmondi only, no incentive payouts in v1",
+          effortDays: 4,
+          priceMinor: 2800000,
+          timelineDays: 5,
+        }),
+        "seed option reduced",
+        [201],
+      )) as { id: string };
+      void full;
+      await linkRequirement(ch.id, slug);
+      const body = (await expectOk(
+        await owner.agent.post(`/api/v1/change-requests/${ch.id}/approval-requests`).send({
+          approverUserIds: [quickfood.userId],
+          expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          title: "Express delivery slots — pick Full or Reduced",
+        }),
+        "seed options send",
+        [201],
+      )) as { approval: { id: string }; reviewUrls: string[] };
+      const token = (body.reviewUrls[0] as string).split("/review/")[1] as string;
+      await expectOk(
+        await request(app).post(`/api/v1/approval-requests/${token}/decisions`).send({
+          decision: "APPROVED",
+          optionId: reduced.id,
+          comment: "Reduced first — expand to Gulshan once Dhanmondi proves out.",
+          confirm: true,
+        }),
+        "seed options decision",
+        [201],
+      );
+      await sweepOutbox(store);
+      console.log("showcase: quickfood options decided (Reduced picked, ledger prices the pick)");
+    }
+  }
+
+  // Parked showcase on InterEd: shelved work awaiting a better quarter (resumable).
+  {
+    const slug = "intered_hub";
+    const changes = (await expectOk(
+      await owner.agent.get(`/api/v1/projects/${projectIds[slug]}/change-requests?limit=100`),
+      "list intered changes",
+    )) as { data: Array<{ title: string }> };
+    if (!changes.data.some((c) => c.title === "Alumni mentorship board")) {
+      const ch = await createChange(slug, {
+        title: "Alumni mentorship board",
+        description: "Alumni offer mentorship slots; students book them. Paused until the admissions cycle ends.",
+        source: "CLIENT",
+      });
+      let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+      v = await transition(ch.id, slug, "TRIAGING", v);
+      v = await transition(ch.id, slug, "PARKED", v);
+      void v;
+      console.log("showcase: intered change parked (revive from the Parked board column)");
+    }
+  }
+
   // Default rate card + estimate templates for the portfolio org (resumable).
   {
     const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {

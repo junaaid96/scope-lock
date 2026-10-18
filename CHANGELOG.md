@@ -65,6 +65,13 @@ All notable changes to ScopeLock are documented here. Format follows
   up next), side effects apply exactly once at the terminal outcome, and
   the checksum still binds every vote. Review pages show each approver's
   state and lock the form out of turn.
+- Proposal options + PARKED status: 2–4 priced alternatives per change
+  (full / reduced / defer), snapshotted into the review package; the
+  client approves exactly one (every approver must pick the same one) and
+  the pick becomes the change's effective impact for ledger, export, and
+  draw-downs. Option edits invalidate live packages; options freeze once
+  decided. PARKED shelves pre-decision work with a board column, a
+  changes-tab filter, and revival into a new submission.
 
 ## [0.1.0] - 2026-10-16
 
