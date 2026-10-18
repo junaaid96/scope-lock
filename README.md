@@ -330,6 +330,9 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   effective impact; every approver must agree on the same one.
 - **Parked** (board column + changes filter) — shelve work that is not
   ready and revive it into a new submission later.
+- **Review step-up** (workspace settings → project Policy tab) — optional
+  email code + typed-name confirmation on review links, recorded with each
+  decision. An identity check, not an e-signature.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

@@ -902,8 +902,17 @@ async function main(): Promise<void> {
         [201],
       )) as { outcome: { state: string } };
       if (vote.outcome.state !== "PENDING") throw new Error("seed policy first vote should leave the package PENDING");
+      // Step-up goes on after the vote: the pending second vote now requires
+      // an email code + typed name, and the screenshots review link shows it.
+      await expectOk(
+        await owner.agent.patch(`/api/v1/projects/${projectId}`).send({
+          settings: { stepUp: { otp: true, typedName: true } },
+        }),
+        "seed step-up enable",
+      );
       await sweepOutbox(store);
       console.log(`showcase: haat two-approver package PENDING second vote ${(body.reviewUrls[1] as string).replace(/^https?:\/\/[^/]+/, "")}`);
+      console.log("showcase: haat step-up on (email code + typed name on reviews)");
     }
   }
 

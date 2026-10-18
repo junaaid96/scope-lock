@@ -72,6 +72,12 @@ All notable changes to ScopeLock are documented here. Format follows
   draw-downs. Option edits invalidate live packages; options freeze once
   decided. PARKED shelves pre-decision work with a board column, a
   changes-tab filter, and revival into a new submission.
+- Step-up verification on review links: optional email OTP (hashed,
+  10-minute expiry, 5-attempt cap, 60s resend cooldown, bound to the exact
+  approval + token + approver, delivered through the outbox) plus typed
+  full-name confirmation recorded with each decision. Configurable per
+  workspace with per-project inherit/on/off pins; explicitly not an
+  e-signature.
 
 ## [0.1.0] - 2026-10-16
 
