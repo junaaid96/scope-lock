@@ -69,15 +69,6 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
-function isRecordNotFound(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "code" in err &&
-    (err as { code: string }).code === "P2025"
-  );
-}
-
 function page<T extends { id: string; createdAt: string }>(rows: T[], q: ListQuery): PageResult<T> {
   const sorted = [...rows].sort((a, b) =>
     a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1,
@@ -341,18 +332,9 @@ async function appendChainedAuditEvent(
   data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">,
 ): Promise<AuditEvent> {
   const chainKey = auditChainKey(data);
-  let head;
-  try {
-    head = await db.auditChainHead.update({ where: { chainKey }, data: { updatedAt: new Date() } });
-  } catch (err) {
-    if (!isRecordNotFound(err)) throw err;
-    try {
-      head = await db.auditChainHead.create({ data: { chainKey, headHash: GENESIS_PREV_HASH, eventCount: 0 } });
-    } catch (created) {
-      if (!isUniqueViolation(created)) throw created;
-      head = await db.auditChainHead.update({ where: { chainKey }, data: { updatedAt: new Date() } });
-    }
-  }
+  // Row lock held until the surrounding transaction commits: concurrent
+  // writers on this chain serialize here and the chain can never fork.
+  const head = await db.auditChainHead.update({ where: { chainKey }, data: { updatedAt: new Date() } });
   const prevHash = head.headHash;
   const chainSeq = head.eventCount + 1;
   const createdAt = new Date();
@@ -1769,8 +1751,14 @@ export class PrismaStore implements Store {
   }
 
   async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">): Promise<AuditEvent> {
-    // The head lock + event insert + head update commit atomically: inside an
-    // outer domain transaction they join it, otherwise they get their own.
+    // Ensure the head row exists in its own autocommit statement first: a
+    // unique violation inside an interactive transaction would abort it, so
+    // the create-on-missing race must settle before the tx opens. The
+    // lock + insert + head-update then commit atomically below.
+    await this.root.auditChainHead.createMany({
+      data: [{ chainKey: auditChainKey(data), headHash: GENESIS_PREV_HASH, eventCount: 0 }],
+      skipDuplicates: true,
+    });
     if (this.inTx) return appendChainedAuditEvent(this.db, data);
     return this.transaction((tx) => appendChainedAuditEvent((tx as PrismaStore).db, data));
   }
