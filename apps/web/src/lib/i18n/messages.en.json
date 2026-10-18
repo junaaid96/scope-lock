@@ -5,5 +5,36 @@
     "retry": "Retry",
     "empty": "Nothing here yet",
     "notAvailable": "—"
+  },
+  "contract": {
+    "title": "Contract",
+    "summary": "Contract value",
+    "baseline": "Baseline budget",
+    "approvedDeltas": "Approved changes",
+    "currentValue": "Current value",
+    "pendingExposure": "Pending exposure",
+    "absorbedWork": "Absorbed work",
+    "absorbedHint": "{count} no-charge changes · {days} days",
+    "noBaseline": "No baseline budget set",
+    "deltasTitle": "Approved change deltas",
+    "pendingTitle": "Priced changes awaiting decision",
+    "absorbedTitle": "Absorbed (no-charge) work",
+    "byVersionTitle": "Value by scope version",
+    "excludedTitle": "Excluded from value",
+    "unattributed": "Approved but not yet amended: {amount} ({changes})",
+    "empty": "No approved changes yet",
+    "change": "Change",
+    "decided": "Decided",
+    "amount": "Amount",
+    "version": "Version",
+    "status": "Status",
+    "effort": "Effort (days)",
+    "reason": "Reason"
+  },
+  "orgContract": {
+    "title": "Contract value",
+    "projects": "{count} projects",
+    "current": "current",
+    "pending": "pending"
   }
 }

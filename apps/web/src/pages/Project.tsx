@@ -6,6 +6,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeListItem, ProjectDetail } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { ChangeBoard } from "../components/change-board.js";
+import { ContractTab } from "../components/contract.js";
 
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
@@ -19,7 +20,7 @@ export function ProjectPage(): JSX.Element {
   });
   const [showChange, setShowChange] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [tab, setTab] = useState<"changes" | "board" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "contract" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -53,6 +54,7 @@ export function ProjectPage(): JSX.Element {
         tabs={[
           { id: "changes" as const, label: `Changes (${(changes.data ?? []).length})` },
           { id: "board" as const, label: "Board" },
+          { id: "contract" as const, label: "Contract" },
           { id: "members" as const, label: "Members" },
           { id: "bundles" as const, label: "Bundles" },
           { id: "notes" as const, label: "Notes" },
@@ -85,6 +87,7 @@ export function ProjectPage(): JSX.Element {
         )
       ) : null}
       {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}
+      {tab === "contract" ? <ContractTab projectId={p.id} /> : null}
       {tab === "members" ? <MembersTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}

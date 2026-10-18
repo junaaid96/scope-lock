@@ -6,6 +6,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
 import type { Client, ProjectListItem } from "../lib/types.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, statusTone } from "../components/ui.js";
+import { OrgContractStrip } from "../components/contract.js";
 
 export function DashboardPage(): JSX.Element {
   const { session } = useSession();
@@ -56,6 +57,7 @@ export function DashboardPage(): JSX.Element {
           </>
         }
       />
+      <OrgContractStrip organizationId={activeOrg.id} />
       {projects.isLoading ? (
         <Spinner />
       ) : projects.isError ? (

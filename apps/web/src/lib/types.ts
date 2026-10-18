@@ -221,3 +221,82 @@ export interface ActivityEvent {
   after?: unknown;
   createdAt: string;
 }
+
+export interface LedgerDelta {
+  changeId: string;
+  number: string;
+  title: string;
+  priceMinor: number;
+  decidedAt: string;
+  amendmentVersionId: string | null;
+}
+
+export interface LedgerPending {
+  changeId: string;
+  number: string;
+  title: string;
+  priceMinor: number;
+  status: string;
+}
+
+export interface LedgerAbsorbed {
+  changeId: string;
+  number: string;
+  title: string;
+  effortDays: number | null;
+  decidedAt: string;
+}
+
+export interface LedgerExclusion {
+  changeId: string;
+  number: string;
+  reason: string;
+  detail: string;
+}
+
+export interface VersionValue {
+  scopeVersionId: string;
+  sequence: number;
+  status: string;
+  title: string | null;
+  deltaMinor: number;
+  changeNumbers: string[];
+}
+
+export interface ContractLedger {
+  currency: string;
+  baselineMinor: number | null;
+  approvedDeltaMinor: number;
+  currentMinor: number | null;
+  pendingExposureMinor: number;
+  unattributedMinor: number;
+  unattributedNumbers: string[];
+  absorbedEffortDays: number;
+  absorbedCount: number;
+  deltas: LedgerDelta[];
+  pending: LedgerPending[];
+  absorbed: LedgerAbsorbed[];
+  excluded: LedgerExclusion[];
+  byVersion: VersionValue[];
+}
+
+export interface OrgProjectSummary {
+  projectId: string;
+  name: string;
+  currency: string;
+  baselineMinor: number | null;
+  currentMinor: number | null;
+  pendingExposureMinor: number;
+  absorbedCount: number;
+}
+
+export interface OrgContractRollup {
+  projects: OrgProjectSummary[];
+  totalsByCurrency: Array<{
+    currency: string;
+    projectCount: number;
+    baselineMinor: number;
+    currentMinor: number;
+    pendingExposureMinor: number;
+  }>;
+}
