@@ -37,6 +37,8 @@ export type Action =
   | "health.view"
   | "export.read"
   | "external.manage"
+  | "ratecard.view"
+  | "ratecard.manage"
   | "notifications.view";
 
 export interface AccessContext {
@@ -80,7 +82,11 @@ export function can(ctx: AccessContext, action: Action): boolean {
     case "client.manage":
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN" || ctx.orgRole === "MEMBER";
     case "org.usage.view":
+    case "ratecard.manage":
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN";
+    case "ratecard.view":
+      // Org commercial data: agency staff only, never client org roles.
+      return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN" || ctx.orgRole === "MEMBER";
     case "project.view":
     case "scope.view":
     case "activity.view":

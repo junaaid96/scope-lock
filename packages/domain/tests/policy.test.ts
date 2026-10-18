@@ -44,4 +44,14 @@ describe("policy", () => {
   it("denies everything without an org role", () => {
     expect(can({ orgRole: null, projectRole: "LEAD" }, "project.view")).toBe(false);
   });
+
+  it("keeps rate cards with agency staff and management with admins", () => {
+    expect(can({ orgRole: "OWNER", projectRole: null }, "ratecard.manage")).toBe(true);
+    expect(can({ orgRole: "ADMIN", projectRole: null }, "ratecard.manage")).toBe(true);
+    expect(can({ orgRole: "MEMBER", projectRole: null }, "ratecard.manage")).toBe(false);
+    expect(can({ orgRole: "MEMBER", projectRole: null }, "ratecard.view")).toBe(true);
+    expect(can(clientApprover, "ratecard.view")).toBe(false);
+    expect(can(clientViewer, "ratecard.manage")).toBe(false);
+    expect(can({ orgRole: null, projectRole: null }, "ratecard.view")).toBe(false);
+  });
 });

@@ -13,6 +13,7 @@ import {
   MinorUnitsSchema,
   RequirementStatusSchema,
 } from "./common.js";
+import { PricingInputSchema, PricingOverrideSchema } from "./pricing.js";
 
 // ---------- Scope versions ----------
 export const CreateDraftVersionSchema = z.object({
@@ -82,7 +83,10 @@ export const SubmitChangeSchema = z.object({ expectedVersion: z.number().int().m
 export const UpsertImpactSchema = z.object({
   expectedVersion: z.number().int().min(0).optional(),
   effortDays: z.number().min(0).max(3650).optional(),
+  /** Manual price. Ignored when `pricing` computes one (unless `override` replaces it). */
   priceMinor: MinorUnitsSchema.nullable().optional(),
+  pricing: PricingInputSchema.optional(),
+  override: PricingOverrideSchema.optional(),
   currency: CurrencySchema.optional(),
   timelineDays: z.number().int().min(0).max(3650).optional(),
   milestoneEffect: z.string().max(2000).optional(),
