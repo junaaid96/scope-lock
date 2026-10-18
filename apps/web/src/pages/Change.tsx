@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import type { ChangeDetail, EstimateTemplate, ProjectDetail, RateCard, RequirementRow } from "../lib/types.js";
+import type { AllowancePoolView, ChangeDetail, EstimateTemplate, ProjectDetail, RateCard, RequirementRow } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, statusTone } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
@@ -189,6 +189,12 @@ export function ChangePage(): JSX.Element {
               <ul className="mb-3 list-disc pl-5 text-xs text-amber-800">
                 {c.sendBlockers.map((b) => <li key={b}>{b}</li>)}
               </ul>
+            ) : null}
+            {c.drawPool || c.drawDown ? (
+              <p className="mb-2 rounded-md bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Allowance: {c.drawPool ? `draws from “${c.drawPool.name}” on approval` : "linked pool removed"}
+                {c.drawDown ? ` · drew ${c.drawDown.hours !== null && c.drawDown.hours !== undefined ? `${c.drawDown.hours}h` : money(c.drawDown.amountMinor, c.impact?.currency ?? "USD")} (${c.drawDown.status.replace(/_/g, " ").toLowerCase()})` : ""}
+              </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={c.sendBlockers.length > 0} onClick={() => setShowSend(true)}>Send for approval…</Button>
@@ -646,12 +652,18 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
   const [approvers, setApprovers] = useState<string[]>([]);
   const [extraEmails, setExtraEmails] = useState("");
   const [expiry, setExpiry] = useState("");
+  const pools = useQuery({
+    queryKey: ["allowance-pools", projectId],
+    queryFn: () => fetchAll<AllowancePoolView>(`/projects/${projectId}/allowance-pools`),
+  });
+  const [poolId, setPoolId] = useState(change.drawAllowancePoolId ?? "");
   const send = useMutation({
     mutationFn: () =>
       api.post<{ approval: { id: string }; reviewUrls?: string[] }>(`/change-requests/${change.id}/approval-requests`, {
         approverUserIds: approvers,
         approverEmails: extraEmails.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean),
         expiresAt: new Date(expiry).toISOString(),
+        allowancePoolId: poolId || null,
       }),
     onSuccess: (res) => {
       setLinks(res.reviewUrls ?? []);
@@ -673,6 +685,20 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
       <div className="mt-3">
         <Field label="Extra approver emails (comma-separated, optional)" htmlFor="send-emails" hint="External reviewers get a secure review link without a workspace account.">
           <Input id="send-emails" type="text" inputMode="email" placeholder="client@example.com" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field
+          label="Allowance pool (optional)"
+          htmlFor="send-pool"
+          hint="Active pools only. On approval the change draws its impact from the pool and the client is notified."
+        >
+          <select id="send-pool" value={poolId} onChange={(e) => setPoolId(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="">No pool — standard approval</option>
+            {(pools.data ?? []).filter((p) => p.enabled && p.status === "ACTIVE").map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.kind.toLowerCase()})</option>
+            ))}
+          </select>
         </Field>
       </div>
       <div className="mt-3">

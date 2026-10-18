@@ -82,6 +82,23 @@ export function ReviewPage(): JSX.Element {
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{pkg.request.description}</p>
           </section>
         ) : null}
+        {pkg.allowance ? (
+          <section className="mt-4" aria-label="Allowance grant terms">
+            <h2 className="font-medium">Allowance grant terms</h2>
+            <p className="mt-1 text-sm text-slate-700">
+              Approving grants a pre-agreed pool that later approved changes draw from. Each draw notifies you and can be
+              objected to within the window below.
+            </p>
+            <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              <dt className="text-slate-500">Pool</dt>
+              <dd className="font-medium">
+                {pkg.allowance.kind === "HOURS" ? `${pkg.allowance.totalHours} hours` : `${pkg.allowance.currency} ${((pkg.allowance.totalMinor ?? 0) / 100).toFixed(2)}`}
+              </dd>
+              <dt className="text-slate-500">Objection window</dt>
+              <dd>{pkg.allowance.objectionWindowHours} hours after each draw</dd>
+            </dl>
+          </section>
+        ) : null}
         {pkg.members.length > 0 ? (
           <section className="mt-4">
             <h2 className="font-medium">Bundled requests ({pkg.members.length})</h2>
@@ -160,11 +177,19 @@ export function ReviewPage(): JSX.Element {
       </Card>
       <Card className="mt-4">
         <h2 className="mb-1 font-medium">What happens next</h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li><strong>Approve</strong> — the agency folds this work into the agreed scope and schedules it. You will see it in the next published version.</li>
-          <li><strong>Reject</strong> — nothing changes; the current agreement stands. Your comment tells the agency why.</li>
-          <li><strong>Request changes</strong> — the proposal goes back for revision and you will receive a fresh package to review.</li>
-        </ul>
+        {pkg.allowance ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+            <li><strong>Approve</strong> — the pool activates and approved changes linked to it draw from it. You are notified of every draw.</li>
+            <li><strong>Reject</strong> — no pool is created; each change still needs its own approval as before.</li>
+            <li><strong>Request changes</strong> — the proposal goes back for revision and you will receive a fresh package to review.</li>
+          </ul>
+        ) : (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+            <li><strong>Approve</strong> — the agency folds this work into the agreed scope and schedules it. You will see it in the next published version.</li>
+            <li><strong>Reject</strong> — nothing changes; the current agreement stands. Your comment tells the agency why.</li>
+            <li><strong>Request changes</strong> — the proposal goes back for revision and you will receive a fresh package to review.</li>
+          </ul>
+        )}
       </Card>
       <p className="mt-4 text-center text-xs text-slate-500">
         You are deciding on exactly the package above (checksum {r.checksum.slice(0, 12)}…). First decision is binding.

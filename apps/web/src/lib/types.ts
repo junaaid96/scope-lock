@@ -185,6 +185,9 @@ export interface ChangeDetail extends ChangeListItem {
   bundle: { id: string; name: string } | null;
   governingVersion: { id: string; sequence: number } | null;
   sendBlockers: string[];
+  drawAllowancePoolId: string | null;
+  drawPool: { id: string; name: string; kind: string; status: string; enabled: boolean } | null;
+  drawDown: { id: string; hours: number | null; amountMinor: number | null; status: string; objectionDeadline: string | null } | null;
   externalLinks: Array<{ id: string; provider: string; externalId: string; url: string | null }>;
   attachments: AttachmentRow[];
 }
@@ -260,6 +263,47 @@ export interface ReviewPackage {
   assumptions: string[];
   exclusions: string[];
   sentAt: string;
+  allowance?: {
+    poolId: string;
+    kind: "HOURS" | "AMOUNT";
+    totalHours: number | null;
+    totalMinor: number | null;
+    currency: string | null;
+    objectionWindowHours: number;
+  } | null;
+}
+
+export interface AllowanceDrawDownView {
+  id: string;
+  poolId: string;
+  changeRequestId: string;
+  hours: number | null;
+  amountMinor: number | null;
+  status: string;
+  notifiedAt: string;
+  objectionDeadline: string | null;
+  objectionReason: string | null;
+  resolutionNote: string | null;
+  createdAt: string;
+  changeNumber: string;
+  changeTitle: string;
+}
+
+export interface AllowancePoolView {
+  id: string;
+  projectId: string;
+  name: string;
+  kind: "HOURS" | "AMOUNT";
+  totalHours: number | null;
+  totalMinor: number | null;
+  currency: string | null;
+  objectionWindowHours: number;
+  enabled: boolean;
+  status: string;
+  grantDecisionId: string | null;
+  createdAt: string;
+  balance: { kind: "HOURS" | "AMOUNT"; remainingHours: number | null; remainingMinor: number | null; exhausted: boolean };
+  drawDowns: AllowanceDrawDownView[];
 }
 
 export interface HealthSignal {
