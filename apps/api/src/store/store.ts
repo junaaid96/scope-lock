@@ -20,7 +20,9 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ExternalConnection,
   ExternalLink,
+  ExternalWorkItem,
   IdempotencyRecord,
   InboundMailbox,
   IntakeLink,
@@ -306,6 +308,13 @@ export interface Store {
   findExternalLinkById(id: string): Promise<ExternalLink | null>;
   listExternalLinks(projectId: string): Promise<ExternalLink[]>;
   deleteExternalLink(id: string): Promise<void>;
+  createExternalConnection(data: Omit<ExternalConnection, "id" | "createdAt" | "updatedAt">): Promise<ExternalConnection>;
+  findExternalConnectionById(id: string): Promise<ExternalConnection | null>;
+  listExternalConnections(projectId: string): Promise<ExternalConnection[]>;
+  updateExternalConnection(id: string, patch: Partial<ExternalConnection>): Promise<ExternalConnection>;
+  deleteExternalConnection(id: string): Promise<void>;
+  upsertExternalWorkItem(data: Omit<ExternalWorkItem, "id" | "observedAt" | "updatedAt">): Promise<ExternalWorkItem>;
+  listExternalWorkItems(projectId: string): Promise<ExternalWorkItem[]>;
   findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null>;
   saveIdempotency(data: Omit<IdempotencyRecord, "id" | "createdAt">): Promise<IdempotencyRecord>;
   getUsage(organizationId: string, period: string): Promise<UsageCounter>;

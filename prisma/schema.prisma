@@ -324,6 +324,8 @@ model Project {
   auditEvents    AuditEvent[]
   aiAnalyses     AIAnalysis[]
   externalLinks  ExternalLink[]
+  externalConnections ExternalConnection[]
+  externalWorkItems   ExternalWorkItem[]
   metricEvents   MetricEvent[]
   allowancePools AllowancePool[]
   intakeLinks    IntakeLink[]
@@ -956,6 +958,41 @@ model ExternalLink {
   change  ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
 
   @@unique([changeRequestId, provider, externalId])
+}
+
+model ExternalConnection {
+  id           String   @id
+  projectId    String
+  provider     String
+  secretSealed String
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider])
+  @@index([projectId])
+}
+
+model ExternalWorkItem {
+  id         String    @id
+  projectId  String
+  provider   String
+  externalId String
+  kind       String
+  url        String?
+  title      String?
+  refs       Json
+  merged     Boolean   @default(false)
+  mergedAt   DateTime?
+  observedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider, externalId, kind])
+  @@index([projectId])
 }
 
 model MetricEvent {

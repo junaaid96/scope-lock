@@ -23,7 +23,9 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ExternalConnection,
   ExternalLink,
+  ExternalWorkItem,
   IdempotencyRecord,
   ImpactPricing,
   InboundMailbox,
@@ -436,6 +438,18 @@ function mapAI(r: Prisma.AIAnalysisGetPayload<Prisma.AIAnalysisDefaultArgs>): AI
 }
 function mapExternal(r: Prisma.ExternalLinkGetPayload<Prisma.ExternalLinkDefaultArgs>): ExternalLink {
   return { ...r, createdAt: iso(r.createdAt) };
+}
+function mapExternalConnection(r: Prisma.ExternalConnectionGetPayload<Prisma.ExternalConnectionDefaultArgs>): ExternalConnection {
+  return { ...r, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt) };
+}
+function mapExternalWorkItem(r: Prisma.ExternalWorkItemGetPayload<Prisma.ExternalWorkItemDefaultArgs>): ExternalWorkItem {
+  return {
+    ...r,
+    refs: json(r.refs, []),
+    mergedAt: r.mergedAt ? iso(r.mergedAt) : null,
+    observedAt: iso(r.observedAt),
+    updatedAt: iso(r.updatedAt),
+  };
 }
 function mapMetric(r: Prisma.MetricEventGetPayload<Prisma.MetricEventDefaultArgs>): MetricEvent {
   return { ...r, properties: r.properties ?? undefined, createdAt: iso(r.createdAt) };
@@ -2170,6 +2184,69 @@ export class PrismaStore implements Store {
 
   async deleteExternalLink(id: string): Promise<void> {
     await this.db.externalLink.deleteMany({ where: { id } });
+  }
+
+  async createExternalConnection(data: Omit<ExternalConnection, "id" | "createdAt" | "updatedAt">): Promise<ExternalConnection> {
+    try {
+      return mapExternalConnection(
+        await this.db.externalConnection.create({
+          data: { id: newId("exc"), projectId: data.projectId, provider: data.provider, secretSealed: data.secretSealed, enabled: data.enabled },
+        }),
+      );
+    } catch (err) {
+      if (isUniqueViolation(err)) throw DomainError.conflict("This project already has a connection for this provider");
+      throw err;
+    }
+  }
+
+  async findExternalConnectionById(id: string): Promise<ExternalConnection | null> {
+    const r = await this.db.externalConnection.findUnique({ where: { id } });
+    return r ? mapExternalConnection(r) : null;
+  }
+
+  async listExternalConnections(projectId: string): Promise<ExternalConnection[]> {
+    return (await this.db.externalConnection.findMany({ where: { projectId }, orderBy: ORDER_DESC })).map(mapExternalConnection);
+  }
+
+  async updateExternalConnection(id: string, patch: Partial<ExternalConnection>): Promise<ExternalConnection> {
+    return mapExternalConnection(
+      await this.db.externalConnection.update({
+        where: { id },
+        data: {
+          ...(patch.secretSealed !== undefined ? { secretSealed: patch.secretSealed } : {}),
+          ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        },
+      }),
+    );
+  }
+
+  async deleteExternalConnection(id: string): Promise<void> {
+    await this.db.externalConnection.deleteMany({ where: { id } });
+  }
+
+  async upsertExternalWorkItem(data: Omit<ExternalWorkItem, "id" | "observedAt" | "updatedAt">): Promise<ExternalWorkItem> {
+    return mapExternalWorkItem(
+      await this.db.externalWorkItem.upsert({
+        where: { projectId_provider_externalId_kind: { projectId: data.projectId, provider: data.provider, externalId: data.externalId, kind: data.kind } },
+        create: {
+          id: newId("exw"),
+          projectId: data.projectId,
+          provider: data.provider,
+          externalId: data.externalId,
+          kind: data.kind,
+          url: data.url,
+          title: data.title,
+          refs: J(data.refs),
+          merged: data.merged,
+          mergedAt: data.mergedAt ? asDate(data.mergedAt) : null,
+        },
+        update: { url: data.url, title: data.title, refs: J(data.refs), merged: data.merged, mergedAt: data.mergedAt ? asDate(data.mergedAt) : null },
+      }),
+    );
+  }
+
+  async listExternalWorkItems(projectId: string): Promise<ExternalWorkItem[]> {
+    return (await this.db.externalWorkItem.findMany({ where: { projectId }, orderBy: [{ observedAt: "desc" }, { id: "desc" }] })).map(mapExternalWorkItem);
   }
 
   async findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null> {

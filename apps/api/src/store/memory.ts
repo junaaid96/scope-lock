@@ -22,7 +22,9 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ExternalConnection,
   ExternalLink,
+  ExternalWorkItem,
   IdempotencyRecord,
   InboundMailbox,
   IntakeLink,
@@ -94,6 +96,8 @@ type Tables = {
   webhookDeliveries: Map<string, WebhookDelivery>;
   aiAnalyses: Map<string, AIAnalysis>;
   externalLinks: Map<string, ExternalLink>;
+  externalConnections: Map<string, ExternalConnection>;
+  externalWorkItems: Map<string, ExternalWorkItem>;
   metricEvents: Map<string, MetricEvent>;
   idempotency: Map<string, IdempotencyRecord>;
   usage: Map<string, UsageCounter>;
@@ -142,6 +146,8 @@ function emptyTables(): Tables {
     webhookDeliveries: new Map(),
     aiAnalyses: new Map(),
     externalLinks: new Map(),
+    externalConnections: new Map(),
+    externalWorkItems: new Map(),
     metricEvents: new Map(),
     idempotency: new Map(),
     usage: new Map(),
@@ -1549,6 +1555,71 @@ export class MemoryStore implements Store {
   async deleteExternalLink(id: string): Promise<void> {
     this.tables.externalLinks.delete(id);
     this.afterCommit();
+  }
+
+  async createExternalConnection(data: Omit<ExternalConnection, "id" | "createdAt" | "updatedAt">): Promise<ExternalConnection> {
+    for (const c of this.tables.externalConnections.values()) {
+      if (c.projectId === data.projectId && c.provider === data.provider) {
+        throw new Error("External connection already exists");
+      }
+    }
+    const now = nowIso();
+    const row: ExternalConnection = { id: newId("exc"), createdAt: now, updatedAt: now, ...data };
+    this.tables.externalConnections.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findExternalConnectionById(id: string): Promise<ExternalConnection | null> {
+    return this.tables.externalConnections.get(id) ?? null;
+  }
+
+  async listExternalConnections(projectId: string): Promise<ExternalConnection[]> {
+    return sortDesc([...this.tables.externalConnections.values()].filter((c) => c.projectId === projectId));
+  }
+
+  async updateExternalConnection(id: string, patch: Partial<ExternalConnection>): Promise<ExternalConnection> {
+    const existing = this.tables.externalConnections.get(id);
+    if (!existing) throw new Error(`External connection not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.externalConnections.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteExternalConnection(id: string): Promise<void> {
+    this.tables.externalConnections.delete(id);
+    this.afterCommit();
+  }
+
+  async upsertExternalWorkItem(data: Omit<ExternalWorkItem, "id" | "observedAt" | "updatedAt">): Promise<ExternalWorkItem> {
+    for (const w of this.tables.externalWorkItems.values()) {
+      if (w.projectId === data.projectId && w.provider === data.provider && w.externalId === data.externalId && w.kind === data.kind) {
+        const updated: ExternalWorkItem = {
+          ...w,
+          url: data.url,
+          title: data.title,
+          refs: data.refs,
+          merged: data.merged,
+          mergedAt: data.mergedAt,
+          updatedAt: nowIso(),
+        };
+        this.tables.externalWorkItems.set(w.id, updated);
+        this.afterCommit();
+        return updated;
+      }
+    }
+    const now = nowIso();
+    const row: ExternalWorkItem = { id: newId("exw"), observedAt: now, updatedAt: now, ...data };
+    this.tables.externalWorkItems.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async listExternalWorkItems(projectId: string): Promise<ExternalWorkItem[]> {
+    return [...this.tables.externalWorkItems.values()]
+      .filter((w) => w.projectId === projectId)
+      .sort((a, b) => (a.observedAt === b.observedAt ? (a.id < b.id ? 1 : -1) : a.observedAt < b.observedAt ? 1 : -1));
   }
 
   async findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null> {

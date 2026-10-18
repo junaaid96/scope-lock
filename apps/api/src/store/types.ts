@@ -813,6 +813,31 @@ export interface ExternalLink {
   createdAt: string;
 }
 
+export interface ExternalConnection {
+  id: string;
+  projectId: string;
+  provider: string;
+  secretSealed: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalWorkItem {
+  id: string;
+  projectId: string;
+  provider: string;
+  externalId: string;
+  kind: string;
+  url: string | null;
+  title: string | null;
+  refs: string[];
+  merged: boolean;
+  mergedAt: string | null;
+  observedAt: string;
+  updatedAt: string;
+}
+
 export interface MetricEvent {
   id: string;
   organizationId: string;
