@@ -1212,6 +1212,42 @@ async function main(): Promise<void> {
       console.log(`  Inbound mailbox (Forgeline): ${body.address}`);
     }
   }
+
+  // Demo API key + webhook subscription (resumable). Secrets are shown once
+  // by the API and never printed here; create your own in Org settings.
+  {
+    const keys = (await expectOk(
+      await owner.agent.get(`/api/v1/organizations/${orgId}/api-keys`),
+      "list demo keys",
+    )) as unknown as Array<{ name: string; prefix: string }>;
+    if (!keys.some((k) => k.name === "Demo dashboard")) {
+      const created = (await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/api-keys`).send({
+          name: "Demo dashboard",
+          scopes: ["project.view", "approval.view", "activity.view", "export.read"],
+        }),
+        "seed demo key",
+        [201],
+      )) as { key: { prefix: string } };
+      console.log(`  Demo API key: Demo dashboard (${created.key.prefix}…, read-only scopes)`);
+    }
+    const hooks = (await expectOk(
+      await owner.agent.get(`/api/v1/organizations/${orgId}/webhooks`),
+      "list demo webhooks",
+    )) as unknown as Array<{ url: string }>;
+    if (!hooks.some((h) => h.url === "https://example.com/scopelock-events")) {
+      await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/webhooks`).send({
+          url: "https://example.com/scopelock-events",
+          events: ["approval.decided"],
+          enabled: false,
+        }),
+        "seed demo webhook",
+        [201],
+      );
+      console.log("  Demo webhook: https://example.com/scopelock-events (disabled; enable + replay from Org settings)");
+    }
+  }
 }
 
 void main().catch((err: unknown) => {
