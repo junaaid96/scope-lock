@@ -37,6 +37,20 @@ describe("transitions", () => {
     );
   });
 
+  it("parks pre-decision work and revives it into a new submission", () => {
+    for (const from of ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "REJECTED"] as const) {
+      expect(() => assertManualChangeTransition(from, "PARKED")).not.toThrow();
+    }
+    for (const to of ["DRAFT", "SUBMITTED", "WITHDRAWN"] as const) {
+      expect(() => assertManualChangeTransition("PARKED", to)).not.toThrow();
+    }
+    // Live packages and decided work cannot park.
+    for (const from of ["PENDING_APPROVAL", "APPROVED", "IMPLEMENTED", "WITHDRAWN"] as const) {
+      expect(() => assertManualChangeTransition(from, "PARKED")).toThrowError(DomainError);
+    }
+    expect(() => assertManualChangeTransition("PARKED", "ESTIMATING")).toThrowError(DomainError);
+  });
+
   it("allows approval invalidation from draft/sent only", () => {
     expect(() => assertTransition(ApprovalTransitions, "SENT", "INVALIDATED", "approval")).not.toThrow();
     expect(() => assertTransition(ApprovalTransitions, "DECIDED", "INVALIDATED", "approval")).toThrowError(

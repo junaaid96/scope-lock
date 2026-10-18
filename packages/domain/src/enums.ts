@@ -37,6 +37,7 @@ export const ChangeStatuses = [
   "PENDING_APPROVAL",
   "APPROVED",
   "REJECTED",
+  "PARKED",
   "WITHDRAWN",
   "IMPLEMENTED",
 ] as const;
