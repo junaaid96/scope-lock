@@ -69,7 +69,7 @@ describe("domain rules", () => {
       unapprovedImplementations: [],
     });
     expect(health.score).toBeLessThan(5);
-    expect(health.signals).toHaveLength(5);
+    expect(health.signals).toHaveLength(6);
     expect(health.signals.every((s) => s.detail.length > 0)).toBe(true);
   });
 

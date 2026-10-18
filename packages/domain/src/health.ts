@@ -9,10 +9,12 @@ export interface HealthInput {
   unlinkedRequests: Array<{ id: string; title: string }>;
   /** Changes marked implemented without an approval decision trail. */
   unapprovedImplementations: Array<{ id: string; title: string }>;
+  /** Merged external work (PRs, pushes) that references no ScopeLock request. */
+  unlinkedWork?: Array<{ id: string; title: string }>;
 }
 
 export interface HealthSignal {
-  key: "aging" | "pending" | "expired" | "unlinked" | "unapproved";
+  key: "aging" | "pending" | "expired" | "unlinked" | "unapproved" | "unlinked-work";
   label: string;
   count: number;
   detail: string;
@@ -90,6 +92,16 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
           : `${input.unapprovedImplementations.length} change(s) implemented without an approval decision.`,
       itemIds: input.unapprovedImplementations.map((r) => r.id),
     },
+    {
+      key: "unlinked-work",
+      label: "Unlinked work",
+      count: (input.unlinkedWork ?? []).length,
+      detail:
+        (input.unlinkedWork ?? []).length === 0
+          ? "Every merged external change links to a request."
+          : `${(input.unlinkedWork ?? []).length} merged external change(s) link to no request — work happened outside ScopeLock.`,
+      itemIds: (input.unlinkedWork ?? []).map((r) => r.id),
+    },
   ];
 
   const penalty =
@@ -97,7 +109,8 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
     Math.min(input.pendingApprovals.length, 4) * 0.25 +
     input.expiredApprovals.length * 1 +
     Math.min(input.unlinkedRequests.length, 4) * 0.25 +
-    input.unapprovedImplementations.length * 1.5;
+    input.unapprovedImplementations.length * 1.5 +
+    Math.min((input.unlinkedWork ?? []).length, 4) * 0.25;
   const score = Math.max(0, Math.min(5, Math.round(5 - penalty))) as ScopeHealth["score"];
   const worst = signals.filter((s) => s.count > 0).sort((a, b) => b.count - a.count)[0];
   return {
