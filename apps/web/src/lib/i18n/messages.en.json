@@ -120,7 +120,16 @@
     "deemedPlaceholder": "e.g. 7 — blank disables",
     "deemedSaved": "Deemed-acceptance window saved.",
     "deemedError": "Enter 1–90 days, or leave blank to disable.",
-    "saveDeemed": "Save deemed window"
+    "saveDeemed": "Save deemed window",
+    "escalationTitle": "Escalation",
+    "escalationBlurb": "Stalled packages escalate exactly once after the delay below. Either the approvers who still owe a vote get a second nudge (whoever's turn it is, when sequential), or the agency leads are told the package is stalled. Blank disables escalation.",
+    "escalationHoursLabel": "Escalate after (hours)",
+    "escalationTargetLabel": "Escalate to",
+    "escalationTargetLead": "Agency lead",
+    "escalationTargetApprover": "Undecided approvers",
+    "escalationPlaceholder": "e.g. 48 — blank disables",
+    "escalationError": "Enter 1–720 hours, or leave blank to disable.",
+    "saveEscalation": "Save escalation"
   },
   "options": {
     "title": "Proposal options",

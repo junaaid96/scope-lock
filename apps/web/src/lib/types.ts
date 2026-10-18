@@ -32,6 +32,7 @@ export interface ProjectDetail extends ProjectListItem {
     approvalPolicies?: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
     stepUp?: { otp: boolean | null; typedName: boolean | null };
     deemedAcceptanceDays?: number | null;
+    escalation?: { afterHours: number | null; target: "SECOND_APPROVER" | "AGENCY_LEAD" };
   };
   externalIntegrationsEnabled: boolean;
   client: Client | null;

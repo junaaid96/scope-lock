@@ -30,6 +30,8 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
   const [rules, setRules] = useState<RuleDraft[] | null>(null);
   const [stepUp, setStepUp] = useState<{ otp: boolean | null; typedName: boolean | null } | null>(null);
   const [deemed, setDeemed] = useState<string | null>(null);
+  const [escHours, setEscHours] = useState<string | null>(null);
+  const [escTarget, setEscTarget] = useState<"SECOND_APPROVER" | "AGENCY_LEAD" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const current = rules ?? fromServer((project.settings.approvalPolicies ?? []) as Array<{ uptoMinor: number | null; mode: Mode }>);
@@ -107,6 +109,28 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
     },
     onSuccess: () => {
       setDeemed(null);
+      setSaved(true);
+      void client.invalidateQueries({ queryKey: ["project", project.id] });
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+
+  const serverEsc = project.settings.escalation ?? { afterHours: null, target: "AGENCY_LEAD" as const };
+  const currentEscHours = escHours ?? (serverEsc.afterHours === null ? "" : String(serverEsc.afterHours));
+  const currentEscTarget = escTarget ?? serverEsc.target;
+  const saveEscalation = useMutation({
+    mutationFn: async () => {
+      const trimmed = currentEscHours.trim();
+      if (trimmed === "") {
+        return api.patch(`/projects/${project.id}`, { settings: { escalation: { afterHours: null, target: currentEscTarget } } });
+      }
+      const hours = Number(trimmed);
+      if (!Number.isInteger(hours) || hours < 1 || hours > 720) throw new Error(t("policy.escalationError"));
+      return api.patch(`/projects/${project.id}`, { settings: { escalation: { afterHours: hours, target: currentEscTarget } } });
+    },
+    onSuccess: () => {
+      setEscHours(null);
+      setEscTarget(null);
       setSaved(true);
       void client.invalidateQueries({ queryKey: ["project", project.id] });
     },
@@ -267,6 +291,38 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
           <div className="mt-3">
             <Button type="button" disabled={saveDeemed.isPending} onClick={() => saveDeemed.mutate()}>
               {t("policy.saveDeemed")}
+            </Button>
+          </div>
+        </fieldset>
+      </Card>
+      <Card>
+        <fieldset>
+          <legend className="text-base font-semibold text-slate-900">{t("policy.escalationTitle")}</legend>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">{t("policy.escalationBlurb")}</p>
+          <div className="mt-3 grid max-w-xl gap-3 sm:grid-cols-2">
+            <Field label={t("policy.escalationHoursLabel")} htmlFor="policy-escalation-hours">
+              <Input
+                id="policy-escalation-hours"
+                inputMode="numeric"
+                placeholder={t("policy.escalationPlaceholder")}
+                value={currentEscHours}
+                onChange={(e) => { setEscHours(e.target.value); setSaved(false); setError(null); }}
+              />
+            </Field>
+            <Field label={t("policy.escalationTargetLabel")} htmlFor="policy-escalation-target">
+              <Select
+                id="policy-escalation-target"
+                value={currentEscTarget}
+                onChange={(e) => { setEscTarget(e.target.value as "SECOND_APPROVER" | "AGENCY_LEAD"); setSaved(false); setError(null); }}
+              >
+                <option value="AGENCY_LEAD">{t("policy.escalationTargetLead")}</option>
+                <option value="SECOND_APPROVER">{t("policy.escalationTargetApprover")}</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="mt-3">
+            <Button type="button" disabled={saveEscalation.isPending} onClick={() => saveEscalation.mutate()}>
+              {t("policy.saveEscalation")}
             </Button>
           </div>
         </fieldset>
