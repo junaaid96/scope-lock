@@ -259,6 +259,8 @@ export function allowanceRoutes(ctx: AppContext): Router {
           supersededBy: null,
           remindersSent: [],
           chosenOptionId: null,
+          acceptanceRequirementIds: [],
+          deemedAt: null,
           version: 0,
         });
         for (let i = 0; i < approvers.length; i++) {

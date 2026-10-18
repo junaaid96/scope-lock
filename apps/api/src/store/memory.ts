@@ -1031,6 +1031,12 @@ export class MemoryStore implements Store {
     return sortDesc([...this.tables.approvals.values()].filter((a) => a.bundleId === bundleId));
   }
 
+  async listAcceptanceApprovalsForRequirement(requirementId: string): Promise<ApprovalRequest[]> {
+    return sortDesc(
+      [...this.tables.approvals.values()].filter((a) => (a.acceptanceRequirementIds ?? []).includes(requirementId)),
+    );
+  }
+
   async listProjectApprovals(projectId: string): Promise<ApprovalRequest[]> {
     return sortDesc([...this.tables.approvals.values()].filter((a) => a.projectId === projectId));
   }
@@ -1543,6 +1549,12 @@ export class MemoryStore implements Store {
       if (rec.chainSeq === undefined) rec.chainSeq = 0;
       if (rec.prevHash === undefined) rec.prevHash = GENESIS_PREV_HASH;
       if (rec.hash === undefined) rec.hash = "";
+    }
+    // Pre-acceptance snapshots: approvals predate the acceptance columns.
+    for (const row of next.approvals.values()) {
+      const rec = row as unknown as Record<string, unknown>;
+      if (rec.acceptanceRequirementIds === undefined) rec.acceptanceRequirementIds = [];
+      if (rec.deemedAt === undefined) rec.deemedAt = null;
     }
     this.tables = next;
   }

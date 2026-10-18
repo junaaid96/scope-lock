@@ -51,7 +51,7 @@ export const ChangeClassifications = [
 ] as const;
 export type ChangeClassification = (typeof ChangeClassifications)[number];
 
-export const ApprovalStatuses = ["DRAFT", "SENT", "DECIDED", "EXPIRED", "INVALIDATED"] as const;
+export const ApprovalStatuses = ["DRAFT", "SENT", "DECIDED", "EXPIRED", "INVALIDATED", "DEEMED"] as const;
 export type ApprovalStatus = (typeof ApprovalStatuses)[number];
 
 export const ApprovalDecisions = ["APPROVED", "REJECTED", "CHANGES_REQUESTED"] as const;

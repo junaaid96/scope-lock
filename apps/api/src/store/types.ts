@@ -145,6 +145,8 @@ export interface ProjectSettings {
   approvalPolicies: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
   /** Step-up verification; null inherits the org default. */
   stepUp: { otp: boolean | null; typedName: boolean | null };
+  /** Deemed-acceptance window in days; null disables deemed acceptance. */
+  deemedAcceptanceDays: number | null;
 }
 
 export interface Project {
@@ -504,6 +506,23 @@ export interface ReviewPackageSnapshot {
     currency: string | null;
     objectionWindowHours: number;
   } | null;
+  /** Set only on delivery-acceptance packages. */
+  acceptance?: {
+    requirements: Array<{
+      requirementId: string;
+      stableKey: string;
+      title: string;
+      description: string;
+      acceptanceCriteria: string[];
+      evidence: Array<{
+        evidenceId: string;
+        type: string;
+        title: string;
+        url: string | null;
+        status: string;
+      }>;
+    }>;
+  } | null;
 }
 
 export interface ApprovalRequest {
@@ -513,6 +532,10 @@ export interface ApprovalRequest {
   bundleId: string | null;
   /** Set when the client is deciding the allowance grant itself. */
   allowancePoolId: string | null;
+  /** Non-empty when the client is accepting delivered requirements. */
+  acceptanceRequirementIds: string[];
+  /** Set when policy deemed the package accepted at the deadline. */
+  deemedAt: string | null;
   title: string | null;
   package: ReviewPackageSnapshot;
   checksum: string;

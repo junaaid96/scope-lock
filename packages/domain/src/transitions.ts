@@ -50,10 +50,11 @@ export const RequirementTransitions = buildMap<RequirementStatus>([
 
 export const ApprovalTransitions = buildMap<ApprovalStatus>([
   ["DRAFT", ["SENT", "INVALIDATED"]],
-  ["SENT", ["DECIDED", "EXPIRED", "INVALIDATED"]],
+  ["SENT", ["DECIDED", "EXPIRED", "INVALIDATED", "DEEMED"]],
   ["DECIDED", []],
   ["EXPIRED", ["SENT"]],
   ["INVALIDATED", ["SENT"]],
+  ["DEEMED", []],
 ]);
 
 export const ScopeVersionTransitions = buildMap<ScopeVersionStatus>([

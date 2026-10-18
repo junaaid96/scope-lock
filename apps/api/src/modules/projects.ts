@@ -84,6 +84,7 @@ export function projectRoutes(ctx: AppContext): Router {
               otp: input.settings?.stepUp?.otp ?? null,
               typedName: input.settings?.stepUp?.typedName ?? null,
             },
+            deemedAcceptanceDays: input.settings?.deemedAcceptanceDays ?? null,
           },
         });
         await tx.upsertProjectMember(created.id, auth.user.id, "LEAD");
@@ -178,6 +179,11 @@ export function projectRoutes(ctx: AppContext): Router {
                       ? (input.settings.stepUp.typedName ?? null)
                       : (access.project.settings.stepUp?.typedName ?? null),
                 },
+                // Explicit null disables; absence keeps the current value.
+                deemedAcceptanceDays:
+                  input.settings && "deemedAcceptanceDays" in input.settings
+                    ? (input.settings.deemedAcceptanceDays ?? null)
+                    : (access.project.settings.deemedAcceptanceDays ?? null),
               },
             }
           : {}),

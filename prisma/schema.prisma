@@ -76,6 +76,7 @@ enum ApprovalStatus {
   DECIDED
   EXPIRED
   INVALIDATED
+  DEEMED
 }
 
 enum DecisionValue {
@@ -672,6 +673,8 @@ model ApprovalRequest {
   changeRequestId String?
   bundleId        String?
   allowancePoolId String?
+  acceptanceRequirementIds Json @default("[]")
+  deemedAt        DateTime?
   title           String?
   package         Json
   checksum        String

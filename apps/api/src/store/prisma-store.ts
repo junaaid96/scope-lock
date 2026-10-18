@@ -134,6 +134,7 @@ function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Pro
       reminderHoursBeforeExpiry: (settings.reminderHoursBeforeExpiry as number[] | undefined) ?? [48, 24],
       approvalPolicies: (settings.approvalPolicies as ProjectSettings["approvalPolicies"] | undefined) ?? [],
       stepUp: (settings.stepUp as ProjectSettings["stepUp"] | undefined) ?? { otp: null, typedName: null },
+      deemedAcceptanceDays: (settings.deemedAcceptanceDays as number | null | undefined) ?? null,
     },
     externalIntegrationsEnabled: r.externalIntegrationsEnabled,
     changeCounter: r.changeCounter,
@@ -260,8 +261,10 @@ function mapApproval(r: Prisma.ApprovalRequestGetPayload<Prisma.ApprovalRequestD
     approverUserIds: json(r.approverUserIds, []),
     policy: { mode: policy.mode ?? "ANY", approverOrder: policy.approverOrder ?? [] },
     remindersSent: json(r.remindersSent, []),
+    acceptanceRequirementIds: json(r.acceptanceRequirementIds, []),
     expiresAt: r.expiresAt ? iso(r.expiresAt) : null,
     sentAt: r.sentAt ? iso(r.sentAt) : null,
+    deemedAt: r.deemedAt ? iso(r.deemedAt) : null,
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -1377,6 +1380,8 @@ export class PrismaStore implements Store {
           changeRequestId: data.changeRequestId,
           bundleId: data.bundleId,
           allowancePoolId: data.allowancePoolId,
+          acceptanceRequirementIds: J(data.acceptanceRequirementIds),
+          deemedAt: data.deemedAt ? asDate(data.deemedAt) : null,
           title: data.title,
           package: J(data.package),
           checksum: data.checksum,
@@ -1412,6 +1417,13 @@ export class PrismaStore implements Store {
     return (await this.db.approvalRequest.findMany({ where: { bundleId }, orderBy })).map(mapApproval);
   }
 
+  async listAcceptanceApprovalsForRequirement(requirementId: string): Promise<ApprovalRequest[]> {
+    const orderBy = ORDER_DESC;
+    return (
+      await this.db.approvalRequest.findMany({ where: { acceptanceRequirementIds: { array_contains: requirementId } }, orderBy })
+    ).map(mapApproval);
+  }
+
   async listProjectApprovals(projectId: string): Promise<ApprovalRequest[]> {
     const orderBy = ORDER_DESC;
     return (await this.db.approvalRequest.findMany({ where: { projectId }, orderBy })).map(mapApproval);
@@ -1435,6 +1447,7 @@ export class PrismaStore implements Store {
           ...(patch.remindersSent !== undefined ? { remindersSent: J(patch.remindersSent) } : {}),
           ...(patch.version !== undefined ? { version: patch.version } : {}),
           ...(patch.chosenOptionId !== undefined ? { chosenOptionId: patch.chosenOptionId } : {}),
+          ...(patch.deemedAt !== undefined ? { deemedAt: patch.deemedAt ? asDate(patch.deemedAt) : null } : {}),
         },
       }),
     );
