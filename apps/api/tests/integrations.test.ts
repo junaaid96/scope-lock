@@ -198,8 +198,11 @@ describe("OpenAPI spec", () => {
     const paths = Object.keys(res.body.paths as Record<string, unknown>);
     expect(paths).toContain("/organizations/{id}/api-keys");
     expect(paths).toContain("/organizations/{id}/webhooks/{hookId}/deliveries/{deliveryId}/replay");
+    expect(paths).toContain("/projects/{id}/external-connections");
+    expect(paths).toContain("/projects/{id}/external-work");
     expect(Object.keys(res.body.webhooks as Record<string, unknown>)).toContain("approval.decided");
     expect(Object.keys(res.body.components.schemas as Record<string, unknown>)).toContain("ApiKeyView");
+    expect(Object.keys(res.body.components.schemas as Record<string, unknown>)).toContain("ExternalWorkItemView");
   });
 });
 

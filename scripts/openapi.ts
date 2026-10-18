@@ -12,7 +12,11 @@ import { fileURLToPath } from "node:url";
 import {
   ApiKeyViewSchema,
   CreateApiKeySchema,
+  CreateExternalConnectionSchema,
   CreateWebhookSchema,
+  ExternalConnectionViewSchema,
+  ExternalWorkItemViewSchema,
+  UpdateExternalConnectionSchema,
   UpdateWebhookSchema,
   WebhookDeliveryViewSchema,
   WebhookEventSchema,
@@ -158,6 +162,10 @@ const WebhookView = schemaOf(WebhookViewSchema);
 const CreateWebhook = schemaOf(CreateWebhookSchema);
 const UpdateWebhook = schemaOf(UpdateWebhookSchema);
 const WebhookDeliveryView = schemaOf(WebhookDeliveryViewSchema);
+const CreateExternalConnection = schemaOf(CreateExternalConnectionSchema);
+const UpdateExternalConnection = schemaOf(UpdateExternalConnectionSchema);
+const ExternalConnectionView = schemaOf(ExternalConnectionViewSchema);
+const ExternalWorkItemView = schemaOf(ExternalWorkItemViewSchema);
 const eventEnum = WebhookEventSchema.options as unknown as string[];
 
 function err(description: string): Record<string, unknown> {
@@ -185,13 +193,14 @@ const spec = {
     version: rootPkg.version,
     description:
       "System of record for client scope, change requests, approvals and delivery evidence. " +
-      "This document covers the integration surface (API keys, outgoing webhooks). " +
+      "This document covers the integration surface (API keys, outgoing webhooks, external integrations). " +
       "Shapes are generated from the Zod contracts in packages/contracts; regenerate with `npm run openapi`.",
   },
   servers: [{ url: "/api/v1", description: "Same origin as the API deployment." }],
   tags: [
     { name: "API keys", description: "Hashed, scoped, rotatable machine credentials." },
     { name: "Webhooks", description: "Outgoing event subscriptions with HMAC-signed deliveries." },
+    { name: "External integrations", description: "Provider webhook intake (GitHub) and observed work identifiers." },
   ],
   security: sessionOrKey,
   paths: {
@@ -395,6 +404,121 @@ const spec = {
         },
       },
     },
+    "/projects/{id}/external-connections": {
+      get: {
+        tags: ["External integrations"],
+        summary: "List provider connections",
+        parameters: [idParam("id", "Project ID.")],
+        responses: {
+          "200": {
+            description: "Connections (never includes secrets).",
+            content: {
+              "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/ExternalConnectionView" } } },
+            },
+          },
+          "401": err("Authentication required."),
+          "403": err("Requires project.view."),
+          "404": err("Project not found."),
+        },
+      },
+      post: {
+        tags: ["External integrations"],
+        summary: "Connect a provider",
+        description:
+          "Creates one connection per provider with a once-only webhook secret. " +
+          "Requires the project's external-integrations opt-in.",
+        parameters: [idParam("id", "Project ID.")],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/CreateExternalConnection" } } },
+        },
+        responses: {
+          "201": {
+            description: "Connection, one-time secret, and webhook URL.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ExternalConnectionCreated" } } },
+          },
+          "400": err("Validation failed."),
+          "401": err("Authentication required."),
+          "403": err("Requires external.manage."),
+          "404": err("Project not found."),
+          "409": err("A connection for this provider already exists."),
+          "422": err("External integrations are not enabled for this project."),
+        },
+      },
+    },
+    "/projects/{id}/external-connections/{connectionId}": {
+      patch: {
+        tags: ["External integrations"],
+        summary: "Enable or disable a connection",
+        parameters: [idParam("id", "Project ID."), idParam("connectionId", "Connection ID.")],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateExternalConnection" } } },
+        },
+        responses: {
+          "200": {
+            description: "Updated connection.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ExternalConnectionView" } } },
+          },
+          "401": err("Authentication required."),
+          "403": err("Requires external.manage."),
+          "404": err("Project or connection not found."),
+        },
+      },
+      delete: {
+        tags: ["External integrations"],
+        summary: "Delete a connection",
+        description: "Observed work and links stay as evidence; only intake is removed.",
+        parameters: [idParam("id", "Project ID."), idParam("connectionId", "Connection ID.")],
+        responses: {
+          "200": {
+            description: "Deleted.",
+            content: { "application/json": { schema: { type: "object", properties: { ok: { type: "boolean" } } } } },
+          },
+          "401": err("Authentication required."),
+          "403": err("Requires external.manage."),
+          "404": err("Project or connection not found."),
+        },
+      },
+    },
+    "/projects/{id}/external-connections/{connectionId}/rotate-secret": {
+      post: {
+        tags: ["External integrations"],
+        summary: "Rotate a connection secret",
+        description: "Issues a new webhook secret, shown once. Update the provider webhook before deliveries resume.",
+        parameters: [idParam("id", "Project ID."), idParam("connectionId", "Connection ID.")],
+        responses: {
+          "201": {
+            description: "Connection and one-time secret.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ExternalConnectionRotated" } } },
+          },
+          "401": err("Authentication required."),
+          "403": err("Requires external.manage."),
+          "404": err("Project or connection not found."),
+        },
+      },
+    },
+    "/projects/{id}/external-work": {
+      get: {
+        tags: ["External integrations"],
+        summary: "List observed external work",
+        description: "Minimal identifiers (external id, kind, refs, merged state). Never code or full payloads.",
+        parameters: [
+          idParam("id", "Project ID."),
+          { name: "cursor", in: "query", required: false, schema: { type: "string" } },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", default: 25 } },
+        ],
+        responses: {
+          "200": {
+            description: "Cursor-paginated work items.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ExternalWorkPage" } } },
+          },
+          "401": err("Authentication required."),
+          "403": err("Requires project.view."),
+          "404": err("Project not found."),
+        },
+      },
+    },
   },
   webhooks: Object.fromEntries(
     eventEnum.map((event) => [
@@ -437,6 +561,39 @@ const spec = {
       },
     },
     schemas: {
+      ExternalConnectionView,
+      CreateExternalConnection,
+      UpdateExternalConnection,
+      ExternalConnectionCreated: {
+        type: "object",
+        required: ["connection", "secret", "webhookUrl"],
+        properties: {
+          connection: { $ref: "#/components/schemas/ExternalConnectionView" },
+          secret: { type: "string", description: "One-time webhook secret. It is never returned again." },
+          webhookUrl: { type: "string", format: "uri", description: "Configure this URL in the provider webhook settings." },
+        },
+      },
+      ExternalConnectionRotated: {
+        type: "object",
+        required: ["connection", "secret"],
+        properties: {
+          connection: { $ref: "#/components/schemas/ExternalConnectionView" },
+          secret: { type: "string", description: "One-time webhook secret. It is never returned again." },
+        },
+      },
+      ExternalWorkItemView,
+      ExternalWorkPage: {
+        type: "object",
+        required: ["data", "pagination"],
+        properties: {
+          data: { type: "array", items: { $ref: "#/components/schemas/ExternalWorkItemView" } },
+          pagination: {
+            type: "object",
+            required: ["nextCursor"],
+            properties: { nextCursor: { type: "string", nullable: true } },
+          },
+        },
+      },
       ApiKeyView,
       CreateApiKey,
       ApiKeyCreated: {

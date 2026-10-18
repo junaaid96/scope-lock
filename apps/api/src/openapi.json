@@ -3,7 +3,7 @@
   "info": {
     "title": "ScopeLock API",
     "version": "0.1.0",
-    "description": "System of record for client scope, change requests, approvals and delivery evidence. This document covers the integration surface (API keys, outgoing webhooks). Shapes are generated from the Zod contracts in packages/contracts; regenerate with `npm run openapi`."
+    "description": "System of record for client scope, change requests, approvals and delivery evidence. This document covers the integration surface (API keys, outgoing webhooks, external integrations). Shapes are generated from the Zod contracts in packages/contracts; regenerate with `npm run openapi`."
   },
   "servers": [
     {
@@ -19,6 +19,10 @@
     {
       "name": "Webhooks",
       "description": "Outgoing event subscriptions with HMAC-signed deliveries."
+    },
+    {
+      "name": "External integrations",
+      "description": "Provider webhook intake (GitHub) and observed work identifiers."
     }
   ],
   "security": [
@@ -847,6 +851,474 @@
           }
         }
       }
+    },
+    "/projects/{id}/external-connections": {
+      "get": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "List provider connections",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connections (never includes secrets).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalConnectionView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires project.view.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "Connect a provider",
+        "description": "Creates one connection per provider with a once-only webhook secret. Requires the project's external-integrations opt-in.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExternalConnection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Connection, one-time secret, and webhook URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalConnectionCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires external.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A connection for this provider already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "External integrations are not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/external-connections/{connectionId}": {
+      "patch": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "Enable or disable a connection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Connection ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExternalConnection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalConnectionView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires external.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or connection not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "Delete a connection",
+        "description": "Observed work and links stay as evidence; only intake is removed.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Connection ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires external.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or connection not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/external-connections/{connectionId}/rotate-secret": {
+      "post": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "Rotate a connection secret",
+        "description": "Issues a new webhook secret, shown once. Update the provider webhook before deliveries resume.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Connection ID."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Connection and one-time secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalConnectionRotated"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires external.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project or connection not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/external-work": {
+      "get": {
+        "tags": [
+          "External integrations"
+        ],
+        "summary": "List observed external work",
+        "description": "Minimal identifiers (external id, kind, refs, merged state). Never code or full payloads.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Project ID."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor-paginated work items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalWorkPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires project.view.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -1101,6 +1573,208 @@
       }
     },
     "schemas": {
+      "ExternalConnectionView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "provider": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "provider",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateExternalConnection": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "GITHUB"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateExternalConnection": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "ExternalConnectionCreated": {
+        "type": "object",
+        "required": [
+          "connection",
+          "secret",
+          "webhookUrl"
+        ],
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/ExternalConnectionView"
+          },
+          "secret": {
+            "type": "string",
+            "description": "One-time webhook secret. It is never returned again."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Configure this URL in the provider webhook settings."
+          }
+        }
+      },
+      "ExternalConnectionRotated": {
+        "type": "object",
+        "required": [
+          "connection",
+          "secret"
+        ],
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/ExternalConnectionView"
+          },
+          "secret": {
+            "type": "string",
+            "description": "One-time webhook secret. It is never returned again."
+          }
+        }
+      },
+      "ExternalWorkItemView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "provider": {
+            "type": "string"
+          },
+          "externalId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PULL_REQUEST",
+              "PUSH"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "merged": {
+            "type": "boolean"
+          },
+          "mergedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "projectId",
+          "provider",
+          "externalId",
+          "kind",
+          "url",
+          "title",
+          "refs",
+          "merged",
+          "mergedAt",
+          "observedAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ExternalWorkPage": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalWorkItemView"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "required": [
+              "nextCursor"
+            ],
+            "properties": {
+              "nextCursor": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        }
+      },
       "ApiKeyView": {
         "type": "object",
         "properties": {
