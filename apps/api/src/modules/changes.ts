@@ -191,8 +191,8 @@ export function changeRoutes(ctx: AppContext): Router {
       const input = req.body as z.infer<typeof CreateChangeSchema>;
       const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
       requireAction(access.access, "change.submit");
-      if (input.source === "INTAKE_FORM") {
-        throw DomainError.unprocessable("INTAKE_FORM is reserved for public intake submissions");
+      if (input.source === "INTAKE_FORM" || input.source === "INBOUND_EMAIL") {
+        throw DomainError.unprocessable(`${input.source} is reserved for automated intake submissions`);
       }
       const suggestedIds = await validatedSuggestionIds(ctx.store, access.project.id, input.suggestedRequirementIds);
       const change = await ctx.store.createChange({

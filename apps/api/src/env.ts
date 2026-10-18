@@ -38,6 +38,8 @@ const EnvSchema = z.object({
   ABLY_API_KEY: z.string().default(""),
   EMAIL_API_KEY: z.string().default(""),
   EMAIL_FROM: z.string().default(""),
+  INBOUND_EMAIL_DOMAIN: z.string().default("inbound.scopelock.local"),
+  INBOUND_EMAIL_WEBHOOK_SECRET: z.string().default(""),
   SENTRY_DSN: z.string().default(""),
   RATE_LIMIT_DISABLED: z
     .string()

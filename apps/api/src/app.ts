@@ -10,6 +10,7 @@ import { runWithContext } from "./context.js";
 import { logger } from "./logger.js";
 import { errorMiddleware, sendError } from "./http/errors.js";
 import { rateLimit } from "./http/rate-limit.js";
+import { captureRawBody } from "./http/types.js";
 import { authRoutes, sessionMeHandler } from "./modules/auth.js";
 import { authenticate, requireAuth } from "./http/auth.js";
 import { asyncHandler } from "./http/errors.js";
@@ -28,6 +29,7 @@ import { ledgerRoutes } from "./modules/ledger.js";
 import { pricingRoutes } from "./modules/pricing.js";
 import { allowanceRoutes } from "./modules/allowance.js";
 import { intakeRoutes } from "./modules/intake.js";
+import { inboundRoutes } from "./modules/inbound.js";
 import { notificationRoutes } from "./modules/notifications.js";
 import { externalRoutes } from "./modules/external.js";
 
@@ -65,7 +67,12 @@ export function createApp(ctx: AppContext): Express {
       next();
     });
   });
-  app.use(express.json({ limit: "2mb" }));
+  const jsonParser = express.json({ limit: "2mb", verify: captureRawBody });
+  // Webhook routes parse their own (larger, attachment-bearing) bodies.
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api/v1/webhooks/")) return next();
+    return jsonParser(req, res, next);
+  });
   app.set("scopelock.env", env);
   app.use("/api/", rateLimit(env, "default"));
 
@@ -97,6 +104,7 @@ export function createApp(ctx: AppContext): Express {
   v1.use(pricingRoutes(ctx));
   v1.use(allowanceRoutes(ctx));
   v1.use(intakeRoutes(ctx));
+  v1.use(inboundRoutes(ctx));
   v1.use(notificationRoutes(ctx));
   v1.use(externalRoutes(ctx));
   app.use("/api/v1", v1);
