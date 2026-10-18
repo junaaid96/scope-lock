@@ -366,6 +366,19 @@ export interface ActivityEvent {
   createdAt: string;
 }
 
+export interface AuditVerifyResult {
+  chainKey: string;
+  events: number;
+  chained: number;
+  legacy: number;
+  valid: boolean;
+  breakAtSeq: number | null;
+  reason: string | null;
+  headHash: string | null;
+  headSeq: number | null;
+  verifiedAt: string;
+}
+
 export interface LedgerDelta {
   changeId: string;
   number: string;

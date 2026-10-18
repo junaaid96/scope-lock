@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
-import type { ActivityEvent, AiAnalysisRow } from "../lib/types.js";
+import type { ActivityEvent, AiAnalysisRow, AuditVerifyResult } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate } from "../components/ui.js";
 
@@ -43,10 +43,56 @@ export function ActivityPage(): JSX.Element {
         </Card>
       )}
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <ChainIntegrity projectId={projectId} />
         <DecisionSearch projectId={projectId} />
+      </div>
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <AiLog projectId={projectId} />
       </div>
     </div>
+  );
+}
+
+function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
+  const [asked, setAsked] = useState(false);
+  const check = useQuery({
+    queryKey: ["audit-verify", projectId],
+    queryFn: () => api.get<AuditVerifyResult>(`/projects/${projectId}/audit/verify`),
+    enabled: asked,
+  });
+  const result = check.data;
+  return (
+    <Card>
+      <h2 className="mb-1 font-medium">Audit integrity</h2>
+      <p className="mb-2 text-xs text-slate-500">
+        Every event links to its predecessor by SHA-256. Recompute the whole chain to prove nothing was edited,
+        deleted, or reordered.
+      </p>
+      <Button size="sm" disabled={check.isFetching} onClick={() => { setAsked(true); void check.refetch(); }}>
+        {check.isFetching ? "Verifying…" : "Verify chain"}
+      </Button>
+      {check.isError ? <ErrorBanner message={errorMessage(check.error)} /> : null}
+      {result ? (
+        <div className="mt-3 text-sm" role="status">
+          {result.valid ? (
+            <p><Badge tone="green">Chain valid</Badge></p>
+          ) : (
+            <p>
+              <Badge tone="red">Chain broken</Badge>{" "}
+              <span className="text-slate-700">
+                at entry {result.breakAtSeq}: {result.reason}
+              </span>
+            </p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            {result.chained} chained event{result.chained === 1 ? "" : "s"}
+            {result.legacy > 0 ? ` · ${result.legacy} pre-chain (legacy)` : ""}
+            {result.headHash ? ` · head ${result.headHash.slice(0, 12)}…` : " · no chained events yet"}
+            {" · "}checked {formatDate(result.verifiedAt)}
+          </p>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 
