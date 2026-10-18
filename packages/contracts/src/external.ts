@@ -48,7 +48,7 @@ export const ExternalWorkItemViewSchema = z.object({
 // ---------- GitHub webhook payloads (loose: only consumed fields) ----------
 // Unknown fields pass through so new GitHub payload shapes never break intake.
 
-const GitHubRepoSchema = z.object({ full_name: z.string() }).passthrough();
+const GitHubRepoSchema = z.object({ full_name: z.string(), default_branch: z.string().optional() }).passthrough();
 
 const GitHubPullRequestSchema = z
   .object({
@@ -76,6 +76,7 @@ const GitHubCommitSchema = z
     id: z.string(),
     message: z.string(),
     url: z.string().url().optional(),
+    timestamp: z.string().optional(),
   })
   .passthrough();
 
