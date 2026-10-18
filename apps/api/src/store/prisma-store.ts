@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { DomainError, afterCursor, newId, paginate } from "@scopelock/domain";
+import { DomainError, GENESIS_PREV_HASH, afterCursor, auditChainKey, chainEventHash, newId, paginate } from "@scopelock/domain";
 import type { Store } from "./store.js";
 import type {
   AIAnalysis,
@@ -9,6 +9,7 @@ import type {
   ApprovalRequest,
   ApprovalToken,
   Attachment,
+  AuditChainHead,
   AuditEvent,
   Bundle,
   ChangeImpact,
@@ -65,6 +66,15 @@ function isUniqueViolation(err: unknown): boolean {
     err !== null &&
     "code" in err &&
     (err as { code: string }).code === "P2002"
+  );
+}
+
+function isRecordNotFound(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "P2025"
   );
 }
 
@@ -304,10 +314,72 @@ function mapNote(r: Prisma.DecisionNoteGetPayload<Prisma.DecisionNoteDefaultArgs
 function mapAudit(r: Prisma.AuditEventGetPayload<Prisma.AuditEventDefaultArgs>): AuditEvent {
   return {
     ...r,
-    before: r.before ?? undefined,
-    after: r.after ?? undefined,
+    before: normalizeJsonNull(r.before),
+    after: normalizeJsonNull(r.after),
     createdAt: iso(r.createdAt),
   };
+}
+
+/**
+ * Prisma reads JSON nulls back as its Null singletons; normalize them to
+ * undefined so downstream consumers (including chain-hash recomputation) see
+ * the same value that was written.
+ */
+function normalizeJsonNull(v: unknown): unknown {
+  if (v === null || v === undefined) return undefined;
+  if (v === Prisma.JsonNull || v === Prisma.DbNull || v === Prisma.AnyNull) return undefined;
+  return v;
+}
+
+/**
+ * Chain one audit event inside the caller's transaction. The head-row update
+ * takes a row lock held until commit, so concurrent writers serialize and the
+ * chain can never fork.
+ */
+async function appendChainedAuditEvent(
+  db: Db,
+  data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">,
+): Promise<AuditEvent> {
+  const chainKey = auditChainKey(data);
+  let head;
+  try {
+    head = await db.auditChainHead.update({ where: { chainKey }, data: { updatedAt: new Date() } });
+  } catch (err) {
+    if (!isRecordNotFound(err)) throw err;
+    try {
+      head = await db.auditChainHead.create({ data: { chainKey, headHash: GENESIS_PREV_HASH, eventCount: 0 } });
+    } catch (created) {
+      if (!isUniqueViolation(created)) throw created;
+      head = await db.auditChainHead.update({ where: { chainKey }, data: { updatedAt: new Date() } });
+    }
+  }
+  const prevHash = head.headHash;
+  const chainSeq = head.eventCount + 1;
+  const createdAt = new Date();
+  const rest = { id: newId("aud"), ...data, createdAt: iso(createdAt), chainSeq };
+  const hash = chainEventHash(prevHash, rest);
+  const row = await db.auditEvent.create({
+    data: {
+      id: rest.id,
+      organizationId: data.organizationId,
+      projectId: data.projectId,
+      actorId: data.actorId,
+      actorEmail: data.actorEmail,
+      action: data.action,
+      targetType: data.targetType,
+      targetId: data.targetId,
+      before: data.before === undefined ? Prisma.JsonNull : J(data.before),
+      after: data.after === undefined ? Prisma.JsonNull : J(data.after),
+      correlationId: data.correlationId,
+      ip: data.ip,
+      createdAt,
+      prevHash,
+      hash,
+      chainSeq,
+    },
+  });
+  await db.auditChainHead.update({ where: { chainKey }, data: { headHash: hash, eventCount: chainSeq } });
+  return mapAudit(row);
 }
 function mapNotification(r: Prisma.NotificationGetPayload<Prisma.NotificationDefaultArgs>): Notification {
   return { ...r, readAt: r.readAt ? iso(r.readAt) : null, createdAt: iso(r.createdAt) };
@@ -1696,25 +1768,25 @@ export class PrismaStore implements Store {
     );
   }
 
-  async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt">): Promise<AuditEvent> {
-    return mapAudit(
-      await this.db.auditEvent.create({
-        data: {
-          id: newId("aud"),
-          organizationId: data.organizationId,
-          projectId: data.projectId,
-          actorId: data.actorId,
-          actorEmail: data.actorEmail,
-          action: data.action,
-          targetType: data.targetType,
-          targetId: data.targetId,
-          before: data.before === undefined ? Prisma.JsonNull : J(data.before),
-          after: data.after === undefined ? Prisma.JsonNull : J(data.after),
-          correlationId: data.correlationId,
-          ip: data.ip,
-        },
-      }),
-    );
+  async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">): Promise<AuditEvent> {
+    // The head lock + event insert + head update commit atomically: inside an
+    // outer domain transaction they join it, otherwise they get their own.
+    if (this.inTx) return appendChainedAuditEvent(this.db, data);
+    return this.transaction((tx) => appendChainedAuditEvent((tx as PrismaStore).db, data));
+  }
+
+  async getAuditChainHead(chainKey: string): Promise<AuditChainHead | null> {
+    const row = await this.db.auditChainHead.findUnique({ where: { chainKey } });
+    return row ? { id: row.chainKey, headHash: row.headHash, eventCount: row.eventCount, updatedAt: iso(row.updatedAt) } : null;
+  }
+
+  async listAuditChain(chainKey: string): Promise<AuditEvent[]> {
+    const [kind, id] = chainKey.split(":", 2) as [string, string];
+    const rows = await this.db.auditEvent.findMany({
+      where: kind === "project" ? { projectId: id } : { projectId: null, organizationId: id },
+      orderBy: [{ chainSeq: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    });
+    return rows.map(mapAudit);
   }
 
   async listAuditEvents(

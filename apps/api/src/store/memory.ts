@@ -1,4 +1,4 @@
-import { afterCursor, newId, paginate } from "@scopelock/domain";
+import { afterCursor, GENESIS_PREV_HASH, auditChainKey, chainEventHash, newId, paginate } from "@scopelock/domain";
 import type { Store } from "./store.js";
 import type {
   AIAnalysis,
@@ -8,6 +8,7 @@ import type {
   ApprovalRequest,
   ApprovalToken,
   Attachment,
+  AuditChainHead,
   AuditEvent,
   Bundle,
   ChangeImpact,
@@ -82,6 +83,7 @@ type Tables = {
   evidence: Map<string, DeliveryEvidence>;
   decisionNotes: Map<string, DecisionNote>;
   auditEvents: Map<string, AuditEvent>;
+  chainHeads: Map<string, AuditChainHead>;
   notifications: Map<string, Notification>;
   outbox: Map<string, OutboxEvent>;
   aiAnalyses: Map<string, AIAnalysis>;
@@ -126,6 +128,7 @@ function emptyTables(): Tables {
     evidence: new Map(),
     decisionNotes: new Map(),
     auditEvents: new Map(),
+    chainHeads: new Map(),
     notifications: new Map(),
     outbox: new Map(),
     aiAnalyses: new Map(),
@@ -1244,11 +1247,36 @@ export class MemoryStore implements Store {
     return updated;
   }
 
-  async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt">): Promise<AuditEvent> {
-    const row: AuditEvent = { id: newId("aud"), createdAt: nowIso(), ...data };
+  async appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">): Promise<AuditEvent> {
+    // Synchronous read-hash-write: no awaits between head read and head
+    // update, so concurrent appends cannot fork the chain on this backend.
+    const key = auditChainKey(data);
+    const head = this.tables.chainHeads.get(key);
+    const prevHash = head?.headHash ?? GENESIS_PREV_HASH;
+    const chainSeq = (head?.eventCount ?? 0) + 1;
+    const rest = { id: newId("aud"), createdAt: nowIso(), ...data, chainSeq };
+    const row: AuditEvent = { ...rest, prevHash, hash: chainEventHash(prevHash, rest) };
     this.tables.auditEvents.set(row.id, row);
+    this.tables.chainHeads.set(key, { id: key, headHash: row.hash, eventCount: chainSeq, updatedAt: row.createdAt });
     this.afterCommit();
     return row;
+  }
+
+  async getAuditChainHead(chainKey: string): Promise<AuditChainHead | null> {
+    return this.tables.chainHeads.get(chainKey) ?? null;
+  }
+
+  async listAuditChain(chainKey: string): Promise<AuditEvent[]> {
+    const [kind, id] = chainKey.split(":", 2) as [string, string];
+    return [...this.tables.auditEvents.values()]
+      .filter((e) => (kind === "project" ? e.projectId === id : e.projectId === null && e.organizationId === id))
+      .sort((a, b) =>
+        a.chainSeq === b.chainSeq
+          ? a.createdAt === b.createdAt
+            ? a.id < b.id ? -1 : 1
+            : a.createdAt < b.createdAt ? -1 : 1
+          : a.chainSeq - b.chainSeq,
+      );
   }
 
   async listAuditEvents(
@@ -1507,6 +1535,14 @@ export class MemoryStore implements Store {
         const rec = row as Record<string, unknown>;
         if (rec && typeof rec.id === "string") table.set(rec.id, row);
       }
+    }
+    // Pre-chain snapshots on disk: mark their events explicit legacy rows so
+    // they verify as "pre-chain" instead of failing the chained check.
+    for (const row of next.auditEvents.values()) {
+      const rec = row as unknown as Record<string, unknown>;
+      if (rec.chainSeq === undefined) rec.chainSeq = 0;
+      if (rec.prevHash === undefined) rec.prevHash = GENESIS_PREV_HASH;
+      if (rec.hash === undefined) rec.hash = "";
     }
     this.tables = next;
   }

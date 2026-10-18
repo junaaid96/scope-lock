@@ -666,6 +666,17 @@ export interface AuditEvent {
   correlationId: string;
   ip: string | null;
   createdAt: string;
+  prevHash: string;
+  hash: string;
+  chainSeq: number;
+}
+
+/** Serialized head of one audit hash chain (`project:<id>` or `org:<id>`). */
+export interface AuditChainHead {
+  id: string;
+  headHash: string;
+  eventCount: number;
+  updatedAt: string;
 }
 
 export interface Notification {

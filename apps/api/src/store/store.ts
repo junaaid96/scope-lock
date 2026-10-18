@@ -6,6 +6,7 @@ import type {
   ApprovalRequest,
   ApprovalToken,
   Attachment,
+  AuditChainHead,
   AuditEvent,
   Bundle,
   ChangeImpact,
@@ -258,8 +259,10 @@ export interface Store {
   findDecisionNoteById(id: string): Promise<DecisionNote | null>;
   listDecisionNotes(projectId: string, filter?: { targetType?: string; targetId?: string }): Promise<DecisionNote[]>;
   updateDecisionNote(id: string, patch: Partial<DecisionNote>): Promise<DecisionNote>;
-  appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt">): Promise<AuditEvent>;
+  appendAuditEvent(data: Omit<AuditEvent, "id" | "createdAt" | "prevHash" | "hash" | "chainSeq">): Promise<AuditEvent>;
   listAuditEvents(filter: { organizationId?: string; projectId?: string; targetType?: string; targetId?: string } & ListQuery): Promise<PageResult<AuditEvent>>;
+  getAuditChainHead(chainKey: string): Promise<AuditChainHead | null>;
+  listAuditChain(chainKey: string): Promise<AuditEvent[]>;
   listDecisionsWithContext(projectId: string, query?: string): Promise<ApprovalDecision[]>;
 
   // ----- Notifications / outbox -----

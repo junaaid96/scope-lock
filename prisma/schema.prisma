@@ -858,6 +858,9 @@ model AuditEvent {
   correlationId  String
   ip             String?
   createdAt      DateTime @default(now())
+  prevHash       String   @default("GENESIS")
+  hash           String   @default("")
+  chainSeq       Int      @default(0)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project      Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -865,6 +868,14 @@ model AuditEvent {
 
   @@index([projectId, createdAt])
   @@index([organizationId, createdAt])
+  @@index([projectId, chainSeq])
+}
+
+model AuditChainHead {
+  chainKey   String   @id
+  headHash   String
+  eventCount Int      @default(0)
+  updatedAt  DateTime @updatedAt
 }
 
 model Notification {
