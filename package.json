@@ -25,6 +25,7 @@
     "test:contracts": "npm run test:contracts -w apps/api",
     "seed": "npm run seed -w apps/api",
     "seed:portfolio": "tsx prisma/seed-portfolio.ts",
+    "audit:verify": "tsx scripts/audit-verify.ts",
     "prisma:validate": "DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma validate --schema prisma/schema.prisma",
     "prisma:generate": "DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma generate --schema prisma/schema.prisma",
     "e2e": "npm run e2e -w apps/web",

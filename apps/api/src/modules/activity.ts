@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { CreateDecisionNoteSchema, InvoiceExportQuerySchema, ListQuerySchema, UpdateDecisionNoteSchema } from "@scopelock/contracts";
-import { DomainError, buildInvoiceLines, computeScopeHealth, invoiceLinesToCsv, invoiceTotals } from "@scopelock/domain";
+import { AuditVerifyResponseSchema, CreateDecisionNoteSchema, InvoiceExportQuerySchema, ListQuerySchema, UpdateDecisionNoteSchema } from "@scopelock/contracts";
+import { DomainError, auditChainKey, buildInvoiceLines, computeScopeHealth, invoiceLinesToCsv, invoiceTotals, verifyAuditChain } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
 import { authenticate, requireAuth } from "../http/auth.js";
@@ -66,6 +66,50 @@ export function activityRoutes(ctx: AppContext): Router {
         })),
         pagination: { nextCursor: result.nextCursor },
       });
+    }),
+  );
+
+  // ----- Tamper-evidence: recompute the project's audit hash chain -----
+  router.get(
+    "/projects/:id/audit/verify",
+    requireAuth,
+    validateParams(z.object({ id: z.string().min(1) })),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
+      requireAction(access.access, "activity.view");
+      const chainKey = auditChainKey({ projectId: access.project.id, organizationId: access.org.id });
+      const [events, head] = await Promise.all([ctx.store.listAuditChain(chainKey), ctx.store.getAuditChainHead(chainKey)]);
+      const result = verifyAuditChain(events);
+      // Cross-check the serialized head against the recomputed tail: a head
+      // row that disagrees with history is itself evidence of tampering.
+      let { valid, breakAtSeq, reason } = result;
+      const tail = result.checked === 0 ? null : events.filter((e) => e.chainSeq > 0).at(-1) ?? null;
+      if (valid && head && tail && (head.headHash !== tail.hash || head.eventCount !== tail.chainSeq)) {
+        valid = false;
+        breakAtSeq = tail.chainSeq;
+        reason = "chain head disagrees with recomputed history";
+      }
+      if (valid && !head && tail) {
+        valid = false;
+        breakAtSeq = tail.chainSeq;
+        reason = "chained events exist but the chain head is missing";
+      }
+      res.json(
+        AuditVerifyResponseSchema.parse({
+          chainKey,
+          events: events.length,
+          chained: result.checked,
+          legacy: result.legacy,
+          valid,
+          breakAtSeq,
+          reason,
+          headHash: head?.headHash ?? null,
+          headSeq: head?.eventCount ?? null,
+          verifiedAt: nowIso(),
+        }),
+      );
     }),
   );
 
