@@ -28,6 +28,10 @@ export const ProposalDraftSchema = z.object({
 export const ReviewAiAnalysisSchema = z.object({
   disposition: z.enum(["ACCEPTED", "EDITED", "DISMISSED"]),
 });
+export const ScopeCheckSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().min(1).max(8000),
+});
 
 // ---------- Activity / notes / export ----------
 export const CreateDecisionNoteSchema = z.object({

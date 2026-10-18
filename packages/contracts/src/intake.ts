@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoDateSchema } from "./common.js";
+import { IdSchema, IsoDateSchema } from "./common.js";
 
 export const CreateIntakeLinkSchema = z.object({
   /** Staff-only label, never shown on the public form. */
@@ -14,4 +14,6 @@ export const IntakeSubmitSchema = z.object({
   submitterEmail: z.string().email().max(254).optional().or(z.literal("")),
   /** Honeypot: real forms leave it empty; bots fill it and get silently dropped. */
   website: z.string().max(200).optional().default(""),
+  /** Requirement IDs the in-form scope check suggested (for metrics). */
+  suggestedRequirementIds: z.array(IdSchema).max(10).default([]),
 });
