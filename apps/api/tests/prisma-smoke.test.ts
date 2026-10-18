@@ -61,11 +61,13 @@ describe("prisma postgres smoke", () => {
         submitterName: null,
         submitterEmail: null,
         unverifiedSubmitter: false,
+        scopeCheckSuggestedIds: [],
         bundleId: null,
         amendmentVersionId: null,
         drawAllowancePoolId: null,
       });
       expect(change.number).toBe("CHG-001");
+      expect(change.scopeCheckSuggestedIds).toEqual([]);
       // MFA columns from migration 0002 round-trip.
       const updated = await store.updateUser(user.id, { mfaEnabled: true, mfaRecoveryHashes: ["abc"] });
       expect(updated.mfaEnabled).toBe(true);
@@ -197,14 +199,15 @@ describe("prisma postgres smoke", () => {
       });
       expect((await store.findAIAnalysisById(analysis.id))?.provider).toBe("openai");
       // Intake links from migration 0007.
+      const intakeHash = `hash-smoke-intake-${Date.now()}`;
       const intake = await store.createIntakeLink({
         projectId: project.id,
         name: "Smoke form",
-        tokenHash: "hash-smoke-intake",
+        tokenHash: intakeHash,
         expiresAt: null,
         createdBy: user.id,
       });
-      expect((await store.findIntakeLinkByHash("hash-smoke-intake"))?.id).toBe(intake.id);
+      expect((await store.findIntakeLinkByHash(intakeHash))?.id).toBe(intake.id);
       expect(await store.listIntakeLinks(project.id)).toHaveLength(1);
       const revoked = await store.updateIntakeLink(intake.id, { revokedAt: new Date().toISOString(), submissions: 3 });
       expect(revoked.submissions).toBe(3);

@@ -429,6 +429,7 @@ model ChangeRequest {
   submitterName           String?
   submitterEmail          String?
   unverifiedSubmitter     Boolean               @default(false)
+  scopeCheckSuggestedIds  Json                  @default("[]")
   bundleId                String?
   drawAllowancePoolId     String?
   version                 Int                   @default(0)

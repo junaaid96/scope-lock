@@ -235,6 +235,8 @@ export interface ChangeRequest {
   submitterEmail: string | null;
   /** True when the submitter never authenticated (public intake). */
   unverifiedSubmitter: boolean;
+  /** Requirement IDs the pre-submission scope check suggested (metrics only). */
+  scopeCheckSuggestedIds: string[];
   bundleId: string | null;
   /** Allowance pool this change draws from when its approval is decided. */
   drawAllowancePoolId: string | null;

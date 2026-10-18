@@ -117,6 +117,7 @@ async function main(): Promise<void> {
       submitterName: null,
       submitterEmail: null,
       unverifiedSubmitter: false,
+      scopeCheckSuggestedIds: [],
       bundleId: null,
       amendmentVersionId: null,
       drawAllowancePoolId: null,

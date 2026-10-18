@@ -158,8 +158,10 @@ function mapRevision(r: Prisma.RequirementRevisionGetPayload<Prisma.RequirementR
   return { ...r, acceptanceCriteria: json(r.acceptanceCriteria, []), createdAt: iso(r.createdAt) };
 }
 function mapChange(r: Prisma.ChangeRequestGetPayload<Prisma.ChangeRequestDefaultArgs>): ChangeRequest {
+  const suggested = r.scopeCheckSuggestedIds;
   return {
     ...r,
+    scopeCheckSuggestedIds: Array.isArray(suggested) ? suggested.filter((x): x is string => typeof x === "string") : [],
     decidedAt: r.decidedAt ? iso(r.decidedAt) : null,
     implementedAt: r.implementedAt ? iso(r.implementedAt) : null,
     createdAt: iso(r.createdAt),
@@ -845,6 +847,7 @@ export class PrismaStore implements Store {
           submitterName: data.submitterName,
           submitterEmail: data.submitterEmail,
           unverifiedSubmitter: data.unverifiedSubmitter,
+          scopeCheckSuggestedIds: data.scopeCheckSuggestedIds,
           bundleId: data.bundleId,
           amendmentVersionId: data.amendmentVersionId,
           drawAllowancePoolId: data.drawAllowancePoolId,
