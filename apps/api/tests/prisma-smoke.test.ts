@@ -223,6 +223,81 @@ describe("prisma postgres smoke", () => {
       expect(await store.listInboundMailboxes(project.id)).toHaveLength(1);
       await store.deleteInboundMailbox(mailbox.id);
       expect(await store.listInboundMailboxes(project.id)).toHaveLength(0);
+      // Proposal options + PARKED from migration 0012.
+      const optA = await store.createOption({
+        changeRequestId: change.id,
+        label: "Full",
+        description: null,
+        effortDays: 5,
+        priceMinor: 200000,
+        currency: "USD",
+        timelineDays: 7,
+        milestoneEffect: null,
+        risks: [],
+        exclusions: [],
+        notes: null,
+        createdBy: user.id,
+      });
+      expect((await store.findOptionById(optA.id))?.label).toBe("Full");
+      expect(await store.listOptionsByChange(change.id)).toHaveLength(1);
+      const optB = await store.updateOption(optA.id, { label: "Full scope", version: 1 });
+      expect(optB.label).toBe("Full scope");
+      await store.deleteOption(optA.id);
+      expect(await store.listOptionsByChange(change.id)).toHaveLength(0);
+      const parked = await store.updateChange(change.id, { status: "PARKED" });
+      expect(parked.status).toBe("PARKED");
+      // Approval policy (0011) + chosen option (0012) columns round-trip.
+      const approval = await store.createApproval({
+        projectId: project.id,
+        changeRequestId: change.id,
+        bundleId: null,
+        allowancePoolId: null,
+        title: "Smoke approval",
+        package: {
+          title: "Smoke approval",
+          changeId: change.id,
+          bundleId: null,
+          request: null,
+          members: [],
+          impact: null,
+          options: [],
+          requirements: [],
+          attachments: [],
+          assumptions: [],
+          exclusions: [],
+          sentAt: new Date().toISOString(),
+        },
+        checksum: "smoke",
+        status: "SENT",
+        approverUserIds: [],
+        policy: { mode: "ALL", approverOrder: [] },
+        expiresAt: null,
+        sentAt: null,
+        sentBy: null,
+        createdBy: user.id,
+        invalidatedReason: null,
+        supersededBy: null,
+        remindersSent: [],
+        chosenOptionId: null,
+        version: 0,
+      });
+      expect(approval.policy.mode).toBe("ALL");
+      const decided = await store.updateApproval(approval.id, { status: "DECIDED", chosenOptionId: optA.id });
+      expect(decided.chosenOptionId).toBe(optA.id);
+      const vote = await store.createDecision({
+        approvalRequestId: approval.id,
+        approverUserId: null,
+        approverEmail: "smoke@test.dev",
+        tokenId: null,
+        decision: "APPROVED",
+        comment: null,
+        optionId: optA.id,
+        checksum: "smoke",
+        ip: null,
+        userAgent: null,
+      });
+      expect((await store.listDecisions(approval.id))[0]?.optionId).toBe(optA.id);
+      expect(vote.decision).toBe("APPROVED");
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {
