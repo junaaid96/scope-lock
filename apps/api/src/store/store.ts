@@ -217,6 +217,7 @@ export interface Store {
   listApprovalsForChange(changeRequestId: string): Promise<ApprovalRequest[]>;
   listApprovalsForBundle(bundleId: string): Promise<ApprovalRequest[]>;
   listAcceptanceApprovalsForRequirement(requirementId: string): Promise<ApprovalRequest[]>;
+  listUnescalatedSentApprovals(): Promise<ApprovalRequest[]>;
   listProjectApprovals(projectId: string): Promise<ApprovalRequest[]>;
   updateApproval(id: string, patch: Partial<ApprovalRequest>): Promise<ApprovalRequest>;
   createApprovalToken(data: Omit<ApprovalToken, "id" | "createdAt" | "lastUsedAt" | "revokedAt">): Promise<ApprovalToken>;

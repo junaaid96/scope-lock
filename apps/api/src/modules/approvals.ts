@@ -514,6 +514,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         chosenOptionId: null,
         acceptanceRequirementIds: [],
         deemedAt: null,
+        escalatedAt: null,
         version: 0,
       });
       for (let i = 0; i < approvers.length; i++) {
@@ -643,6 +644,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           chosenOptionId: null,
           acceptanceRequirementIds: [],
           deemedAt: null,
+          escalatedAt: null,
           version: 0,
         });
         for (let i = 0; i < approvers.length; i++) {
@@ -726,6 +728,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           allowancePoolId: null,
           acceptanceRequirementIds: [...new Set(input.requirementIds)],
           deemedAt: null,
+          escalatedAt: null,
           title: pkg.title,
           package: pkg,
           checksum,

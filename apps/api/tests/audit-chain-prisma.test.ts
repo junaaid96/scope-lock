@@ -28,7 +28,7 @@ describe("audit chain postgres concurrency", () => {
         budgetMinor: null,
         startDate: null,
         targetDate: null,
-        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [], stepUp: { otp: null, typedName: null }, deemedAcceptanceDays: null },
+        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [], stepUp: { otp: null, typedName: null }, deemedAcceptanceDays: null, escalation: { afterHours: null, target: "AGENCY_LEAD" } },
       });
       const N = 20;
       await Promise.all(

@@ -675,6 +675,7 @@ model ApprovalRequest {
   allowancePoolId String?
   acceptanceRequirementIds Json @default("[]")
   deemedAt        DateTime?
+  escalatedAt     DateTime?
   title           String?
   package         Json
   checksum        String

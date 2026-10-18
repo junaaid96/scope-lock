@@ -117,6 +117,14 @@ function mapClient(r: Prisma.ClientGetPayload<Prisma.ClientDefaultArgs>): Client
     updatedAt: iso(r.updatedAt),
   };
 }
+function mapEscalation(settings: Record<string, unknown>): ProjectSettings["escalation"] {
+  const raw = (settings.escalation ?? {}) as { afterHours?: unknown; target?: unknown };
+  return {
+    afterHours: typeof raw.afterHours === "number" ? raw.afterHours : null,
+    target: raw.target === "SECOND_APPROVER" ? "SECOND_APPROVER" : "AGENCY_LEAD",
+  };
+}
+
 function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Project {
   const settings = json<Record<string, unknown>>(r.settings, {});
   return {
@@ -135,6 +143,7 @@ function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Pro
       approvalPolicies: (settings.approvalPolicies as ProjectSettings["approvalPolicies"] | undefined) ?? [],
       stepUp: (settings.stepUp as ProjectSettings["stepUp"] | undefined) ?? { otp: null, typedName: null },
       deemedAcceptanceDays: (settings.deemedAcceptanceDays as number | null | undefined) ?? null,
+      escalation: mapEscalation(settings),
     },
     externalIntegrationsEnabled: r.externalIntegrationsEnabled,
     changeCounter: r.changeCounter,
@@ -265,6 +274,7 @@ function mapApproval(r: Prisma.ApprovalRequestGetPayload<Prisma.ApprovalRequestD
     expiresAt: r.expiresAt ? iso(r.expiresAt) : null,
     sentAt: r.sentAt ? iso(r.sentAt) : null,
     deemedAt: r.deemedAt ? iso(r.deemedAt) : null,
+    escalatedAt: r.escalatedAt ? iso(r.escalatedAt) : null,
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -1382,6 +1392,7 @@ export class PrismaStore implements Store {
           allowancePoolId: data.allowancePoolId,
           acceptanceRequirementIds: J(data.acceptanceRequirementIds),
           deemedAt: data.deemedAt ? asDate(data.deemedAt) : null,
+          escalatedAt: data.escalatedAt ? asDate(data.escalatedAt) : null,
           title: data.title,
           package: J(data.package),
           checksum: data.checksum,
@@ -1424,6 +1435,10 @@ export class PrismaStore implements Store {
     ).map(mapApproval);
   }
 
+  async listUnescalatedSentApprovals(): Promise<ApprovalRequest[]> {
+    return (await this.db.approvalRequest.findMany({ where: { status: "SENT", escalatedAt: null } })).map(mapApproval);
+  }
+
   async listProjectApprovals(projectId: string): Promise<ApprovalRequest[]> {
     const orderBy = ORDER_DESC;
     return (await this.db.approvalRequest.findMany({ where: { projectId }, orderBy })).map(mapApproval);
@@ -1448,6 +1463,7 @@ export class PrismaStore implements Store {
           ...(patch.version !== undefined ? { version: patch.version } : {}),
           ...(patch.chosenOptionId !== undefined ? { chosenOptionId: patch.chosenOptionId } : {}),
           ...(patch.deemedAt !== undefined ? { deemedAt: patch.deemedAt ? asDate(patch.deemedAt) : null } : {}),
+          ...(patch.escalatedAt !== undefined ? { escalatedAt: patch.escalatedAt ? asDate(patch.escalatedAt) : null } : {}),
         },
       }),
     );

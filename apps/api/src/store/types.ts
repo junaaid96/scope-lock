@@ -147,6 +147,8 @@ export interface ProjectSettings {
   stepUp: { otp: boolean | null; typedName: boolean | null };
   /** Deemed-acceptance window in days; null disables deemed acceptance. */
   deemedAcceptanceDays: number | null;
+  /** Stalled-package escalation; null afterHours disables it. */
+  escalation: { afterHours: number | null; target: "SECOND_APPROVER" | "AGENCY_LEAD" };
 }
 
 export interface Project {
@@ -536,6 +538,8 @@ export interface ApprovalRequest {
   acceptanceRequirementIds: string[];
   /** Set when policy deemed the package accepted at the deadline. */
   deemedAt: string | null;
+  /** Set when a stalled package escalated (exactly once). */
+  escalatedAt: string | null;
   title: string | null;
   package: ReviewPackageSnapshot;
   checksum: string;

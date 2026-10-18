@@ -30,7 +30,7 @@ describe("prisma postgres smoke", () => {
         budgetMinor: null,
         startDate: null,
         targetDate: null,
-        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [], stepUp: { otp: null, typedName: null }, deemedAcceptanceDays: null },
+        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [], stepUp: { otp: null, typedName: null }, deemedAcceptanceDays: null, escalation: { afterHours: null, target: "AGENCY_LEAD" } },
       });
       expect((await store.findProjectById(project.id))?.name).toBe("Smoke Project");
       const doc = await store.createScopeDocument(project.id, "Scope");
@@ -281,6 +281,7 @@ describe("prisma postgres smoke", () => {
         chosenOptionId: null,
         acceptanceRequirementIds: [],
         deemedAt: null,
+        escalatedAt: null,
         version: 0,
       });
       expect(approval.policy.mode).toBe("ALL");

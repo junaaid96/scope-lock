@@ -1037,6 +1037,10 @@ export class MemoryStore implements Store {
     );
   }
 
+  async listUnescalatedSentApprovals(): Promise<ApprovalRequest[]> {
+    return [...this.tables.approvals.values()].filter((a) => a.status === "SENT" && (a.escalatedAt ?? null) === null);
+  }
+
   async listProjectApprovals(projectId: string): Promise<ApprovalRequest[]> {
     return sortDesc([...this.tables.approvals.values()].filter((a) => a.projectId === projectId));
   }
@@ -1555,6 +1559,7 @@ export class MemoryStore implements Store {
       const rec = row as unknown as Record<string, unknown>;
       if (rec.acceptanceRequirementIds === undefined) rec.acceptanceRequirementIds = [];
       if (rec.deemedAt === undefined) rec.deemedAt = null;
+      if (rec.escalatedAt === undefined) rec.escalatedAt = null;
     }
     this.tables = next;
   }
