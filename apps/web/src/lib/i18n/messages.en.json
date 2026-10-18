@@ -29,7 +29,13 @@
     "version": "Version",
     "status": "Status",
     "effort": "Effort (days)",
-    "reason": "Reason"
+    "reason": "Reason",
+    "exportTitle": "Invoice-ready export",
+    "exportHint": "Approved changes decided in the period, as line items. Totals stay per currency.",
+    "exportFrom": "From",
+    "exportTo": "To",
+    "exportCsv": "Download CSV",
+    "exportJson": "Download JSON"
   },
   "orgContract": {
     "title": "Contract value",

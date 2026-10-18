@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { ContractLedger, OrgContractRollup } from "../lib/types.js";
-import { Badge, Card, Empty, ErrorBanner, Spinner, statusTone } from "./ui.js";
+import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner, statusTone } from "./ui.js";
 
 const tableWrap = "overflow-x-auto rounded-lg border border-slate-200";
 const table = "w-full min-w-[560px] border-collapse bg-white text-sm";
@@ -179,6 +180,8 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
         </section>
       ) : null}
 
+      <InvoiceExportCard projectId={projectId} />
+
       {c.excluded.length > 0 ? (
         <section aria-labelledby="contract-excluded">
           <h3 id="contract-excluded" className="mb-2 text-base font-semibold text-slate-900">{t("contract.excludedTitle")}</h3>
@@ -205,6 +208,62 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
         </section>
       ) : null}
     </div>
+  );
+}
+
+function InvoiceExportCard({ projectId }: { projectId: string }): JSX.Element {
+  const { t } = useLocale();
+  const [from, setFrom] = useState(() => `${new Date().getUTCFullYear()}-01-01`);
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [busy, setBusy] = useState<"csv" | "json" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const download = (format: "csv" | "json"): void => {
+    setBusy(format);
+    setError(null);
+    const params = new URLSearchParams({ from, to, format });
+    fetch(`/api/v1/projects/${projectId}/export/invoice-ready?${params.toString()}`, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Export failed (${res.status})`);
+        return res.blob().then((blob) => ({ blob, disposition: res.headers.get("content-disposition") }));
+      })
+      .then(({ blob, disposition }) => {
+        const match = disposition?.match(/filename="([^"]+)"/);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = match?.[1] ?? `invoice-export.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      })
+      .catch((err: unknown) => setError(errorMessage(err)))
+      .finally(() => setBusy(null));
+  };
+
+  return (
+    <Card>
+      <h3 className="mb-1 text-base font-semibold text-slate-900">{t("contract.exportTitle")}</h3>
+      <p className="mb-3 text-sm text-slate-600">{t("contract.exportHint")}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t("contract.exportFrom")} htmlFor="export-from">
+          <Input id="export-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </Field>
+        <Field label={t("contract.exportTo")} htmlFor="export-to">
+          <Input id="export-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+      </div>
+      {error ? <div className="mt-3"><ErrorBanner message={error} /></div> : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" disabled={busy !== null || !from || !to} onClick={() => download("csv")}>
+          {busy === "csv" ? "…" : t("contract.exportCsv")}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={busy !== null || !from || !to} onClick={() => download("json")}>
+          {busy === "json" ? "…" : t("contract.exportJson")}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
