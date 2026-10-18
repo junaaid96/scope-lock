@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DecideApprovalSchema, ListQuerySchema, SendApprovalSchema } from "@scopelock/contracts";
+import { DecideApprovalSchema, ListQuerySchema, SendAcceptanceSchema, SendApprovalSchema } from "@scopelock/contracts";
 import {
   ApprovalTransitions,
   BundleTransitions,
   ChangeTransitions,
   DomainError,
+  RequirementTransitions,
+  acceptanceRequirementStatus,
   aggregatePolicy,
   assertOptionAgreement,
   assertSendableOptions,
@@ -13,6 +15,7 @@ import {
   assertValidChoice,
   checksumOf,
   currentTurn,
+  deemedAcceptanceDays,
   STEP_UP_MAX_ATTEMPTS,
   STEP_UP_TTL_MINUTES,
   assertChallengeUsable,
@@ -24,6 +27,8 @@ import {
   hashStepUpCode,
   newToken,
   normalizeTypedName,
+  defaultAcceptanceExpiry,
+  isAcceptancePackage,
   objectionDeadline,
   resolvePolicyMode,
   sha256Hex,
@@ -43,7 +48,7 @@ import { paginateList } from "../http/pagination.js";
 import type { ApiRequest } from "../http/types.js";
 import { getContext } from "../context.js";
 import { audit } from "../lib/audit.js";
-import { notify } from "../lib/notify.js";
+import { notify, notifyProjectMembers } from "../lib/notify.js";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -193,6 +198,139 @@ async function buildBundlePackage(store: Store, bundle: Bundle): Promise<ReviewP
     exclusions: governing?.exclusions ?? [],
     sentAt: nowIso(),
   };
+}
+
+async function buildAcceptancePackage(
+  store: Store,
+  projectId: string,
+  requirementIds: string[],
+): Promise<ReviewPackageSnapshot> {
+  const unique = [...new Set(requirementIds)];
+  const entries = await requirementEntries(store, projectId, unique);
+  const byId = new Map(entries.map((e) => [e.requirementId, e]));
+  const detail: NonNullable<ReviewPackageSnapshot["acceptance"]>["requirements"] = [];
+  const evidenceAttachmentIds = new Set<string>();
+  for (const reqId of unique) {
+    const entry = byId.get(reqId);
+    if (!entry) continue;
+    const evidence = await store.listEvidenceForRequirement(reqId);
+    for (const e of evidence) if (e.attachmentId) evidenceAttachmentIds.add(e.attachmentId);
+    detail.push({
+      requirementId: entry.requirementId,
+      stableKey: entry.stableKey,
+      title: entry.title,
+      description: entry.description,
+      acceptanceCriteria: entry.acceptanceCriteria,
+      evidence: evidence.map((e) => ({
+        evidenceId: e.id,
+        type: e.type,
+        title: e.title,
+        url: e.url,
+        status: e.status,
+      })),
+    });
+  }
+  const attachments = (await store.listAttachments(projectId)).filter(
+    (a) => a.status === "READY" && evidenceAttachmentIds.has(a.id),
+  );
+  const governing = await getGoverningVersion(store, projectId);
+  return {
+    title: null,
+    changeId: null,
+    bundleId: null,
+    request: null,
+    members: [],
+    impact: null,
+    options: [],
+    requirements: entries,
+    attachments: attachments.map((a) => ({
+      attachmentId: a.id,
+      fileName: a.fileName,
+      contentType: a.contentType,
+      sizeBytes: a.sizeBytes,
+      checksum: a.checksum,
+    })),
+    assumptions: governing?.assumptions ?? [],
+    exclusions: governing?.exclusions ?? [],
+    sentAt: nowIso(),
+    acceptance: { requirements: detail },
+  };
+}
+
+/** Delivery-acceptance send guards: delivered, same project, nothing already pending. */
+export async function getAcceptanceSendBlockers(store: Store, projectId: string, requirementIds: string[]): Promise<string[]> {
+  const blockers: string[] = [];
+  const unique = [...new Set(requirementIds)];
+  for (const reqId of unique) {
+    const req = await store.findRequirementById(reqId);
+    if (!req || req.projectId !== projectId) {
+      blockers.push(`Requirement not found in this project: ${reqId}.`);
+      continue;
+    }
+    if (req.status !== "DELIVERED") {
+      blockers.push(`${req.stableKey} is ${req.status} — only delivered work can be sent for acceptance.`);
+      continue;
+    }
+    const pending = (await store.listAcceptanceApprovalsForRequirement(reqId)).filter((a) => a.status === "SENT");
+    if (pending.length > 0) {
+      blockers.push(`${req.stableKey} already has an acceptance package awaiting decision.`);
+    }
+  }
+  return blockers;
+}
+
+/**
+ * Material edits invalidate pending acceptance: the client must always decide
+ * on exactly what they reviewed. Requirements stay DELIVERED so the team can
+ * resend a fresh package.
+ */
+export async function invalidateAcceptanceForRequirements(
+  store: Store,
+  args: { organizationId: string; projectId: string; actorId: string | null; actorEmail: string | null; requirementIds: string[]; reason: string; correlationId?: string },
+): Promise<number> {
+  const seen = new Set<string>();
+  const sent: ApprovalRequest[] = [];
+  for (const reqId of [...new Set(args.requirementIds)]) {
+    for (const approval of await store.listAcceptanceApprovalsForRequirement(reqId)) {
+      if (approval.status === "SENT" && !seen.has(approval.id)) {
+        seen.add(approval.id);
+        sent.push(approval);
+      }
+    }
+  }
+  const correlationId = args.correlationId ?? getContext()?.correlationId ?? `inv-${Date.now()}`;
+  for (const approval of sent) {
+    assertTransition(ApprovalTransitions, approval.status, "INVALIDATED", "approval");
+    await store.updateApproval(approval.id, {
+      status: "INVALIDATED",
+      invalidatedReason: args.reason,
+      version: approval.version + 1,
+    });
+    await store.appendAuditEvent({
+      organizationId: args.organizationId,
+      projectId: args.projectId,
+      actorId: args.actorId,
+      actorEmail: args.actorEmail,
+      action: "approval.invalidated",
+      targetType: "APPROVAL",
+      targetId: approval.id,
+      before: { status: "SENT" },
+      after: { status: "INVALIDATED", reason: args.reason },
+      correlationId,
+      ip: getContext()?.ip ?? null,
+    });
+  }
+  if (sent.length > 0) {
+    await notifyProjectMembers(store, {
+      projectId: args.projectId,
+      organizationId: args.organizationId,
+      type: "APPROVAL_INVALIDATED",
+      title: "An acceptance package was invalidated",
+      body: `${sent.length} pending acceptance package(s) invalidated: ${args.reason}. Send a fresh package after review.`,
+      link: `/projects/${args.projectId}/scope`,
+    });
+  }
+  return sent.length;
 }
 
 /** Canonical approver identity: user id when known, else lowercased email. */
@@ -535,6 +673,112 @@ export function approvalRoutes(ctx: AppContext): Router {
         targetType: "APPROVAL",
         targetId: approval.id,
         after: { bundleId: bundle.id, checksum, policy: bundlePolicy.mode },
+      });
+      res.status(201).json({
+        approval,
+        ...(ctx.env.NODE_ENV !== "production"
+          ? { reviewUrls: tokens.map((t: string) => `${ctx.env.WEB_URL}/review/${t}`) }
+          : {}),
+      });
+    }),
+  );
+
+  authed.post(
+    "/projects/:id/acceptance-requests",
+    requireAuth,
+    idempotency(ctx.store, "acceptance-send"),
+    validateParams(z.object({ id: z.string().min(1) })),
+    validateBody(SendAcceptanceSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof SendAcceptanceSchema>;
+      const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
+      requireAction(access.access, "acceptance.send");
+      const blockers = await getAcceptanceSendBlockers(ctx.store, access.project.id, input.requirementIds);
+      if (blockers.length > 0) {
+        throw DomainError.unprocessable("These deliverables are not ready for acceptance", { blockers });
+      }
+      const windowDays = deemedAcceptanceDays(access.project.settings);
+      const expiresAt = input.expiresAt ?? (windowDays === null ? null : defaultAcceptanceExpiry(new Date(), windowDays));
+      if (!expiresAt) {
+        throw DomainError.unprocessable("Set a deadline or configure the project's deemed-acceptance window first");
+      }
+      if (Date.parse(expiresAt) <= Date.now()) throw DomainError.unprocessable("Expiry must be in the future");
+      const approvers = await resolveApprovers(ctx.store, access.project.id, input.approverUserIds, input.approverEmails);
+      const pkg = await buildAcceptancePackage(ctx.store, access.project.id, input.requirementIds);
+      const keys = pkg.requirements.map((r) => r.stableKey).join(", ");
+      pkg.title = input.title ?? `Accept delivery: ${keys}`;
+      const checksum = checksumOf(pkg);
+      const tokens = approvers.map(() => newToken());
+      // Acceptance carries no price, so amount thresholds never apply; the
+      // per-send override is still honored (default ANY).
+      const mode = input.policyMode ?? "ANY";
+      const policy = {
+        mode,
+        approverOrder: mode === "SEQUENTIAL" ? approvers.map((a) => approverKey(a.userId, a.email)) : [],
+      };
+      const approval = await ctx.store.transaction(async (tx) => {
+        const created = await tx.createApproval({
+          projectId: access.project.id,
+          changeRequestId: null,
+          bundleId: null,
+          allowancePoolId: null,
+          acceptanceRequirementIds: [...new Set(input.requirementIds)],
+          deemedAt: null,
+          title: pkg.title,
+          package: pkg,
+          checksum,
+          status: "SENT",
+          approverUserIds: approvers.filter((a) => a.userId).map((a) => a.userId as string),
+          policy,
+          expiresAt,
+          sentAt: nowIso(),
+          sentBy: auth.user.id,
+          createdBy: auth.user.id,
+          invalidatedReason: null,
+          supersededBy: null,
+          remindersSent: [],
+          chosenOptionId: null,
+          version: 0,
+        });
+        for (let i = 0; i < approvers.length; i++) {
+          const approver = approvers[i];
+          if (!approver) continue;
+          await tx.createApprovalToken({
+            approvalRequestId: created.id,
+            tokenHash: sha256Hex(tokens[i] as string),
+            approverEmail: approver.email,
+            approverUserId: approver.userId,
+            expiresAt,
+          });
+        }
+        return created;
+      });
+      await audit(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "approval.sent",
+        targetType: "APPROVAL",
+        targetId: approval.id,
+        after: { acceptanceRequirementIds: approval.acceptanceRequirementIds, checksum, policy: policy.mode },
+      });
+      await ctx.store.recordMetric({
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        name: "approval.sent",
+        properties: { kind: "ACCEPTANCE" },
+        actorId: auth.user.id,
+      });
+      await notifyApprovalRequested(ctx, {
+        orgId: access.org.id,
+        projectId: access.project.id,
+        approvalId: approval.id,
+        title: pkg.title,
+        expiresAt,
+        approvers,
       });
       res.status(201).json({
         approval,
@@ -1178,6 +1422,32 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
           targetId: pool.id,
           before: { status: pool.status },
           after: { status: "ACTIVE", grantDecisionId: created.id },
+          correlationId: ctxInfo?.correlationId ?? "no-correlation",
+          ip: ctxInfo?.ip ?? args.req.ip ?? null,
+        });
+      }
+    }
+    // Acceptance verdicts move the covered requirements: approvals accept,
+    // rejections send the work back for rework, change requests leave the
+    // delivery in place while the agency revises.
+    if (isAcceptancePackage(fresh)) {
+      const next = acceptanceRequirementStatus(terminal);
+      for (const reqId of fresh.acceptanceRequirementIds) {
+        const req = await tx.findRequirementById(reqId);
+        if (!req || req.projectId !== approval.projectId) throw DomainError.notFound("Requirement not found");
+        if (next === null) continue;
+        assertTransition(RequirementTransitions, req.status, next, "requirement");
+        await tx.updateRequirement(req.id, { status: next });
+        await tx.appendAuditEvent({
+          organizationId: project.organizationId,
+          projectId: project.id,
+          actorId: args.approverUserId,
+          actorEmail: args.approverEmail,
+          action: "requirement.status_changed",
+          targetType: "REQUIREMENT",
+          targetId: req.id,
+          before: { status: req.status },
+          after: { status: next, approvalId: fresh.id },
           correlationId: ctxInfo?.correlationId ?? "no-correlation",
           ip: ctxInfo?.ip ?? args.req.ip ?? null,
         });

@@ -24,6 +24,7 @@ import { audit } from "../lib/audit.js";
 import { notifyProjectMembers } from "../lib/notify.js";
 import type { ScopeVersion, Store } from "../store/index.js";
 import { compareVersions } from "./ai/service.js";
+import { invalidateAcceptanceForRequirements } from "./approvals.js";
 
 export async function getGoverningVersion(store: Store, projectId: string): Promise<ScopeVersion | null> {
   const versions = await store.listProjectScopeVersions(projectId);
@@ -347,6 +348,16 @@ export function scopeRoutes(ctx: AppContext): Router {
           const req = await tx.findRequirementById(r.requirementId);
           if (req && req.status === "PROPOSED") await tx.updateRequirement(req.id, { status: "AGREED" });
         }
+        // Publishing rewrites the reviewed content: pending acceptance over
+        // these requirements must be re-sent against the new baseline.
+        await invalidateAcceptanceForRequirements(tx, {
+          organizationId: access.org.id,
+          projectId: access.project.id,
+          actorId: auth.user.id,
+          actorEmail: auth.user.email,
+          requirementIds: revisions.map((r) => r.requirementId),
+          reason: `scope v${version.sequence} published with new content`,
+        });
         await tx.recordMetric({
           organizationId: access.org.id,
           projectId: access.project.id,

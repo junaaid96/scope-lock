@@ -1,4 +1,12 @@
-import { assertTransition, ApprovalTransitions } from "@scopelock/domain";
+import {
+  ApprovalTransitions,
+  POLICY_ACTOR,
+  RequirementTransitions,
+  assertTransition,
+  deemedAcceptanceDays,
+  isAcceptancePackage,
+  isDeemedDue,
+} from "@scopelock/domain";
 import type { Env } from "../env.js";
 import type { RealtimeDriver } from "./realtime.js";
 import type { EmailDriver } from "./email.js";
@@ -58,14 +66,24 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
   return { delivered, failed };
 }
 
-/** Expire overdue SENT approvals and queue reminders per project settings. */
-async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: number; reminders: number }> {
+/** Expire overdue SENT approvals, deem overdue acceptance, and queue reminders per project settings. */
+async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: number; deemed: number; reminders: number }> {
   const { store } = deps;
   const now = nowIso();
   let expired = 0;
+  let deemed = 0;
   let reminders = 0;
 
   for (const approval of await store.listExpiredPendingApprovals(now)) {
+    // Acceptance past its deadline with a configured window is deemed
+    // accepted by policy instead of expiring.
+    if (isAcceptancePackage(approval)) {
+      const project = await store.findProjectById(approval.projectId);
+      if (project && isDeemedDue({ status: approval.status, expiresAt: approval.expiresAt, nowIso: now, settings: project.settings })) {
+        if (await deemAcceptance(deps, approval.id, now)) deemed++;
+        continue;
+      }
+    }
     await store.transaction(async (tx) => {
       const fresh = await tx.findApprovalById(approval.id);
       if (!fresh || fresh.status !== "SENT") return;
@@ -128,6 +146,13 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
     await store.transaction(async (tx) => {
       const fresh = await tx.findApprovalById(approval.id);
       if (!fresh || fresh.status !== "SENT") return;
+      const acceptance = isAcceptancePackage(fresh);
+      const deemedOn = acceptance && deemedAcceptanceDays(project.settings) !== null;
+      const hours = Math.max(1, Math.round(hoursLeft));
+      const title = acceptance ? "Reminder: deliverables awaiting your acceptance" : "Reminder: a proposal needs your decision";
+      const body = acceptance
+        ? `“${fresh.title ?? "Delivery acceptance"}” ${deemedOn ? `is deemed accepted in ${hours}h without objection` : `expires in ${hours}h`}.`
+        : `“${fresh.title ?? "Review package"}” expires in ${hours}h.`;
       const tokens = await tx.listApprovalTokens(fresh.id);
       for (const token of tokens) {
         if (token.revokedAt) continue;
@@ -140,8 +165,8 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
             userId: recipient.id,
             projectId: fresh.projectId,
             type: "APPROVAL_REMINDER",
-            title: "Reminder: a proposal needs your decision",
-            body: `“${fresh.title ?? "Review package"}” expires in ${Math.max(1, Math.round(hoursLeft))}h.`,
+            title,
+            body,
             link: `/inbox`,
           });
         }
@@ -150,8 +175,10 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
             type: "EMAIL",
             payload: {
               to: email,
-              subject: "Reminder: a proposal needs your decision",
-              text: `The review package “${fresh.title ?? ""}” expires in ${Math.max(1, Math.round(hoursLeft))}h.`,
+              subject: title,
+              text: acceptance
+                ? `The delivered work “${fresh.title ?? ""}” ${deemedOn ? `is deemed accepted in ${hours}h without objection` : `expires in ${hours}h`}. Review it from your inbox.`
+                : `The review package “${fresh.title ?? ""}” expires in ${hours}h.`,
               organizationId: project.organizationId,
               projectId: fresh.projectId,
               notificationType: "APPROVAL_REMINDER",
@@ -176,7 +203,97 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
       reminders++;
     });
   }
-  return { expired, reminders };
+  return { expired, deemed, reminders };
+}
+
+/**
+ * Deem an overdue acceptance package accepted. Recorded with the policy
+ * actor — never as a client decision, so no decision row is written.
+ */
+async function deemAcceptance(deps: WorkerDeps, approvalId: string, now: string): Promise<boolean> {
+  const { store } = deps;
+  return store.transaction(async (tx) => {
+    const fresh = await tx.findApprovalById(approvalId);
+    if (!fresh || fresh.status !== "SENT" || !isAcceptancePackage(fresh)) return false;
+    const project = await tx.findProjectById(fresh.projectId);
+    if (!project || !isDeemedDue({ status: fresh.status, expiresAt: fresh.expiresAt, nowIso: now, settings: project.settings })) {
+      return false;
+    }
+    assertTransition(ApprovalTransitions, fresh.status, "DEEMED", "approval");
+    const deemedAt = nowIso();
+    await tx.updateApproval(fresh.id, { status: "DEEMED", deemedAt, version: fresh.version + 1 });
+    const accepted: string[] = [];
+    const skipped: string[] = [];
+    for (const reqId of fresh.acceptanceRequirementIds) {
+      const req = await tx.findRequirementById(reqId);
+      if (!req || req.projectId !== fresh.projectId || req.status !== "DELIVERED") {
+        skipped.push(reqId);
+        continue;
+      }
+      assertTransition(RequirementTransitions, req.status, "ACCEPTED", "requirement");
+      await tx.updateRequirement(req.id, { status: "ACCEPTED" });
+      await tx.appendAuditEvent({
+        organizationId: project.organizationId,
+        projectId: fresh.projectId,
+        actorId: null,
+        actorEmail: POLICY_ACTOR,
+        action: "requirement.status_changed",
+        targetType: "REQUIREMENT",
+        targetId: req.id,
+        before: { status: req.status },
+        after: { status: "ACCEPTED", actor: POLICY_ACTOR, approvalId: fresh.id },
+        correlationId: `worker-${Date.now()}`,
+        ip: null,
+      });
+      accepted.push(reqId);
+    }
+    await tx.appendAuditEvent({
+      organizationId: project.organizationId,
+      projectId: fresh.projectId,
+      actorId: null,
+      actorEmail: POLICY_ACTOR,
+      action: "acceptance.deemed",
+      targetType: "APPROVAL",
+      targetId: fresh.id,
+      before: { status: "SENT" },
+      after: { status: "DEEMED", actor: POLICY_ACTOR, acceptedRequirementIds: accepted, skippedRequirementIds: skipped },
+      correlationId: `worker-${Date.now()}`,
+      ip: null,
+    });
+    const keys: string[] = [];
+    for (const reqId of accepted) {
+      const req = await tx.findRequirementById(reqId);
+      if (req) keys.push(req.stableKey);
+    }
+    const summary = keys.length > 0 ? keys.join(", ") : `${accepted.length} requirement(s)`;
+    for (const m of await tx.listProjectMembers(fresh.projectId)) {
+      if (m.role !== "LEAD" && m.role !== "MEMBER" && m.role !== "CLIENT_ADMIN" && m.role !== "CLIENT_APPROVER") continue;
+      const user = await tx.findUserById(m.userId);
+      if (!user) continue;
+      const body = `“${fresh.title ?? "Delivery acceptance"}” (${summary}) passed its deadline without objection and is now deemed accepted by policy. No client decision was recorded.`;
+      await tx.createNotification({
+        userId: m.userId,
+        projectId: fresh.projectId,
+        type: "ACCEPTANCE_DEEMED",
+        title: "Deliverables deemed accepted",
+        body,
+        link: `/projects/${fresh.projectId}/scope`,
+      });
+      await tx.enqueueOutbox({
+        type: "EMAIL",
+        payload: {
+          to: user.email,
+          subject: "Deliverables deemed accepted",
+          text: body,
+          organizationId: project.organizationId,
+          projectId: fresh.projectId,
+          notificationType: "ACCEPTANCE_DEEMED",
+        },
+        idempotencyKey: `deemed:${fresh.id}:${m.userId}`,
+      });
+    }
+    return true;
+  });
 }
 
 /**

@@ -16,6 +16,7 @@ import { validateBody, validateParams, validateQuery } from "../http/validate.js
 import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import type { ScopeVersion } from "../store/index.js";
+import { invalidateAcceptanceForRequirements } from "./approvals.js";
 import { getGoverningVersion } from "./scope.js";
 
 function assertDraft(version: ScopeVersion): void {
@@ -137,6 +138,14 @@ export function requirementRoutes(ctx: AppContext): Router {
         targetId: requirement.id,
         before: { status: requirement.status },
         after: { status: updated.status },
+      });
+      await invalidateAcceptanceForRequirements(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        requirementIds: [requirement.id],
+        reason: `${requirement.stableKey} moved from ${requirement.status} to ${updated.status}`,
       });
       res.json(updated);
     }),
@@ -313,6 +322,14 @@ export function requirementRoutes(ctx: AppContext): Router {
         targetId: evidence.id,
         after: { requirementId: requirement.id, type: input.type },
       });
+      await invalidateAcceptanceForRequirements(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        requirementIds: [requirement.id],
+        reason: `new evidence attached to ${requirement.stableKey}`,
+      });
       res.status(201).json(evidence);
     }),
   );
@@ -345,6 +362,14 @@ export function requirementRoutes(ctx: AppContext): Router {
         targetId: updated.id,
         before: { status: evidence.status },
         after: { status: updated.status },
+      });
+      await invalidateAcceptanceForRequirements(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        requirementIds: [updated.requirementId],
+        reason: `evidence on the reviewed delivery changed to ${updated.status}`,
       });
       res.json(updated);
     }),
