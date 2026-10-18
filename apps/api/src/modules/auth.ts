@@ -11,8 +11,9 @@ import {
   PasswordResetConfirmSchema,
   PasswordResetRequestSchema,
   RegisterSchema,
+  UpdateNotificationPreferencesSchema,
 } from "@scopelock/contracts";
-import { DomainError, newToken, sha256Hex } from "@scopelock/domain";
+import { DomainError, newToken, normalizePhoneE164, sha256Hex } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { publicUser } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
@@ -33,7 +34,18 @@ import {
   verifyTotp,
 } from "../lib/mfa.js";
 import { audit } from "../lib/audit.js";
-import { nowIso } from "../store/index.js";
+import { nowIso, type User } from "../store/index.js";
+
+function preferencesView(userId: string, user: User | null): unknown {
+  if (!user) throw DomainError.notFound("User not found");
+  return {
+    userId,
+    phoneE164: user.phoneE164,
+    notifyEmail: user.notifyEmail,
+    notifySms: user.notifySms,
+    notifyWhatsapp: user.notifyWhatsapp,
+  };
+}
 
 function sessionExpiry(envHours: number): Date {
   return new Date(Date.now() + envHours * 3_600_000);
@@ -166,6 +178,46 @@ export function authRoutes(ctx: AppContext): Router {
       if (!auth) throw DomainError.unauthorized("Authentication required");
       const updated = await ctx.store.updateUser(auth.user.id, { name: (req.body as { name: string }).name });
       res.json({ user: publicUser(updated) });
+    }),
+  );
+
+  router.get(
+    "/me/preferences",
+    authenticate(ctx.store),
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      res.json(preferencesView(auth.user.id, await ctx.store.findUserById(auth.user.id)));
+    }),
+  );
+
+  router.patch(
+    "/me/preferences",
+    authenticate(ctx.store),
+    requireAuth,
+    validateBody(UpdateNotificationPreferencesSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof UpdateNotificationPreferencesSchema>;
+      let phoneE164: string | null | undefined;
+      if (input.phoneE164 !== undefined) {
+        if (input.phoneE164 === null || input.phoneE164 === "") {
+          phoneE164 = null;
+        } else {
+          const normalized = normalizePhoneE164(input.phoneE164);
+          if (!normalized) throw DomainError.unprocessable("Phone number must be E.164, e.g. +8801712345678");
+          phoneE164 = normalized;
+        }
+      }
+      const updated = await ctx.store.updateUser(auth.user.id, {
+        ...(phoneE164 !== undefined ? { phoneE164 } : {}),
+        ...(input.notifyEmail !== undefined ? { notifyEmail: input.notifyEmail } : {}),
+        ...(input.notifySms !== undefined ? { notifySms: input.notifySms } : {}),
+        ...(input.notifyWhatsapp !== undefined ? { notifyWhatsapp: input.notifyWhatsapp } : {}),
+      });
+      res.json(preferencesView(auth.user.id, updated));
     }),
   );
 

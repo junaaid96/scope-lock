@@ -52,6 +52,8 @@ function hostOf(url: string): string {
   }
 }
 
-export function createSlackDriver(env: { NODE_ENV: string }): SlackDriver {
+export function createSlackDriver(env: { NODE_ENV: string }, opts?: { force?: "webhook" | "log" }): SlackDriver {
+  if (opts?.force === "webhook") return new WebhookSlackDriver(env.NODE_ENV);
+  if (opts?.force === "log") return new LogSlackDriver();
   return env.NODE_ENV === "production" ? new WebhookSlackDriver(env.NODE_ENV) : new LogSlackDriver();
 }

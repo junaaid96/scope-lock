@@ -6,6 +6,7 @@ import {
   ListQuerySchema,
   UpdateMembershipSchema,
   UpdateOrganizationSchema,
+  UpdateOrgSlackSchema,
 } from "@scopelock/contracts";
 import { DomainError, newToken, sha256Hex } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
@@ -19,10 +20,18 @@ import { paginateList } from "../http/pagination.js";
 import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import { PLAN_LIMITS } from "../lib/limits.js";
-import { currentPeriod, nowIso, type Invitation } from "../store/index.js";
+import { sealSecret } from "../lib/mfa.js";
+import { assertSafeWebhookUrl, webhookSsrfPolicy } from "../lib/ssrf.js";
+import { currentPeriod, nowIso, type Invitation, type Organization } from "../store/index.js";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const IdParam = z.object({ id: z.string().min(1) });
+
+/** Explicitly picked fields: the sealed Slack URL never leaves the server. */
+function safeOrganization(org: Organization): Omit<Organization, "slackWebhookUrlSealed"> & { slackConfigured: boolean } {
+  const { slackWebhookUrlSealed, ...rest } = org;
+  return { ...rest, slackConfigured: slackWebhookUrlSealed !== null };
+}
 
 /** Explicitly picked fields: never serialize tokenHash. */
 function safeInvitation(inv: Invitation): { id: string; email: string; role: string; projectId: string | null; projectRole: string | null; status: string; expiresAt: string; createdAt: string; decidedAt: string | null } {
@@ -53,7 +62,7 @@ export function organizationRoutes(ctx: AppContext): Router {
       const q = (req as ApiRequest).validatedQuery as { cursor?: string; limit: number };
       const orgs = await ctx.store.listOrganizationsForUser(userId);
       const roles = await Promise.all(orgs.map((o) => ctx.store.findMembership(o.id, userId)));
-      res.json(paginateList(orgs.map((o, i) => ({ ...o, role: roles[i]?.role ?? null })), q));
+      res.json(paginateList(orgs.map((o, i) => ({ ...safeOrganization(o), role: roles[i]?.role ?? null })), q));
     }),
   );
 
@@ -79,7 +88,7 @@ export function organizationRoutes(ctx: AppContext): Router {
         targetId: result.organization.id,
         after: { name: result.organization.name },
       });
-      res.status(201).json({ ...result.organization, role: result.membership.role });
+      res.status(201).json({ ...safeOrganization(result.organization), role: result.membership.role });
     }),
   );
 
@@ -91,7 +100,7 @@ export function organizationRoutes(ctx: AppContext): Router {
       const auth = (req as ApiRequest).auth;
       if (!auth) throw DomainError.unauthorized("Authentication required");
       const { org, membership } = await requireOrgAccess(ctx.store, auth.user.id, req.params.id as string);
-      res.json({ ...org, role: membership.role });
+      res.json({ ...safeOrganization(org), role: membership.role });
     }),
   );
 
@@ -138,7 +147,38 @@ export function organizationRoutes(ctx: AppContext): Router {
         before,
         after: { name: updated.name, plan: updated.plan, aiEnabled: updated.aiEnabled, branding: updated.branding },
       });
-      res.json(updated);
+      res.json(safeOrganization(updated));
+    }),
+  );
+
+  router.patch(
+    "/:id/slack",
+    requireAuth,
+    validateParams(IdParam),
+    validateBody(UpdateOrgSlackSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof UpdateOrgSlackSchema>;
+      const { org, membership } = await requireOrgAccess(ctx.store, auth.user.id, req.params.id as string);
+      requireAction({ orgRole: membership.role, projectRole: null }, "org.manage");
+      if (input.slackWebhookUrl !== null) {
+        await assertSafeWebhookUrl(input.slackWebhookUrl, webhookSsrfPolicy(ctx.env.NODE_ENV));
+      }
+      const updated = await ctx.store.updateOrganization(org.id, {
+        slackWebhookUrlSealed: input.slackWebhookUrl === null ? null : sealSecret(ctx.env.AUTH_SECRET, input.slackWebhookUrl),
+      });
+      await audit(ctx.store, {
+        organizationId: org.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "organization.slack.updated",
+        targetType: "ORGANIZATION",
+        targetId: org.id,
+        before: { slackConfigured: org.slackWebhookUrlSealed !== null },
+        after: { slackConfigured: updated.slackWebhookUrlSealed !== null },
+      });
+      res.json(safeOrganization(updated));
     }),
   );
 
