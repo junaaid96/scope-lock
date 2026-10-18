@@ -13,6 +13,7 @@
  *
  * Usage: npm run seed:portfolio
  */
+import { createHmac } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1247,6 +1248,65 @@ async function main(): Promise<void> {
       );
       console.log("  Demo webhook: https://example.com/scopelock-events (disabled; enable + replay from Org settings)");
     }
+  }
+
+  // Demo GitHub connection + observed work (resumable): opt in one project
+  // that has changes, connect, and replay two signed merged-PR deliveries —
+  // one linked to a real change, one unlinked — so the Integrations tab and
+  // Health page show live traceability. The secret is used once here and
+  // never printed.
+  for (const slug of Object.keys(projectIds)) {
+    const demoProjectId = projectIds[slug] as string;
+    const existing = (await expectOk(
+      await owner.agent.get(`/api/v1/projects/${demoProjectId}/external-connections`),
+      `list demo connections ${slug}`,
+    )) as unknown as Array<{ id: string; provider: string }>;
+    if (existing.some((c) => c.provider === "GITHUB")) break;
+    const changesPage = (await expectOk(
+      await owner.agent.get(`/api/v1/projects/${demoProjectId}/change-requests`),
+      `list demo changes ${slug}`,
+    )) as unknown as { data: Array<{ number: string }> };
+    if (changesPage.data.length === 0) continue;
+    await expectOk(
+      await owner.agent.patch(`/api/v1/projects/${demoProjectId}`).send({ externalIntegrationsEnabled: true }),
+      "seed github opt-in",
+    );
+    const created = (await expectOk(
+      await owner.agent.post(`/api/v1/projects/${demoProjectId}/external-connections`).send({ provider: "GITHUB" }),
+      "seed demo connection",
+      [201],
+    )) as unknown as { connection: { id: string }; secret: string };
+    const linkedNumber = changesPage.data[0]?.number as string;
+    const pulls = [
+      { delivery: "seed-pr-linked", number: 101, title: `Seed: implement ${linkedNumber}` },
+      { delivery: "seed-pr-orphan", number: 102, title: "Seed: drive-by docs fix" },
+    ];
+    for (const pr of pulls) {
+      const raw = JSON.stringify({
+        action: "closed",
+        repository: { full_name: "codejborg/demo", default_branch: "main" },
+        pull_request: {
+          number: pr.number,
+          title: pr.title,
+          html_url: `https://github.com/codejborg/demo/pull/${pr.number}`,
+          merged: true,
+          merged_at: "2026-03-04T00:00:00Z",
+          head: { ref: "main" },
+        },
+      });
+      await expectOk(
+        await owner.agent
+          .post(`/api/v1/webhooks/github/${created.connection.id}`)
+          .set("X-Hub-Signature-256", `sha256=${createHmac("sha256", created.secret).update(raw).digest("hex")}`)
+          .set("X-GitHub-Delivery", pr.delivery)
+          .set("X-GitHub-Event", "pull_request")
+          .set("Content-Type", "application/json")
+          .send(raw),
+        `seed demo delivery ${pr.number}`,
+      );
+    }
+    console.log(`  Demo GitHub: codejborg/demo connected to ${slug} (1 linked + 1 unlinked merged PR)`);
+    break;
   }
 }
 
