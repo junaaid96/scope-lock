@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { describe, expect, it, afterEach } from "vitest";
+import { completeWithFailover, resolveProviders, type AiProvider } from "../src/modules/ai/providers.js";
 import { agencyFixture, createTestApp, draftScope } from "./helpers.js";
 
 afterEach(() => {
@@ -200,5 +201,56 @@ describe("Groq provider", () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe("AI provider failover", () => {
+  function stub(name: "groq" | "openai", impl: (opts: { system: string; user: string }) => Promise<{ text: string }>): AiProvider {
+    return {
+      name,
+      isConfigured: () => true,
+      model: () => `${name}-model`,
+      complete: async (_env, opts) => ({ ...(await impl(opts)), latencyMs: 1, model: `${name}-model`, usage: null }),
+    };
+  }
+  const opts = { system: "s", user: "u" };
+
+  it("tries providers in order and records the winner", async () => {
+    const { ctx } = createTestApp();
+    const calls: string[] = [];
+    const flaky = stub("groq", async () => {
+      calls.push("groq");
+      throw new Error("groq down");
+    });
+    const backup = stub("openai", async () => {
+      calls.push("openai");
+      return { text: "{}" };
+    });
+    const result = await completeWithFailover([flaky, backup], ctx.env, opts);
+    expect(result.provider).toBe("openai");
+    expect(result.text).toBe("{}");
+    expect(calls).toEqual(["groq", "openai"]);
+  });
+
+  it("throws the last error when every provider fails", async () => {
+    const { ctx } = createTestApp();
+    const failing = (name: "groq" | "openai", message: string): AiProvider =>
+      stub(name, async () => {
+        throw new Error(message);
+      });
+    await expect(completeWithFailover([failing("groq", "first"), failing("openai", "second")], ctx.env, opts)).rejects.toThrowError("second");
+    await expect(completeWithFailover([], ctx.env, opts)).rejects.toThrowError(/No AI provider is configured/);
+  });
+
+  it("resolves configured providers with the primary first", async () => {
+    const { ctx } = createTestApp();
+    ctx.env.GROQ_API_KEY = "g";
+    ctx.env.OPENAI_API_KEY = "o";
+    ctx.env.AI_PROVIDER = "openai";
+    expect(resolveProviders(ctx.env).map((p) => p.name)).toEqual(["openai", "groq"]);
+    ctx.env.AI_PROVIDER = "groq";
+    expect(resolveProviders(ctx.env).map((p) => p.name)).toEqual(["groq", "openai"]);
+    ctx.env.OPENAI_API_KEY = "";
+    expect(resolveProviders(ctx.env).map((p) => p.name)).toEqual(["groq"]);
   });
 });
