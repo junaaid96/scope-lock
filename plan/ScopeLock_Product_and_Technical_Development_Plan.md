@@ -4,6 +4,8 @@
 
 **Document purpose:** This is the implementation blueprint for an MVP and its next releases. It consolidates the product direction, technology choices, architecture, data model, API shape, epics, user stories, acceptance criteria, security rules, and delivery sequence for ScopeLock.
 
+> **Implementation status (synced 2026-10-18):** the MVP loop plus expansion **Phases 0–3 and #16–#17 are shipped**; **#18 (notification channels) is in progress**; Phases 5–6 are pending. §21 logs every expansion feature with its branch and status. Earlier sections keep the original blueprint wording except where marked **[Updated]** to reflect shipped reality.
+
 ---
 
 ## 1. Product vision
@@ -83,6 +85,8 @@ Build the validation MVP with provider free tiers or minimal usage, then introdu
 | Email | A transactional provider with a suitable starter allowance | Invitations, approval notices, reminders |
 | Observability | Structured logs plus a starter error-monitoring plan | Add richer monitoring before paid pilots |
 
+**[Updated]** Shipped reality: AI runs through an `AiProvider` abstraction with **Groq primary + OpenAI (`gpt-4o-mini`) failover** and deterministic fallbacks, behind `AI_ENABLED` plus org/project opt-outs. Email sends via a generic HTTP driver (Resend by default) with a log driver when unconfigured. Approval lifecycle events also fan out to **Slack** (org webhook), **SMS/WhatsApp** (provider interface, log driver locally) per user channel preferences — all through the outbox. Local dev needs zero provider accounts: file/memory stores, log drivers, and local simulators.
+
 **Cost guardrails:** defer R2 until attachment upload is usable, defer Ably until polling/invalidation is insufficient, rate-limit and quota AI calls, resize/limit uploads, and give organization administrators usage visibility.
 
 ---
@@ -124,6 +128,8 @@ Start with a TypeScript modular monolith. The hard problems are domain modeling,
 5. Publish scope versions, resolve approvals, and write audit entries inside database transactions.
 6. AI output is untrusted draft data. It cannot publish a scope version, create an approval, or override deterministic policy.
 7. Use an outbox table for external notifications so a provider outage cannot corrupt a completed domain operation.
+
+**[Updated]** Enforced in code as: `http/access.ts` + `domain/policy.ts` for every protected action; triad stores (Prisma + JSON file + in-memory) implementing one `Store` interface with committed migrations and drift checks; atomic publish/decision/send with audit + outbox rows; outbox-only side effects with local drivers; immutable versions/packages; hash-chained append-only audit; high-entropy expiring revocable tokens with rate limits on public endpoints; no secrets in `VITE_*`; no legal-advice copy; no task/time/invoicing/tax/payments scope.
 
 ### Suggested monorepo layout
 
@@ -209,6 +215,8 @@ EMAIL_FROM=
 SENTRY_DSN=
 ```
 
+**[Updated]** The committed `.env.example` additionally documents: `DATA_FILE` (zero-dependency local store), `SESSION_TTL_HOURS`, `OPENAI_API_KEY`/`OPENAI_MODEL`/`AI_PROVIDER`/`AI_ENABLED`, `UPLOAD_DIR`, `MALWARE_SCANNER_URL`, `PENDING_UPLOAD_TTL_HOURS`, `DELETED_FILE_PURGE_DAYS`, `EMAIL_HTTP_ENDPOINT`, `INBOUND_EMAIL_DOMAIN`, `INBOUND_EMAIL_WEBHOOK_SECRET`, `DB_PASSWORD` (compose), `RATE_LIMIT_DISABLED`, `API_KEY_RATE_LIMIT_PER_MIN`, `OUTBOX_AUTODRAIN`, `SMS_API_URL`/`SMS_API_KEY`, `WHATSAPP_API_URL`/`WHATSAPP_API_KEY`.
+
 ### Mandatory safeguards
 
 - Validate required environment values with Zod at API startup; fail closed in production.
@@ -248,6 +256,8 @@ SENTRY_DSN=
 | Notification / OutboxEvent | User-visible delivery state and reliable external work queue |
 | AIAnalysis | Input references, structured output, model, prompt version, status, reviewer disposition |
 
+**[Updated]** Shipped entities added by the expansion (47 models, migrations `0001`–`0019`): `RateCard`/`RateCardEntry`, `EstimateTemplate`, `AllowancePool`/`AllowanceDrawDown`, `ChangeOption`, `StepUpChallenge`, `ApprovalToken`, `IntakeLink`, `InboundMailbox`, `Clarification`, `Bundle`, `AuditChainHead` (per-project hash-chain head), `MetricEvent`, `UsageCounter`, `IdempotencyRecord`, `ApiKey`, `WebhookSubscription`/`WebhookDelivery`, `ExternalConnection`/`ExternalWorkItem` (+ pre-existing `ExternalLink`), `Session`, `PasswordReset`, `Invitation`. `User` gained MFA (`totpSecretEnc`, recovery hashes), phone (`phoneE164`) and channel prefs (`notifyEmail/Sms/Whatsapp`); `Organization` gained `slackWebhookUrlSealed`; `Project` gained allowance/deemed/escalation settings and the external-integrations opt-in.
+
 ### Key relationships
 
 ```text
@@ -282,6 +292,8 @@ ApprovalStatus: DRAFT | SENT | DECIDED | EXPIRED | INVALIDATED
 RequirementStatus: PROPOSED | AGREED | IN_PROGRESS | DELIVERED | ACCEPTED | OUT_OF_SCOPE
 ```
 
+**[Updated]** Shipped enums: `ChangeStatus` adds `PARKED`; `ApprovalStatus` adds `DEEMED` (policy-deemed acceptance); `OutboxType` is `EMAIL | REALTIME | WEBHOOK | SLACK | SMS | WHATSAPP`; `WebhookDeliveryStatus` is `PENDING | SENT | FAILED | DEAD`. New enums include `ChangeClassification`, `DecisionValue`, `LinkKind`/`LinkCondition`, `EvidenceType`/`Status`, `AttachmentStatus`, `Confidence`, `BundleStatus`, `AIKind`/`AIStatus`, `Plan`, `AllowanceKind`/`AllowancePoolStatus`/`DrawDownStatus`, `OrgRole`, `ProjectRole`.
+
 ---
 
 ## 8. Authorization model
@@ -315,6 +327,8 @@ Use resource-oriented versioned endpoints (`/api/v1`). Validate every body, quer
 | Files | `POST /projects/:id/uploads/intents`, `POST /attachments/:id/complete`, `GET /attachments/:id/download-url` |
 | AI | `POST /projects/:id/ai/extract-requirements`, `POST /change-requests/:id/ai/scope-analysis`, `POST /change-requests/:id/ai/clarifications`, `POST /change-requests/:id/ai/proposal-draft` |
 | Activity | `GET /projects/:id/activity`, `GET /projects/:id/health`, `GET /notifications` |
+
+**[Updated]** Shipped additions (all under `/api/v1`): contract ledger + invoice export (`ledger.ts`); rate cards/templates (`pricing.ts`); allowance pools/draw-downs/objections (`allowance.ts`); intake links + public form (`intake.ts`); inbound mailboxes + signed provider webhook + dev simulator (`inbound.ts`); approval policies/options/escalation + reminders (`approvals.ts`, `lifecycle.ts`); Change Order PDF + `/verify/:approvalId` certificate (`change-order.ts`); audit verify (`/projects/:id/audit/verify` + `npm run audit:verify`); API keys (`sk_`, scoped, rotatable, per-key limits); outgoing webhooks (HMAC, delivery log, replay); generated spec at `GET /api/openapi.json`; GitHub connections + signed receiver (`/webhooks/github/:connectionId`) + observed work; notification preferences + org Slack (#18, in progress). Review-link step-up (OTP + typed name) gates decisions per org/project policy.
 
 ### API behavior conventions
 
@@ -357,6 +371,8 @@ Use resource-oriented versioned endpoints (`/api/v1`). Validate every body, quer
 ## 11. Groq AI design
 
 **Provider/model:** Groq API using `openai/gpt-oss-120b`, called only from the Express API.
+
+**[Updated]** Shipped as a provider abstraction: `AiProvider` interface (`apps/api/src/modules/ai/providers.ts`) with a Groq adapter (primary) and an OpenAI adapter (`gpt-4o-mini` failover), deterministic fallbacks when no key is set, `AI_ENABLED` global kill-switch plus org/project opt-outs, and an extended AI usage log (`AIAnalysis` + usage counters). Prompt-injection fixtures guard the transcript/thread import seam. Decision-memory search and price suggestions are Phase 5 (#20–#21, pending).
 
 ### AI capabilities, in delivery order
 
@@ -521,9 +537,9 @@ Priorities: **P0** = must ship for MVP; **P1** = first expansion; **P2** = later
 
 | Story | Acceptance criteria |
 | --- | --- |
-| As a lead, I can see scope health at a glance. | Health explains its inputs: aging requests, pending/expired approvals, unlinked requests, and unapproved implementation; it is not a black-box score alone. |
+| As a lead, I can see scope health at a glance. | Health explains its inputs: aging requests, pending/expired approvals, unlinked requests, and unapproved implementation; it is not a black-box score alone. **[Shipped + extended:** sixth `unlinked-work` signal fed by merged GitHub work; merged-without-approval changes join unapproved implementation.**]** |
 | As a lead, I can bundle related changes. | Bundle preserves each original request, produces a combined impact/review package, and prevents double counting. |
-| As a lead, I can define approval dependencies. | A blocked request cannot be sent/marked approved until its prerequisite satisfies the configured condition; override requires authorized rationale. |
+| As a lead, I can define approval dependencies. | A blocked request cannot be sent/marked approved until its prerequisite satisfies the configured condition; override requires authorized rationale. **[Shipped #15** alongside escalation: configurable schedule, dedupe, second-approver/agency-lead escalation.**]** |
 | As a lead, I can find related historical decisions. | Search filters by project/authorized records and links to original context. |
 
 ### Epic 11 — Integrations and commercial maturity (P2)
@@ -532,7 +548,7 @@ Priorities: **P0** = must ship for MVP; **P1** = first expansion; **P2** = later
 
 | Story | Acceptance criteria |
 | --- | --- |
-| As a team, I can link an approved change to an external work item. | Integration is opt-in, stores minimal external identifiers, handles revoked credentials, and never changes scope state from an external event without policy. |
+| As a team, I can link an approved change to an external work item. | Integration is opt-in, stores minimal external identifiers, handles revoked credentials, and never changes scope state from an external event without policy. **[Shipped #17:** GitHub connections + signed receiver, ref parsing, auto-linking, health feed; Linear/Jira behind the same `ExternalProvider` interface later.**]** |
 | As an owner, I can manage plan limits/usage. | Usage is transparent, limits fail gracefully, and billing logic is isolated from scope/approval records. |
 | As an agency, I can apply branding to client review pages. | Branding is organization-scoped, accessible, and cannot weaken authorization or provenance. |
 
@@ -592,6 +608,8 @@ Priorities: **P0** = must ship for MVP; **P1** = first expansion; **P2** = later
 | AI evaluation | curated fixtures and human review | structured output schema, correct source attribution, low-confidence handling, prompt injection resistance |
 | Accessibility | automated scan plus keyboard/manual checks | dialog focus, form error announcements, contrast, approval flow on mobile |
 
+**[Updated]** Shipped gates (all green per feature): `prisma:validate`, `build`, `typecheck`, `lint` (zero warnings), `test` (domain 18 files/110 tests + API 30 files/189 tests), `test:contracts`, `e2e` (25 Playwright tests incl. axe-core serious/critical checks per flow), `npm audit`, migration drift checks (`migrate diff --exit-code`, empty), `npm run audit:verify` (hash-chain recomputation), `node scripts/check-i18n.mjs` (CI missing-key check), `npm run openapi -- --check` (spec freshness), `npm run screenshots` (portfolio-seeded captures embedded in README). Live-Postgres store smoke runs against scratch databases; seed:portfolio is resumable and demoable.
+
 Required high-risk E2E scenarios:
 
 1. A client cannot open another organization’s project by changing an ID.
@@ -616,6 +634,8 @@ Required high-risk E2E scenarios:
 - Short-lived signed upload/download URLs; private R2 bucket; file type/size validation and malware scanning strategy.
 - Rate-limit public/tokenized review endpoints and log suspicious retries without recording sensitive tokens.
 - Dependency updates, automated vulnerability scanning, backups, migration rehearsal, and tested restore procedure.
+
+**[Updated]** Shipped controls: MFA (TOTP + recovery codes) with enforced policy; review-link step-up via email OTP (hashed, expiring, attempt-limited) + typed-name confirmation (identity check, never claimed as e-signature); per-project SHA-256 audit hash chain with row-locked head and genesis marker for pre-existing rows; outgoing-webhook HMAC-SHA256 signatures with timestamp headers and SSRF screening (https-only in prod, private/link-local/loopback blocked post-DNS); API keys shown once, hashed, scoped, rotatable, per-key rate-limited; webhook/connection secrets sealed AES-256-GCM under `AUTH_SECRET`; GitHub receiver signature + delivery-id replay protection; per-group rate limits (default/auth/token/ai/apikey); `SECURITY.md` ships in Phase 6 with the maintainer contact.
 
 ### Privacy and AI
 
@@ -663,6 +683,8 @@ Track product events with minimal personal data:
 
 Run customer interviews around real completed/blocked changes. Ask what they used before ScopeLock, what evidence was missing, and whether the saved time, reduced tension, or recovered revenue justifies payment.
 
+**[Updated]** Shipped: `GET /projects/:id/metrics` serves baselines-published, completion rate, median submit→decision hours, linked-to-baseline rate, invalidation rate, approved-without-clarification rate, and AI suggestion accept/review counts; `GET /projects/:id/health` serves the six explainable signals plus a 0–5 score. Both render on the Health page with per-item detail.
+
 ---
 
 ## 18. Key risks and mitigations
@@ -693,6 +715,8 @@ The MVP is ready for design partners when it can reliably demonstrate this compl
 
 Only then add AI assistance, R2 uploads, Ably updates, bundles, dependencies, and integrations in response to real pilot needs.
 
+**[Updated]** The MVP loop is demonstrated end-to-end by `pilot-loop.spec.ts` plus 24 further Playwright specs, the portfolio seed (16 projects), and embedded screenshots. AI assistance (provider abstraction + failover), bundles, dependencies, and integrations (#16–#17 shipped, #18 in progress, see §21) are past MVP; R2/Ably remain optional drivers with local fallbacks.
+
 ---
 
 ## 20. Immediate next actions
@@ -702,6 +726,84 @@ Only then add AI assistance, R2 uploads, Ably updates, bundles, dependencies, an
 3. Scaffold the monorepo, environment validation, authentication, Prisma schema, and CI.
 4. Build the P0 vertical slice for one project end-to-end before broadening the data model.
 5. Invite 3–5 design partners, observe their first live change request, and prioritize only friction demonstrated in those sessions.
+
+---
+
+## 21. Expansion implementation log (Phases 0–6)
+
+One `feat/<slug>` branch per feature, small conventional commits, Definition-of-Done gates per feature (contracts + domain tests, migration + 3 store backends, authz/IDOR/contract tests, axe-clean UI + Playwright, audit/outbox, `seed:portfolio`, docs, green gates). Full per-feature audit: `docs/EXPANSION_AUDIT.md`.
+
+### Phase 0 — Hygiene and adoption (Done)
+
+| Work | Branch | Notes |
+| --- | --- | --- |
+| Production `start`, Dockerfiles, compose (api/web/postgres/healthchecks), “self-host in 5 minutes” README | `feat/prod-deploy` | CI smoke job; no local Docker host, images verified review+CI only |
+| CHANGELOG, CONTRIBUTING, issue/PR templates | `feat/community-docs` | `SECURITY.md` deferred to Phase 6 (contact now confirmed) |
+| `npm run screenshots` portfolio captures in `docs/screenshots`, README tour | `feat/screenshots` | Regen from seed; embedded in README |
+| i18n infrastructure (moved forward from #24) | `feat/i18n-infra` | `messages.en.json` + `useLocale()` + CI missing-key check |
+
+### Phase 1 — Money and contract value (Done)
+
+| # | Feature | Branch | Notes |
+| --- | --- | --- | --- |
+| 1 | Contract value ledger | `feat/contract-ledger` | Derived baseline + deltas; pending exposure; absorbed work; integer minor units; Contract tab + org rollup; reconciliation test |
+| 2 | Rate cards + estimate templates | `feat/rate-cards` | Org rates, contingency/tax, computed-but-overridable pricing with reasons; explicit per-project currency, no silent conversion |
+| 3 | Change allowance pool | `feat/allowance-pool` | Client-granted pool as the recorded decision; draw-downs notify with objection window; off by default |
+| 4 | Invoice-ready export | `feat/invoice-export` | CSV + JSON approved-change line items per project/period |
+
+### Phase 2 — Intake (Done)
+
+| # | Feature | Branch | Notes |
+| --- | --- | --- | --- |
+| — | AI provider seam (moved forward from #19) | `feat/ai-provider-seam` | `AiProvider` + Groq/OpenAI failover, deterministic fallbacks, usage log |
+| 5 | Public intake form | `feat/intake-form` | Revocable token link + embeddable page; rate-limit, honeypot, size caps; `SUBMITTED` + `INTAKE_FORM` + unverified flag |
+| 6 | Pre-submission scope check | `feat/scope-check` | Deterministic lexical match first, optional AI refinement; advisory, “submit anyway”; suggestion-vs-classification metrics |
+| 7 | Inbound email | `feat/inbound-email` | Provider-agnostic signed webhook + replay protection, unguessable aliases, strip/loop-guard, upload+malware pipeline, local simulator |
+| 8 | Transcript/thread import | `feat/transcript-import` | AI draft changes with excerpts; human accept/edit; prompt-injection fixtures |
+
+### Phase 3 — Stronger decisions (Done)
+
+| # | Feature | Branch | Notes |
+| --- | --- | --- | --- |
+| 9 | Approval policies | `feat/approval-policies` | ANY/ALL/SEQUENTIAL + amount thresholds in `domain`; checksum still binds every decision |
+| 10 | Proposal options + PARKED | `feat/proposal-options` | 2–4 priced options, pick-one-or-reject; parked view + revival |
+| 11 | Step-up verification | `feat/step-up-verification` | Email OTP (hashed/expiring/attempt-limited) + typed-name record; identity check, not e-signature |
+| 12 | Change Order PDF + certificate | `feat/change-order-pdf` | Deterministic pdf-lib PDF + QR to public `/verify/:approvalId` checksum recomputation |
+| 13 | Tamper-evident audit | `feat/audit-hash-chain` | Per-project SHA-256 chain, row-locked head, genesis marker, verify endpoint + CLI + concurrency test |
+| 14 | Delivery acceptance | `feat/delivery-acceptance` | Review-link acceptance; deemed-after-N-days as `actor=policy`, never a client decision |
+| 15 | Escalation + dependencies | `feat/approval-escalation` | Exactly-once escalation (nudge or agency lead); DEPENDS_ON prerequisites re-verified at decision time |
+
+### Phase 4 — Integrations (#16–#17 Done, #18 in progress)
+
+| # | Feature | Branch | Status | Notes |
+| --- | --- | --- | --- | --- |
+| 16 | Outgoing webhooks + API keys + OpenAPI | `feat/webhooks-api-keys` | Done | HMAC-SHA256 + timestamp headers, outbox backoff, delivery log + replay, SSRF guard; `sk_` keys scoped/rotatable/rate-limited; generated + served spec (`npm run openapi -- --check`) |
+| 17 | GitHub linking | `feat/github-linking` | Done | Opt-in connections, signed receiver, `CHG/REQ-###` parsing (titles/bodies/branches/commits), idempotent auto-linking, unlinked-work health signal; Linear/Jira behind `ExternalProvider` later; external events never change scope state |
+| 18 | Notification channels | `feat/notification-channels` | **In progress** | Slack (org webhook) for approvers/leads; SMS/WhatsApp provider interface + log driver; per-user prefs (email/SMS/WhatsApp + E.164 phone); all through outbox. Shipped: domain/contracts, migration 0019, stores, drivers, worker dispatch. Remaining: routes, worker fan-out completion, UI, specs, seed, docs, gates |
+
+### Phase 5 — Intelligence (pending; #19 Partial)
+
+| # | Feature | Status | Notes |
+| --- | --- | --- | --- |
+| 19 | AI provider abstraction | Partial | Interface + Groq/OpenAI failover + deterministic fallbacks + usage log shipped early (Phase 2 seam); remaining scope per audit to be closed here |
+| 20 | Decision memory search | Missing | Postgres FTS everywhere; pgvector only when configured, else lexical fallback; access filter before ranking; no generated conclusions |
+| 21 | Price suggestions + actuals | Missing | Comparables with real approved prices; optional actual-effort field; estimate-vs-actual report |
+
+### Phase 6 — Platform (pending; #24 Partial)
+
+| # | Feature | Status | Notes |
+| --- | --- | --- | --- |
+| 22 | Scope templates + CSV import | Missing | Requirement library per project type; dry-run preview with per-row errors |
+| 23 | OAuth + passkeys | Missing | Google/GitHub code+PKCE (verified-email link only), WebAuthn via maintained libs; MFA policy still enforced |
+| 24 | i18n | Partial | Infra shipped (catalog, `useLocale()`, CI check); remaining: full string extraction, Bangla (`bn`), per-user language, review-link org/project default |
+| — | `SECURITY.md` | Missing | Contact confirmed (`codejborg@junaidul.pro.bd`); to be written with the Phase 6 close-out + final report |
+
+### Standing risks and deferred items
+
+- No local Docker host: images and the compose CI job are review + CI verified only.
+- `npm audit --audit-level=high` exits 1 on pre-existing transitive advisories; no new advisories introduced by expansion work.
+- Intermittent parallel-load test flakes; affected files pass in isolation and gates re-run to green.
+- Neon (remote) migrations trail local: production `migrate deploy` runs after all tasks complete.
 
 ---
 
