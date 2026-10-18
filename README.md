@@ -311,6 +311,9 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   budget + approved change deltas = current value, plus pending exposure,
   absorbed (no-charge) work, and value by scope version. The dashboard shows
   the org rollup per currency (amounts are never converted).
+- **Invoice-ready export** (Contract tab) — approved changes per period as
+  CSV or JSON line items with per-currency totals, ready for the agency's
+  own invoicing tool. ScopeLock does not invoice, tax, or collect payment.
 - **Allowance tab** (project → Allowance) — pre-agreed hours/amount pools
   the client grants by decision; approved changes draw from them with client
   notification and an objection window. Off by default, always visible.

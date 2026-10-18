@@ -34,6 +34,10 @@ All notable changes to ScopeLock are documented here. Format follows
   window, objections pause for lead resolution (uphold or release back).
   Project Allowance tab, grant terms on review links, draw-down visibility
   on the change page.
+- Invoice-ready export: approved changes decided in a project/period as
+  line items in CSV (RFC 4180) or JSON, with per-currency totals, pricing
+  mode, override reasons, and allowance draw status. Contract tab card
+  with period pickers; every export is audit-logged.
 
 ## [0.1.0] - 2026-10-16
 
