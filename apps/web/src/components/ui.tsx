@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type InputHTM
 import { cva, type VariantProps } from "class-variance-authority";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { useLocale } from "../lib/i18n/index.js";
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -140,8 +141,9 @@ export function statusTone(status: string): keyof typeof badgeTones {
 }
 
 export function Spinner(): JSX.Element {
+  const { t } = useLocale();
   return (
-    <span role="status" aria-label="Loading" className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-700" />
+    <span role="status" aria-label={t("common.loadingLabel")} className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-700" />
   );
 }
 
@@ -207,6 +209,7 @@ export function ErrorBanner({ message, correlationId }: { message: string; corre
 }
 
 export function Dialog({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }): JSX.Element {
+  const { t } = useLocale();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -228,7 +231,7 @@ export function Dialog({ title, onClose, children, wide }: { title: string; onCl
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">
+          <button type="button" onClick={onClose} aria-label={t("common.closeDialog")} className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">
             ✕
           </button>
         </div>

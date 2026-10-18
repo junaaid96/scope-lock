@@ -7,10 +7,12 @@ import { RegisterSchema } from "@scopelock/contracts";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import { invalidateAll } from "../lib/query.js";
 import { Button, Card, ErrorBanner, Field, Input } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 type Form = z.infer<typeof RegisterSchema>;
 
 export function RegisterPage(): JSX.Element {
+  const { t } = useLocale();
   const navigate = useNavigate();
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const { register, handleSubmit, formState } = useForm<Form>({ resolver: zodResolver(RegisterSchema) });
@@ -28,28 +30,28 @@ export function RegisterPage(): JSX.Element {
 
   return (
     <Card>
-      <h1 className="mb-1 text-xl font-semibold">Create your workspace</h1>
-      <p className="mb-5 text-sm text-slate-600">One account, one agency workspace, ready for your first client project.</p>
+      <h1 className="mb-1 text-xl font-semibold">{t("auth.registerTitle")}</h1>
+      <p className="mb-5 text-sm text-slate-600">{t("auth.registerSubtitle")}</p>
       <form onSubmit={(e) => void onSubmit(e)} className="space-y-4" noValidate>
-        <Field label="Your name" error={formState.errors.name?.message} htmlFor="name">
+        <Field label={t("auth.nameLabel")} error={formState.errors.name?.message} htmlFor="name">
           <Input id="name" autoComplete="name" {...register("name")} />
         </Field>
-        <Field label="Email" error={formState.errors.email?.message} htmlFor="email">
+        <Field label={t("auth.emailLabel")} error={formState.errors.email?.message} htmlFor="email">
           <Input id="email" type="email" autoComplete="email" {...register("email")} />
         </Field>
-        <Field label="Password" error={formState.errors.password?.message} hint="At least 10 characters." htmlFor="password">
+        <Field label={t("auth.passwordLabel")} error={formState.errors.password?.message} hint={t("auth.passwordHint")} htmlFor="password">
           <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
         </Field>
-        <Field label="Organization name" error={formState.errors.organizationName?.message} htmlFor="organizationName">
-          <Input id="organizationName" placeholder="Acme Studio" {...register("organizationName")} />
+        <Field label={t("auth.orgNameLabel")} error={formState.errors.organizationName?.message} htmlFor="organizationName">
+          <Input id="organizationName" placeholder={t("auth.orgNamePlaceholder")} {...register("organizationName")} />
         </Field>
         {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
         <Button type="submit" disabled={formState.isSubmitting} className="w-full">
-          {formState.isSubmitting ? "Creating…" : "Create workspace"}
+          {formState.isSubmitting ? t("auth.creating") : t("auth.registerSubmit")}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-slate-600">
-        Already have an account? <Link to="/login" className="font-medium text-teal-800 underline">Log in</Link>
+        {t("auth.haveAccount")}{" "}<Link to="/login" className="font-medium text-teal-800 underline">{t("auth.login")}</Link>
       </p>
     </Card>
   );

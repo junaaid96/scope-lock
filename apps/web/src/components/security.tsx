@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 import { api, errorMessage } from "../lib/api.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner } from "./ui.js";
 
 interface OAuthAccount {
@@ -20,6 +21,7 @@ interface Passkey {
 /** Personal card: link/unlink Google/GitHub (verified-email match required). */
 export function OAuthCard(): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
   const accounts = useQuery({
     queryKey: ["oauth-accounts"],
     queryFn: () => api.get<{ data: OAuthAccount[] }>("/auth/oauth/accounts"),
@@ -31,7 +33,7 @@ export function OAuthCard(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const unlink = async (provider: string): Promise<void> => {
-    if (!window.confirm(`Unlink ${provider}? You can re-link it any time.`)) return;
+    if (!window.confirm(t("security.unlinkConfirm", { provider }))) return;
     setError(null);
     try {
       await api.delete(`/auth/oauth/accounts/${provider}`);
@@ -45,18 +47,15 @@ export function OAuthCard(): JSX.Element {
 
   return (
     <Card>
-      <h2 className="mb-1 font-medium">Connected accounts</h2>
-      <p className="text-sm text-slate-600">
-        Link Google or GitHub to sign in with one click. Linking requires the provider&apos;s verified email to match
-        this account — mismatches are refused, never merged.
-      </p>
+      <h2 className="mb-1 font-medium">{t("security.connectedTitle")}</h2>
+      <p className="text-sm text-slate-600">{t("security.connectedHint")}</p>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {accounts.isLoading ? (
         <Spinner />
       ) : accounts.isError ? (
         <div className="mt-2"><ErrorBanner message={errorMessage(accounts.error)} /></div>
       ) : (accounts.data?.data ?? []).length === 0 ? (
-        <div className="mt-2"><Empty title="No connected accounts" /></div>
+        <div className="mt-2"><Empty title={t("security.noAccounts")} /></div>
       ) : (
         <ul className="mt-2 space-y-2">
           {(accounts.data?.data ?? []).map((a) => (
@@ -65,7 +64,7 @@ export function OAuthCard(): JSX.Element {
                 <Badge>{a.provider}</Badge> <span className="ml-2 text-slate-700">{a.email}</span>
               </span>
               <Button size="sm" variant="secondary" onClick={() => void unlink(a.provider)}>
-                Unlink
+                {t("security.unlink")}
               </Button>
             </li>
           ))}
@@ -77,7 +76,7 @@ export function OAuthCard(): JSX.Element {
             href="/api/v1/auth/oauth/google/start"
             className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
           >
-            Link Google
+            {t("security.linkGoogle")}
           </a>
         )}
         {methods.data?.github && !linked.has("github") && (
@@ -85,7 +84,7 @@ export function OAuthCard(): JSX.Element {
             href="/api/v1/auth/oauth/github/start"
             className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
           >
-            Link GitHub
+            {t("security.linkGitHub")}
           </a>
         )}
       </div>
@@ -96,6 +95,7 @@ export function OAuthCard(): JSX.Element {
 /** Personal card: register and manage passkeys. */
 export function PasskeysCard(): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
   const passkeys = useQuery({
     queryKey: ["passkeys"],
     queryFn: () => api.get<{ data: Passkey[] }>("/auth/passkeys"),
@@ -127,7 +127,7 @@ export function PasskeysCard(): JSX.Element {
   };
 
   const remove = async (key: Passkey): Promise<void> => {
-    if (!window.confirm(`Delete passkey “${key.name}”?`)) return;
+    if (!window.confirm(t("security.deletePasskeyConfirm", { name: key.name }))) return;
     setError(null);
     try {
       await api.delete(`/auth/passkeys/${key.id}`);
@@ -139,18 +139,15 @@ export function PasskeysCard(): JSX.Element {
 
   return (
     <Card>
-      <h2 className="mb-1 font-medium">Passkeys</h2>
-      <p className="text-sm text-slate-600">
-        Phishing-resistant sign-in with your device or security key. A passkey verified with biometrics or PIN also
-        satisfies two-factor authentication.
-      </p>
+      <h2 className="mb-1 font-medium">{t("security.passkeysTitle")}</h2>
+      <p className="text-sm text-slate-600">{t("security.passkeysHint")}</p>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {passkeys.isLoading ? (
         <Spinner />
       ) : passkeys.isError ? (
         <div className="mt-2"><ErrorBanner message={errorMessage(passkeys.error)} /></div>
       ) : (passkeys.data?.data ?? []).length === 0 ? (
-        <div className="mt-2"><Empty title="No passkeys yet" hint="Register one below to skip passwords." /></div>
+        <div className="mt-2"><Empty title={t("security.noPasskeys")} hint={t("security.noPasskeysHint")} /></div>
       ) : (
         <ul className="mt-2 space-y-2">
           {(passkeys.data?.data ?? []).map((k) => (
@@ -158,10 +155,10 @@ export function PasskeysCard(): JSX.Element {
               <span className="font-medium text-slate-900">{k.name}</span>
               <span className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">
-                  {k.lastUsedAt ? `last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "never used"}
+                  {k.lastUsedAt ? t("security.lastUsed", { date: new Date(k.lastUsedAt).toLocaleDateString() }) : t("security.neverUsed")}
                 </span>
                 <Button size="sm" variant="secondary" onClick={() => void remove(k)}>
-                  Delete
+                  {t("security.delete")}
                 </Button>
               </span>
             </li>
@@ -170,13 +167,13 @@ export function PasskeysCard(): JSX.Element {
       )}
       <form onSubmit={(e) => void registerKey(e)} className="mt-3 flex gap-2">
         <div className="flex-1">
-          <Field label="New passkey name" htmlFor="pk-name">
-            <Input id="pk-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Laptop" autoComplete="off" />
+          <Field label={t("security.newNameLabel")} htmlFor="pk-name">
+            <Input id="pk-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("security.namePlaceholder")} autoComplete="off" />
           </Field>
         </div>
         <div className="flex items-end">
           <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-            {busy ? "Waiting…" : "Register"}
+            {busy ? t("security.waiting") : t("security.register")}
           </Button>
         </div>
       </form>

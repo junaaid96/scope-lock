@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, errorMessage, putBytes, sha256Hex } from "../lib/api.js";
 import type { AttachmentRow } from "../lib/types.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Button, ErrorBanner } from "./ui.js";
 
 interface Intent {
@@ -34,6 +35,7 @@ export function UploadBox({ projectId, linked, onDone }: {
   linked: { linkedType: "CHANGE" | "REQUIREMENT"; linkedId: string };
   onDone: () => void;
 }): JSX.Element {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
@@ -55,7 +57,7 @@ export function UploadBox({ projectId, linked, onDone }: {
               .finally(() => setBusy(false));
           }}
         />
-        {busy ? "Uploading…" : "Attach a file"}
+        {busy ? t("upload.uploading") : t("upload.attach")}
       </label>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
     </div>
@@ -63,6 +65,7 @@ export function UploadBox({ projectId, linked, onDone }: {
 }
 
 export function DownloadButton({ attachmentId, fileName }: { attachmentId: string; fileName: string }): JSX.Element {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   return (
     <Button
@@ -85,7 +88,7 @@ export function DownloadButton({ attachmentId, fileName }: { attachmentId: strin
           .finally(() => setBusy(false));
       }}
     >
-      Download
+      {t("upload.download")}
     </Button>
   );
 }

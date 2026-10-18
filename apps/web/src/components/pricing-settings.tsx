@@ -57,7 +57,7 @@ export function RateCardsCard({ organizationId, canManage }: { organizationId: s
                 {card.isDefault ? <Badge tone="teal">{t("pricing.defaultCard")}</Badge> : null}
                 <ul className="mt-1 text-sm text-slate-600">
                   {card.rates.map((r) => (
-                    <li key={r.id}>{r.role} — {money(r.hourlyRateMinor, card.currency)}/h</li>
+                    <li key={r.id}>{r.role} — {money(r.hourlyRateMinor, card.currency)}{t("pricing.perHour")}</li>
                   ))}
                 </ul>
               </div>
@@ -132,7 +132,7 @@ function RateCardDialog({ organizationId, initial, onClose, onDone }: {
           <Field label={t("pricing.cardName")} htmlFor="rc-name">
             <Input id="rc-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Currency (ISO)" htmlFor="rc-currency">
+          <Field label={t("pricing.currencyLabel")} htmlFor="rc-currency">
             <Input id="rc-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} />
           </Field>
         </div>
@@ -142,7 +142,7 @@ function RateCardDialog({ organizationId, initial, onClose, onDone }: {
             {rates.map((r, i) => (
               <li key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                 <Input aria-label={`${t("pricing.role")} ${i + 1}`} placeholder={t("pricing.role")} value={r.role} onChange={(e) => setRates(rates.map((row, j) => (j === i ? { ...row, role: e.target.value } : row)))} />
-                <Input aria-label={`${t("pricing.hourlyRate")} ${i + 1}`} placeholder="100.00" inputMode="decimal" value={r.hourly} onChange={(e) => setRates(rates.map((row, j) => (j === i ? { ...row, hourly: e.target.value } : row)))} />
+                <Input aria-label={`${t("pricing.hourlyRate")} ${i + 1}`} placeholder={t("pricing.ratePlaceholder")} inputMode="decimal" value={r.hourly} onChange={(e) => setRates(rates.map((row, j) => (j === i ? { ...row, hourly: e.target.value } : row)))} />
                 <Button type="button" size="sm" variant="secondary" disabled={rates.length <= 1} onClick={() => setRates(rates.filter((_, j) => j !== i))}>{t("pricing.remove")}</Button>
               </li>
             ))}
@@ -193,7 +193,7 @@ export function TemplatesCard({ organizationId, canManage }: { organizationId: s
                 </span>
                 <ul className="mt-1 text-sm text-slate-600">
                   {tpl.items.map((item, i) => (
-                    <li key={i}>{item.label} — {item.role}, {item.hours}h</li>
+                    <li key={i}>{item.label} — {item.role}, {item.hours}{t("pricing.hoursSuffix")}</li>
                   ))}
                 </ul>
               </div>
@@ -268,7 +268,7 @@ function TemplateDialog({ organizationId, initial, onClose, onDone }: {
               <li key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] gap-2">
                 <Input aria-label={`${t("pricing.lineLabel")} ${i + 1}`} placeholder={t("pricing.lineLabel")} value={item.label} onChange={(e) => setItems(items.map((row, j) => (j === i ? { ...row, label: e.target.value } : row)))} />
                 <Input aria-label={`${t("pricing.role")} ${i + 1}`} placeholder={t("pricing.role")} value={item.role} onChange={(e) => setItems(items.map((row, j) => (j === i ? { ...row, role: e.target.value } : row)))} />
-                <Input aria-label={`${t("pricing.hours")} ${i + 1}`} placeholder="8" inputMode="decimal" value={item.hours} onChange={(e) => setItems(items.map((row, j) => (j === i ? { ...row, hours: e.target.value } : row)))} />
+                <Input aria-label={`${t("pricing.hours")} ${i + 1}`} placeholder={t("pricing.hoursPlaceholder")} inputMode="decimal" value={item.hours} onChange={(e) => setItems(items.map((row, j) => (j === i ? { ...row, hours: e.target.value } : row)))} />
                 <Button type="button" size="sm" variant="secondary" disabled={items.length <= 1} onClick={() => setItems(items.filter((_, j) => j !== i))}>{t("pricing.remove")}</Button>
               </li>
             ))}

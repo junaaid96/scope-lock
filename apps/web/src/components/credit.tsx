@@ -6,9 +6,9 @@
  * blink uses `motion-safe:` so it respects prefers-reduced-motion.
  */
 import { cn } from "./ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 const CREDIT_HREF = "https://junaidul.pro.bd/codejborg";
-const CREDIT_ARIA_LABEL = "Developed by CodeJBorg — visit developer website";
 
 function CodeIcon({ className }: { className?: string }): JSX.Element {
   return (
@@ -57,12 +57,13 @@ function CreditName({ className }: { className?: string }): JSX.Element {
 
 /** Pill/badge variant for footers: icon disc, name, blinking cursor, arrow. */
 export function CreditPill({ className }: { className?: string }): JSX.Element {
+  const { t } = useLocale();
   return (
     <a
       href={CREDIT_HREF}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={CREDIT_ARIA_LABEL}
+      aria-label={t("credit.visit")}
       className={cn(
         "group inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-1.5 pr-3 font-mono text-[11px] tracking-wide text-slate-600 transition-colors duration-300 hover:border-teal-600 hover:bg-teal-50 hover:text-slate-900",
         className,
@@ -71,7 +72,7 @@ export function CreditPill({ className }: { className?: string }): JSX.Element {
       <span className="flex size-6 items-center justify-center rounded-full bg-teal-700 text-white">
         <CodeIcon className="size-3.5" />
       </span>
-      <span>Developed by</span>
+      <span>{t("credit.developedBy")}</span>
       <CreditName className="text-slate-900" />
       <span aria-hidden="true" className="inline-block h-3.5 w-[2px] bg-teal-700 motion-safe:animate-pulse" />
       <ArrowUpRightIcon className="size-3.5 opacity-40 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />

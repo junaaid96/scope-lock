@@ -9,6 +9,7 @@ import { fetchAll } from "../lib/api.js";
 import { useLogout, useSession } from "../lib/auth.js";
 import type { Client, ProjectListItem } from "../lib/types.js";
 import { Kbd } from "./ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 interface Entry {
   id: string;
@@ -38,23 +39,25 @@ function SearchIcon(): JSX.Element {
 }
 
 export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }): JSX.Element {
+  const { t } = useLocale();
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label="Open command palette"
-      title="Jump to anything (Ctrl+K)"
+      aria-label={t("palette.openTrigger")}
+      title={t("palette.triggerTitle")}
       className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:border-teal-600 hover:text-slate-800"
     >
       <SearchIcon />
-      <span className="hidden lg:inline">Jump to…</span>
-      <span className="hidden lg:inline"><Kbd>Ctrl K</Kbd></span>
+      <span className="hidden lg:inline">{t("palette.jumpTo")}</span>
+      <span className="hidden lg:inline"><Kbd>{t("palette.keyCtrlK")}</Kbd></span>
     </button>
   );
 }
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element | null {
   const navigate = useNavigate();
+  const { t } = useLocale();
   const logout = useLogout();
   const { session } = useSession();
   const projectMatch = useMatch("/projects/:id/*");
@@ -105,25 +108,25 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   const entries: Entry[] = useMemo(() => {
     const list: Entry[] = [
-      { id: "nav-projects", group: "Go to", label: "Projects dashboard", keywords: "home", run: go("/") },
-      { id: "nav-inbox", group: "Go to", label: "Inbox", keywords: "decisions notifications approvals", run: go("/inbox") },
+      { id: "nav-projects", group: t("palette.groupGoTo"), label: t("palette.navProjects"), keywords: "home", run: go("/") },
+      { id: "nav-inbox", group: t("palette.groupGoTo"), label: t("palette.navInbox"), keywords: "decisions notifications approvals", run: go("/inbox") },
     ];
     for (const o of orgs) {
-      list.push({ id: `org-${o.id}`, group: "Go to", label: `Workspace settings — ${o.name}`, keywords: "settings organization", run: go(`/orgs/${o.id}/settings`) });
+      list.push({ id: `org-${o.id}`, group: t("palette.groupGoTo"), label: t("palette.workspaceSettings", { name: o.name }), keywords: "settings organization", run: go(`/orgs/${o.id}/settings`) });
     }
     if (projectId) {
       list.push(
-        { id: "ctx-overview", group: "This project", label: "Project overview", run: go(`/projects/${projectId}`) },
-        { id: "ctx-scope", group: "This project", label: "Scope ledger", keywords: "baseline requirements", run: go(`/projects/${projectId}/scope`) },
-        { id: "ctx-timeline", group: "This project", label: "Timeline", keywords: "history milestones chronology", run: go(`/projects/${projectId}/timeline`) },
-        { id: "ctx-activity", group: "This project", label: "Activity", keywords: "audit trail history", run: go(`/projects/${projectId}/activity`) },
-        { id: "ctx-health", group: "This project", label: "Scope health", keywords: "metrics signals", run: go(`/projects/${projectId}/health`) },
+        { id: "ctx-overview", group: t("palette.groupThisProject"), label: t("palette.ctxOverview"), run: go(`/projects/${projectId}`) },
+        { id: "ctx-scope", group: t("palette.groupThisProject"), label: t("palette.ctxScope"), keywords: "baseline requirements", run: go(`/projects/${projectId}/scope`) },
+        { id: "ctx-timeline", group: t("palette.groupThisProject"), label: t("palette.ctxTimeline"), keywords: "history milestones chronology", run: go(`/projects/${projectId}/timeline`) },
+        { id: "ctx-activity", group: t("palette.groupThisProject"), label: t("palette.ctxActivity"), keywords: "audit trail history", run: go(`/projects/${projectId}/activity`) },
+        { id: "ctx-health", group: t("palette.groupThisProject"), label: t("palette.ctxHealth"), keywords: "metrics signals", run: go(`/projects/${projectId}/health`) },
       );
     }
     for (const p of projects) {
       list.push({
         id: `project-${p.id}`,
-        group: "Projects",
+        group: t("palette.groupProjects"),
         label: p.name,
         hint: clientNames.get(p.clientId) ?? p.orgName,
         keywords: `${clientNames.get(p.clientId) ?? ""} ${p.orgName}`,
@@ -131,17 +134,17 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       });
     }
     list.push(
-      { id: "new-project", group: "Create", label: "New project…", keywords: "add create", run: go("/?create=project") },
-      { id: "new-client", group: "Create", label: "New client…", keywords: "add create", run: go("/?create=client") },
+      { id: "new-project", group: t("palette.groupCreate"), label: t("palette.newProject"), keywords: "add create", run: go("/?create=project") },
+      { id: "new-client", group: t("palette.groupCreate"), label: t("palette.newClient"), keywords: "add create", run: go("/?create=client") },
       {
-        id: "logout", group: "Session", label: "Log out", run: () => {
+        id: "logout", group: t("palette.groupSession"), label: t("palette.logOut"), run: () => {
           onClose();
           void logout().then(() => navigate("/login"));
         },
       },
     );
     return list;
-  }, [orgs, projects, clientNames, projectId]);
+  }, [orgs, projects, clientNames, projectId, t]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -200,7 +203,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("palette.dialogLabel")}
         className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -211,22 +214,22 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            aria-label="Search commands and projects"
-            placeholder="Type a project, page, or action…"
+            aria-label={t("palette.searchLabel")}
+            placeholder={t("palette.searchPlaceholder")}
             autoComplete="off"
             spellCheck={false}
             className="w-full bg-transparent py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
           />
           {query ? (
-            <button type="button" aria-label="Clear search" onClick={() => setQuery("")} className="rounded px-1 text-slate-400 hover:text-slate-700">
+            <button type="button" aria-label={t("palette.clearSearch")} onClick={() => setQuery("")} className="rounded px-1 text-slate-400 hover:text-slate-700">
               ✕
             </button>
           ) : null}
         </div>
         {filtered.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-slate-500">No matches — try another search.</p>
+          <p className="px-4 py-8 text-center text-sm text-slate-500">{t("palette.noMatches")}</p>
         ) : (
-          <ul ref={listRef} role="listbox" aria-label="Results" className="max-h-[40vh] overflow-y-auto py-2">
+          <ul ref={listRef} role="listbox" aria-label={t("palette.resultsLabel")} className="max-h-[40vh] overflow-y-auto py-2">
             {filtered.map((e, i) => {
               const header = e.group !== lastGroup ? e.group : null;
               lastGroup = e.group;
@@ -253,9 +256,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           </ul>
         )}
         <div className="flex items-center gap-3 border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
-          <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate</span>
-          <span><Kbd>Enter</Kbd> open</span>
-          <span><Kbd>Esc</Kbd> close</span>
+          <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> {t("palette.hintNavigate")}</span>
+          <span><Kbd>{t("palette.keyEnter")}</Kbd> {t("palette.hintOpen")}</span>
+          <span><Kbd>{t("palette.keyEsc")}</Kbd> {t("palette.hintClose")}</span>
         </div>
       </div>
     </div>

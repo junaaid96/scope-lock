@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ChangeListItem } from "../lib/types.js";
 import { Badge, Empty, ErrorBanner, Spinner, formatMoney, statusTone } from "./ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 interface Column {
   id: string;
@@ -19,15 +20,7 @@ interface Column {
   dropTo: string | null;
 }
 
-const COLUMNS: Column[] = [
-  { id: "triage", title: "Triage", statuses: ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION"], dropTo: "TRIAGING" },
-  { id: "estimating", title: "Estimating", statuses: ["ESTIMATING"], dropTo: "ESTIMATING" },
-  { id: "pending", title: "Pending approval", hint: "via Send for approval", statuses: ["PENDING_APPROVAL"], dropTo: null },
-  { id: "approved", title: "Approved", hint: "via client decision", statuses: ["APPROVED"], dropTo: null },
-  { id: "implemented", title: "Implemented", statuses: ["IMPLEMENTED"], dropTo: "IMPLEMENTED" },
-  { id: "parked", title: "Parked", hint: "shelved — revive via Move to", statuses: ["PARKED"], dropTo: "PARKED" },
-  { id: "closed", title: "Closed", statuses: ["REJECTED", "WITHDRAWN"], dropTo: "WITHDRAWN" },
-];
+// Column definitions live inside ChangeBoard so titles can use t().
 
 /** Manual moves the API accepts (mirrors domain ChangeTransitions minus decision-driven targets). */
 const MANUAL_MOVES: Record<string, string[]> = {
@@ -46,6 +39,16 @@ const MANUAL_MOVES: Record<string, string[]> = {
 
 export function ChangeBoard({ projectId, changes, loading }: { projectId: string; changes: ChangeListItem[]; loading: boolean }): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
+  const columns: Column[] = [
+    { id: "triage", title: t("board.colTriage"), statuses: ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION"], dropTo: "TRIAGING" },
+    { id: "estimating", title: t("board.colEstimating"), statuses: ["ESTIMATING"], dropTo: "ESTIMATING" },
+    { id: "pending", title: t("board.colPending"), hint: t("board.hintPending"), statuses: ["PENDING_APPROVAL"], dropTo: null },
+    { id: "approved", title: t("board.colApproved"), hint: t("board.hintApproved"), statuses: ["APPROVED"], dropTo: null },
+    { id: "implemented", title: t("board.colImplemented"), statuses: ["IMPLEMENTED"], dropTo: "IMPLEMENTED" },
+    { id: "parked", title: t("board.colParked"), hint: t("board.hintParked"), statuses: ["PARKED"], dropTo: "PARKED" },
+    { id: "closed", title: t("board.colClosed"), statuses: ["REJECTED", "WITHDRAWN"], dropTo: "WITHDRAWN" },
+  ];
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -72,11 +75,11 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
 
   const move = (change: ChangeListItem, to: string): void => {
     if (!(MANUAL_MOVES[change.status] ?? []).includes(to)) {
-      const col = COLUMNS.find((c) => c.id === to || c.statuses.includes(to) || c.dropTo === to);
+      const col = columns.find((c) => c.id === to || c.statuses.includes(to) || c.dropTo === to);
       setError(
         col?.hint
-          ? `${change.number} can only reach ${col.title} ${col.hint}.`
-          : `${change.number} cannot move from ${prettyStatus(change.status)} to ${prettyStatus(to)}.`,
+          ? t("board.canOnlyReachHint", { number: change.number, title: col.title, hint: col.hint })
+          : t("board.cannotMove", { number: change.number, from: prettyStatus(change.status), to: prettyStatus(to) }),
       );
       return;
     }
@@ -91,7 +94,7 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
     const change = changes.find((c) => c.id === id);
     if (!change) return;
     if (!column.dropTo) {
-      setError(column.hint ? `${change.number} can only reach ${column.title} ${column.hint}.` : `Cannot drop ${change.number} here.`);
+      setError(column.hint ? t("board.canOnlyReachHint", { number: change.number, title: column.title, hint: column.hint }) : t("board.cannotDrop", { number: change.number }));
       return;
     }
     if (change.status === column.dropTo) return;
@@ -100,19 +103,19 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
 
   if (loading) return <Spinner />;
   if (changes.length === 0) {
-    return <Empty title="No change requests" hint="When the client asks for something new, capture it here to assess it against the baseline." />;
+    return <Empty title={t("board.emptyTitle")} hint={t("board.emptyHint")} />;
   }
 
   return (
     <div>
       {error ? <div className="mb-3"><ErrorBanner message={error} /></div> : null}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {COLUMNS.map((col) => {
+        {columns.map((col) => {
           const items = changes.filter((c) => col.statuses.includes(c.status));
           return (
             <section
               key={col.id}
-              aria-label={`${col.title} (${items.length})`}
+              aria-label={t("board.columnLabel", { title: col.title, count: items.length })}
               onDragOver={(e) => { e.preventDefault(); setDragOver(col.id); }}
               onDragLeave={() => setDragOver((v) => (v === col.id ? null : v))}
               onDrop={(e) => onDropCard(e, col)}
@@ -144,15 +147,15 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
                     </div>
                     {(MANUAL_MOVES[c.status] ?? []).length > 0 ? (
                       <label className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-                        Move to
+                        {t("board.moveTo")}
                         <select
-                          aria-label={`Move ${c.number} to another status`}
+                          aria-label={t("board.moveAria", { number: c.number })}
                           disabled={busy}
                           defaultValue=""
                           onChange={(e) => { if (e.target.value) move(c, e.target.value); e.target.value = ""; }}
                           className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1 py-1 text-xs text-slate-800"
                         >
-                          <option value="">Select…</option>
+                          <option value="">{t("board.selectPlaceholder")}</option>
                           {(MANUAL_MOVES[c.status] ?? []).map((s) => (
                             <option key={s} value={s}>{prettyStatus(s)}</option>
                           ))}

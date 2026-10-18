@@ -29,7 +29,7 @@ interface SuggestionsResponse {
  * prices. The list IS the suggestion — no generated single number.
  */
 export function PriceSuggestions({ changeId }: { changeId: string }): JSX.Element {
-  const { money, date } = useLocale();
+  const { money, date, t } = useLocale();
   const suggestions = useQuery({
     queryKey: ["price-suggestions", changeId],
     queryFn: () => api.get<SuggestionsResponse>(`/change-requests/${changeId}/price-suggestions`),
@@ -37,11 +37,8 @@ export function PriceSuggestions({ changeId }: { changeId: string }): JSX.Elemen
 
   return (
     <Card>
-      <h2 className="font-medium">Similar approved work</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Approved changes with overlapping wording and their real approved prices, same currency only. Advisory —
-        compare scope yourself before reusing a price.
-      </p>
+      <h2 className="font-medium">{t("actuals.similarTitle")}</h2>
+      <p className="mt-1 text-sm text-slate-600">{t("actuals.similarHint")}</p>
       {suggestions.isLoading ? (
         <Spinner />
       ) : suggestions.isError ? (
@@ -50,7 +47,7 @@ export function PriceSuggestions({ changeId }: { changeId: string }): JSX.Elemen
         </div>
       ) : (suggestions.data?.data ?? []).length === 0 ? (
         <div className="mt-2">
-          <Empty title="No similar approved work" hint="Recorded prices from future approvals will appear here." />
+          <Empty title={t("actuals.noSimilarTitle")} hint={t("actuals.noSimilarHint")} />
         </div>
       ) : (
         <ul className="mt-2 space-y-2">
@@ -66,9 +63,9 @@ export function PriceSuggestions({ changeId }: { changeId: string }): JSX.Elemen
                 <span className="text-sm font-medium">{money(c.approvedPriceMinor, c.currency)}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                approved {date(c.decidedAt)}
-                {c.effortDays !== null ? ` · estimated ${c.effortDays} days` : ""}
-                {c.sharedTerms.length > 0 ? ` · matches: ${c.sharedTerms.join(", ")}` : ""}
+                {t("actuals.approvedOn", { date: date(c.decidedAt) })}
+                {c.effortDays !== null ? t("actuals.estimatedDays", { days: c.effortDays }) : ""}
+                {c.sharedTerms.length > 0 ? t("actuals.matchesTerms", { terms: c.sharedTerms.join(", ") }) : ""}
               </p>
             </li>
           ))}
@@ -92,7 +89,7 @@ export function ActualsCard({
   currency: string;
   onDone: () => void;
 }): JSX.Element {
-  const { money } = useLocale();
+  const { money, t } = useLocale();
   const [effort, setEffort] = useState("");
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
@@ -126,36 +123,36 @@ export function ActualsCard({
 
   return (
     <Card>
-      <h2 className="font-medium">Actuals</h2>
+      <h2 className="font-medium">{t("actuals.title")}</h2>
       {hasActuals ? (
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-slate-500">Actual price</dt>
+          <dt className="text-slate-500">{t("actuals.priceLabel")}</dt>
           <dd className="font-medium">
-            {impact.actualPriceMinor !== null ? money(impact.actualPriceMinor, currency) : "—"}
+            {impact.actualPriceMinor !== null ? money(impact.actualPriceMinor, currency) : t("common.notAvailable")}
           </dd>
-          <dt className="text-slate-500">Actual effort</dt>
-          <dd>{impact.actualEffortDays !== null ? `${impact.actualEffortDays} days` : "—"}</dd>
+          <dt className="text-slate-500">{t("actuals.effortLabel")}</dt>
+          <dd>{impact.actualEffortDays !== null ? t("actuals.daysValue", { days: impact.actualEffortDays }) : t("common.notAvailable")}</dd>
         </dl>
       ) : (
-        <p className="mt-1 text-sm text-slate-600">No actuals recorded yet.</p>
+        <p className="mt-1 text-sm text-slate-600">{t("actuals.noActuals")}</p>
       )}
       {impact.actualNotes ? <p className="mt-2 text-sm text-slate-700">{impact.actualNotes}</p> : null}
-      <form onSubmit={(e) => void save(e)} className="mt-3 space-y-2" aria-label="Record actuals">
+      <form onSubmit={(e) => void save(e)} className="mt-3 space-y-2" aria-label={t("actuals.formLabel")}>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Actual effort (days)" htmlFor="actuals-effort">
-              <Input id="actuals-effort" value={effort} onChange={(e) => setEffort(e.target.value)} inputMode="decimal" placeholder="e.g. 5" />
+            <Field label={t("actuals.effortField")} htmlFor="actuals-effort">
+              <Input id="actuals-effort" value={effort} onChange={(e) => setEffort(e.target.value)} inputMode="decimal" placeholder={t("actuals.effortPlaceholder")} />
             </Field>
-            <Field label={`Actual price (${currency})`} htmlFor="actuals-price">
-              <Input id="actuals-price" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 1200" />
+            <Field label={t("actuals.priceField", { currency })} htmlFor="actuals-price">
+              <Input id="actuals-price" value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder={t("actuals.pricePlaceholder")} />
             </Field>
           </div>
-          <Field label="Notes (optional)" htmlFor="actuals-notes">
-            <Textarea id="actuals-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="What drove the difference?" />
+          <Field label={t("actuals.notesField")} htmlFor="actuals-notes">
+            <Textarea id="actuals-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t("actuals.notesPlaceholder")} />
           </Field>
           {error ? <ErrorBanner message={error} /> : null}
-          {saved ? <p className="text-sm text-emerald-700" aria-live="polite">Actuals saved.</p> : null}
+          {saved ? <p className="text-sm text-emerald-700" aria-live="polite">{t("actuals.saved")}</p> : null}
           <Button type="submit" size="sm" disabled={saving}>
-            {saving ? "Saving…" : "Save actuals"}
+            {saving ? t("actuals.saving") : t("actuals.save")}
           </Button>
         </form>
     </Card>
@@ -185,7 +182,7 @@ interface ReportResponse {
 
 /** Project-level estimate-vs-actual report over implemented changes. */
 export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Element {
-  const { money } = useLocale();
+  const { money, t } = useLocale();
   const report = useQuery({
     queryKey: ["estimate-vs-actual", projectId],
     queryFn: () => api.get<ReportResponse>(`/projects/${projectId}/estimate-vs-actual`),
@@ -195,7 +192,7 @@ export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Elem
   if (report.isError) return <ErrorBanner message={errorMessage(report.error)} />;
   const rows = report.data?.data ?? [];
   if (rows.length === 0) {
-    return <Empty title="No implemented changes" hint="Implemented changes with estimates appear here for comparison." />;
+    return <Empty title={t("actuals.noImplementedTitle")} hint={t("actuals.noImplementedHint")} />;
   }
   const totals = report.data?.totals;
   const currency = report.data?.currency ?? "USD";
@@ -203,18 +200,17 @@ export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Elem
   return (
     <div>
       <p className="text-sm text-slate-600">
-        {totals?.rowsWithActuals ?? 0} of {totals?.rowsTotal ?? 0} implemented changes have recorded actuals. Totals
-        cover rows with both estimate and actuals.
+        {t("actuals.coverage", { withActuals: totals?.rowsWithActuals ?? 0, total: totals?.rowsTotal ?? 0 })}
       </p>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-slate-500">
-              <th scope="col" className="py-2 pr-3 font-medium">Change</th>
-              <th scope="col" className="py-2 pr-3 font-medium">Estimate</th>
-              <th scope="col" className="py-2 pr-3 font-medium">Actual</th>
-              <th scope="col" className="py-2 pr-3 font-medium">Variance</th>
-              <th scope="col" className="py-2 font-medium">Effort (days)</th>
+              <th scope="col" className="py-2 pr-3 font-medium">{t("actuals.colChange")}</th>
+              <th scope="col" className="py-2 pr-3 font-medium">{t("actuals.colEstimate")}</th>
+              <th scope="col" className="py-2 pr-3 font-medium">{t("actuals.colActual")}</th>
+              <th scope="col" className="py-2 pr-3 font-medium">{t("actuals.colVariance")}</th>
+              <th scope="col" className="py-2 font-medium">{t("actuals.colEffort")}</th>
             </tr>
           </thead>
           <tbody>
@@ -225,20 +221,20 @@ export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Elem
                     {r.changeNumber}: {r.title}
                   </Link>
                 </td>
-                <td className="py-2 pr-3">{r.estimateMinor !== null ? money(r.estimateMinor, currency) : "—"}</td>
-                <td className="py-2 pr-3">{r.actualMinor !== null ? money(r.actualMinor, currency) : "—"}</td>
+                <td className="py-2 pr-3">{r.estimateMinor !== null ? money(r.estimateMinor, currency) : t("common.notAvailable")}</td>
+                <td className="py-2 pr-3">{r.actualMinor !== null ? money(r.actualMinor, currency) : t("common.notAvailable")}</td>
                 <td className="py-2 pr-3">
                   {r.varianceMinor !== null ? (
                     <span>
                       {money(r.varianceMinor, currency)}
-                      {r.variancePct !== null ? ` (${r.variancePct > 0 ? "+" : ""}${r.variancePct}%)` : ""}
+                      {r.variancePct !== null ? ` ${t("actuals.variancePct", { sign: r.variancePct > 0 ? "+" : "", pct: r.variancePct })}` : ""}
                     </span>
                   ) : (
-                    "—"
+                    t("common.notAvailable")
                   )}
                 </td>
                 <td className="py-2">
-                  {r.estimateDays ?? "—"} → {r.actualDays ?? "—"}
+                  {r.estimateDays ?? t("common.notAvailable")} → {r.actualDays ?? t("common.notAvailable")}
                   {r.daysVariance !== null && r.daysVariance !== 0 ? (
                     <Badge tone={r.daysVariance > 0 ? "amber" : "green"}>
                       {r.daysVariance > 0 ? "+" : ""}
@@ -252,7 +248,7 @@ export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Elem
           {totals ? (
             <tfoot>
               <tr className="font-medium">
-                <td className="py-2 pr-3">Total</td>
+                <td className="py-2 pr-3">{t("actuals.total")}</td>
                 <td className="py-2 pr-3">{money(totals.estimateMinor, currency)}</td>
                 <td className="py-2 pr-3">{money(totals.actualMinor, currency)}</td>
                 <td className="py-2 pr-3">{money(totals.varianceMinor, currency)}</td>

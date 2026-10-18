@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage } from "../lib/api.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Badge, Button, Card, Dialog, ErrorBanner, Field, Input, Textarea } from "./ui.js";
 
 interface ImportDraft {
@@ -25,6 +26,7 @@ interface ImportAnalysis {
  */
 export function ImportDialog({ projectId, onClose }: { projectId: string; onClose: () => void }): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<ImportAnalysis | null>(null);
   const [drafts, setDrafts] = useState<Array<ImportDraft & { accepted: boolean; edited: boolean }>>([]);
@@ -64,41 +66,41 @@ export function ImportDialog({ projectId, onClose }: { projectId: string; onClos
   };
 
   return (
-    <Dialog title="Import from text" onClose={() => void finish()} wide>
+    <Dialog title={t("textImport.title")} onClose={() => void finish()} wide>
       {!analysis ? (
         <form onSubmit={(e) => void handleSubmit((v) => run.mutate(v))(e)} className="space-y-3">
-          <Field label="Source label" htmlFor="import-label">
-            <Input id="import-label" {...register("sourceLabel", { required: true, maxLength: 200 })} placeholder="call transcript, email thread…" />
+          <Field label={t("textImport.sourceLabel")} htmlFor="import-label">
+            <Input id="import-label" {...register("sourceLabel", { required: true, maxLength: 200 })} placeholder={t("textImport.sourceLabelPlaceholder")} />
           </Field>
           <Field
-            label="Paste the transcript or thread"
+            label={t("textImport.sourceTextLabel")}
             htmlFor="import-text"
             error={formState.errors.sourceText?.message}
-            hint={run.isPending ? "Reading…" : "One draft per implicit ask, each with the exact source excerpt. Treated as data, never instructions."}
+            hint={run.isPending ? t("textImport.reading") : t("textImport.hint")}
           >
-            <Textarea id="import-text" rows={8} {...register("sourceText", { required: "Paste some text first", minLength: 20, maxLength: 60000 })} />
+            <Textarea id="import-text" rows={8} {...register("sourceText", { required: t("textImport.pasteFirst"), minLength: 20, maxLength: 60000 })} />
           </Field>
           {error ? <ErrorBanner message={error} /> : null}
           <Button type="submit" disabled={run.isPending} className="w-full">
-            {run.isPending ? "Reading…" : "Propose drafts"}
+            {run.isPending ? t("textImport.reading") : t("textImport.propose")}
           </Button>
         </form>
       ) : (
         <div className="space-y-3">
           {analysis.status === "FALLBACK" ? (
-            <ErrorBanner message={analysis.error ?? "AI is unavailable. Enter change requests manually."} />
+            <ErrorBanner message={analysis.error ?? t("textImport.aiUnavailable")} />
           ) : null}
-          {analysis.status === "FAILED" ? <ErrorBanner message={`Import failed: ${analysis.error ?? "unknown error"}`} /> : null}
+          {analysis.status === "FAILED" ? <ErrorBanner message={t("textImport.importFailed", { error: analysis.error ?? t("textImport.unknownError") })} /> : null}
           {drafts.length === 0 && analysis.status === "SUCCEEDED" ? (
-            <p className="text-sm text-slate-600">No implicit asks found. Nothing to import.</p>
+            <p className="text-sm text-slate-600">{t("textImport.noAsks")}</p>
           ) : null}
           {drafts.map((d, i) => (
             <Card key={`${d.title}-${i}`}>
               {d.accepted ? (
-                <p className="text-sm font-medium text-emerald-800">Accepted as a draft change ✓</p>
+                <p className="text-sm font-medium text-emerald-800">{t("textImport.accepted")}</p>
               ) : (
                 <div className="space-y-2">
-                  <Field label="Title" htmlFor={`draft-title-${i}`}>
+                  <Field label={t("textImport.draftTitle")} htmlFor={`draft-title-${i}`}>
                     <Input
                       id={`draft-title-${i}`}
                       value={d.title}
@@ -108,7 +110,7 @@ export function ImportDialog({ projectId, onClose }: { projectId: string; onClos
                       }
                     />
                   </Field>
-                  <Field label="Description" htmlFor={`draft-desc-${i}`}>
+                  <Field label={t("textImport.draftDescription")} htmlFor={`draft-desc-${i}`}>
                     <Textarea
                       id={`draft-desc-${i}`}
                       rows={3}
@@ -121,7 +123,7 @@ export function ImportDialog({ projectId, onClose }: { projectId: string; onClos
                   </Field>
                   <blockquote className="border-l-2 border-slate-300 pl-2 text-sm italic text-slate-600">“{d.excerpt}”</blockquote>
                   <div className="flex items-center gap-2">
-                    <Badge tone="slate">{Math.round(d.confidence * 100)}% confident</Badge>
+                    <Badge tone="slate">{t("textImport.confident", { pct: Math.round(d.confidence * 100) })}</Badge>
                     <Button
                       size="sm"
                       disabled={accept.isPending || d.title.trim().length === 0}
@@ -131,7 +133,7 @@ export function ImportDialog({ projectId, onClose }: { projectId: string; onClos
                         })
                       }
                     >
-                      Accept as draft
+                      {t("textImport.accept")}
                     </Button>
                   </div>
                 </div>
@@ -139,7 +141,7 @@ export function ImportDialog({ projectId, onClose }: { projectId: string; onClos
             </Card>
           ))}
           {error ? <ErrorBanner message={error} /> : null}
-          <Button variant="secondary" className="w-full" onClick={() => void finish()}>Done</Button>
+          <Button variant="secondary" className="w-full" onClick={() => void finish()}>{t("textImport.done")}</Button>
         </div>
       )}
     </Dialog>

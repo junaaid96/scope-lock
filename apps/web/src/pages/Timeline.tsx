@@ -5,6 +5,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeDetail, ChangeListItem, ScopeVersion } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, formatDate } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 type EntryKind = "milestone" | "change" | "approval" | "decision";
 
@@ -18,12 +19,7 @@ interface Entry {
   to: string;
 }
 
-const KIND_LABEL: Record<EntryKind, string> = {
-  milestone: "Milestones",
-  change: "Changes",
-  approval: "Approvals",
-  decision: "Decisions",
-};
+
 
 const DOT: Record<Entry["tone"], string> = {
   green: "bg-emerald-500",
@@ -34,9 +30,22 @@ const DOT: Record<Entry["tone"], string> = {
 };
 
 export function TimelinePage(): JSX.Element {
+  const { t } = useLocale();
   const { id } = useParams<{ id: string }>();
   const projectId = id as string;
   const [filter, setFilter] = useState<EntryKind | "all">("all");
+  const KIND_LABEL: Record<EntryKind, string> = {
+    milestone: t("timeline.filterMilestones"),
+    change: t("timeline.filterChanges"),
+    approval: t("timeline.filterApprovals"),
+    decision: t("timeline.filterDecisions"),
+  };
+  const KIND_BADGE: Record<EntryKind, string> = {
+    milestone: t("timeline.kindMilestone"),
+    change: t("timeline.kindChange"),
+    approval: t("timeline.kindApproval"),
+    decision: t("timeline.kindDecision"),
+  };
 
   const versions = useQuery({
     queryKey: ["versions", projectId],
@@ -68,7 +77,7 @@ export function TimelinePage(): JSX.Element {
       id: `v-${v.id}`,
       kind: "milestone",
       at: v.publishedAt,
-      title: `Baseline v${v.sequence} published${v.title ? ` — ${v.title}` : ""}`,
+      title: t("timeline.baselinePublished", { seq: v.sequence, extra: v.title ? t("timeline.baselineTitleSuffix", { title: v.title }) : "" }),
       tone: v.status === "PUBLISHED" ? "green" : "slate",
       to: `/projects/${projectId}/scope`,
     });
@@ -77,7 +86,7 @@ export function TimelinePage(): JSX.Element {
     id: `c-${c.id}`,
     kind: "change",
     at: c.createdAt,
-    title: `${c.number} submitted — ${c.title}`,
+    title: t("timeline.changeSubmitted", { number: c.number, title: c.title }),
     tone: "blue",
     to: `/projects/${projectId}/changes/${c.id}`,
   });
@@ -87,8 +96,8 @@ export function TimelinePage(): JSX.Element {
         id: `a-${a.id}`,
         kind: "approval",
         at: a.sentAt as string,
-        title: `Review sent — ${a.title ?? d.number}`,
-        detail: `expires ${formatDate(a.expiresAt)}`,
+        title: t("timeline.reviewSent", { title: a.title ?? d.number }),
+        detail: t("timeline.expiresAt", { date: formatDate(a.expiresAt) }),
         tone: "amber",
         to: `/projects/${projectId}/changes/${d.id}`,
       });
@@ -99,8 +108,8 @@ export function TimelinePage(): JSX.Element {
         id: `d-${d.id}`,
         kind: "decision",
         at: d.decidedAt,
-        title: `${d.number} decided — ${first.decision}`,
-        detail: first.approverEmail ? `by ${first.approverEmail}` : undefined,
+        title: t("timeline.changeDecided", { number: d.number, decision: first.decision }),
+        detail: first.approverEmail ? t("timeline.decidedBy", { email: first.approverEmail }) : undefined,
         tone: first.decision === "APPROVED" ? "green" : "red",
         to: `/projects/${projectId}/changes/${d.id}`,
       });
@@ -112,12 +121,12 @@ export function TimelinePage(): JSX.Element {
 
   return (
     <div>
-      <PageTitle title="Timeline" subtitle="Baselines, changes, review packages, and decisions in chronological order." />
+      <PageTitle title={t("timeline.title")} subtitle={t("timeline.subtitle")} />
       <ProjectSubnav projectId={projectId} />
 
       {milestones.length > 0 ? (
         <Card className="mb-5">
-          <ol className="flex flex-wrap items-center gap-2" aria-label="Baseline milestones">
+          <ol className="flex flex-wrap items-center gap-2" aria-label={t("timeline.milestonesLabel")}>
             {milestones.map((m, i) => (
               <li key={m.id} className="flex items-center gap-2">
                 {i > 0 ? <span aria-hidden="true" className="text-slate-300">→</span> : null}
@@ -133,7 +142,7 @@ export function TimelinePage(): JSX.Element {
         </Card>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Filter timeline">
+      <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label={t("timeline.filterLabel")}>
         {(["all", "milestone", "change", "approval", "decision"] as const).map((k) => (
           <button
             key={k}
@@ -144,13 +153,13 @@ export function TimelinePage(): JSX.Element {
               filter === k ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
-            {k === "all" ? "All" : KIND_LABEL[k]}
+            {k === "all" ? t("timeline.filterAll") : KIND_LABEL[k]}
           </button>
         ))}
       </div>
 
       {details.isLoading ? <Spinner /> : visible.length === 0 ? (
-        <Empty title="Nothing on the timeline yet" hint="Publish a baseline or submit a change request to start the story." />
+        <Empty title={t("timeline.emptyTitle")} hint={t("timeline.emptyHint")} />
       ) : (
         <ol className="relative space-y-1 border-l-2 border-slate-200 pl-0">
           {visible.map((e) => (
@@ -164,7 +173,7 @@ export function TimelinePage(): JSX.Element {
                   <span>{formatDate(e.at)}</span>
                   {e.detail ? <span>· {e.detail}</span> : null}
                   <Badge tone={e.tone === "blue" ? "blue" : e.tone === "amber" ? "amber" : e.tone === "red" ? "red" : e.tone === "green" ? "green" : "slate"}>
-                    {KIND_LABEL[e.kind].replace(/s$/, "")}
+                    {KIND_BADGE[e.kind]}
                   </Badge>
                 </p>
               </div>

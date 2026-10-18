@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocale } from "../lib/i18n/index.js";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
@@ -44,6 +45,7 @@ interface Org {
 }
 
 export function OrgSettingsPage(): JSX.Element {
+  const { t } = useLocale();
   const { id } = useParams<{ id: string }>();
   const orgId = id as string;
   const client = useQueryClient();
@@ -61,13 +63,13 @@ export function OrgSettingsPage(): JSX.Element {
   return (
     <div>
       <PageTitle
-        title={`${org.data.name} settings`}
-        subtitle={`Plan: ${org.data.plan}`}
-        actions={<Link to="/"><Button variant="secondary" size="sm">Back to projects</Button></Link>}
+        title={t("orgSettings.title", { name: org.data.name })}
+        subtitle={t("orgSettings.planSubtitle", { plan: org.data.plan })}
+        actions={<Link to="/"><Button variant="secondary" size="sm">{t("orgSettings.backToProjects")}</Button></Link>}
       />
       <div className="space-y-5">
         <Card>
-          <h2 className="mb-2 font-medium">Members</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.members")}</h2>
           <ul className="divide-y divide-slate-100">
             {(members.data ?? []).map((m) => (
               <li key={m.id} className="flex items-center justify-between py-2 text-sm">
@@ -82,7 +84,7 @@ export function OrgSettingsPage(): JSX.Element {
           <InviteForm orgId={orgId} onDone={() => void client.invalidateQueries({ queryKey: ["invites", orgId] })} />
           {(invitations.data ?? []).filter((i) => i.status === "PENDING").length > 0 ? (
             <div className="mt-4">
-              <h3 className="text-sm font-medium">Pending invitations</h3>
+              <h3 className="text-sm font-medium">{t("orgSettings.pendingInvitations")}</h3>
               <ul className="mt-1 space-y-1 text-sm">
                 {(invitations.data ?? []).filter((i) => i.status === "PENDING").map((i) => (
                   <li key={i.id} className="flex items-center justify-between">
@@ -96,7 +98,7 @@ export function OrgSettingsPage(): JSX.Element {
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">Your sign-in security</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.signInSecurity")}</h2>
           <MfaCard />
         </Card>
 
@@ -104,23 +106,23 @@ export function OrgSettingsPage(): JSX.Element {
         <PasskeysCard />
 
         <Card>
-          <h2 className="mb-2 font-medium">AI assistance</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.aiAssistance")}</h2>
           <AIToggle org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">Client review branding</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.brandingTitle")}</h2>
           <BrandingForm org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">Review step-up verification</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.stepUpTitle")}</h2>
           <StepUpCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         {canManage ? (
           <Card>
-            <h2 className="mb-2 font-medium">Review-link language</h2>
+            <h2 className="mb-2 font-medium">{t("orgSettings.localeTitle")}</h2>
             <LocaleCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
           </Card>
         ) : null}
@@ -140,18 +142,18 @@ export function OrgSettingsPage(): JSX.Element {
           />
         ) : null}
         <Card>
-          <h2 className="mb-2 font-medium">Usage ({usage.data?.period ?? "—"})</h2>
+          <h2 className="mb-2 font-medium">{t("orgSettings.usageTitle", { period: usage.data?.period ?? t("common.notAvailable") })}</h2>
           {usage.isLoading ? <Spinner /> : usage.isError ? (
-            <p className="text-sm text-slate-600">Usage is visible to owners and admins.</p>
+            <p className="text-sm text-slate-600">{t("orgSettings.usageStaffOnly")}</p>
           ) : usage.data ? (
             <dl className="grid grid-cols-2 gap-2 text-sm">
-              <dt className="text-slate-500">Projects</dt>
+              <dt className="text-slate-500">{t("orgSettings.usageProjects")}</dt>
               <dd>{usage.data.projectCount} / {usage.data.limits.projects}</dd>
-              <dt className="text-slate-500">AI calls (month)</dt>
+              <dt className="text-slate-500">{t("orgSettings.usageAiCalls")}</dt>
               <dd>{usage.data.usage.aiCalls} / {usage.data.limits.aiCallsPerMonth}</dd>
-              <dt className="text-slate-500">Storage</dt>
-              <dd>{Math.round(usage.data.usage.storageBytes / 1024)} KB / {Math.round(usage.data.limits.storageBytes / 1024 / 1024)} MB</dd>
-              <dt className="text-slate-500">Emails sent</dt>
+              <dt className="text-slate-500">{t("orgSettings.usageStorage")}</dt>
+              <dd>{t("orgSettings.storageUsage", { used: Math.round(usage.data.usage.storageBytes / 1024), limit: Math.round(usage.data.limits.storageBytes / 1024 / 1024) })}</dd>
+              <dt className="text-slate-500">{t("orgSettings.usageEmails")}</dt>
               <dd>{usage.data.usage.emailsSent}</dd>
             </dl>
           ) : null}
@@ -162,6 +164,7 @@ export function OrgSettingsPage(): JSX.Element {
 }
 
 function RolePicker({ orgId, member, onDone }: { orgId: string; member: Member; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: (role: string) => api.patch(`/organizations/${orgId}/members/${member.userId}`, { role }),
@@ -170,7 +173,7 @@ function RolePicker({ orgId, member, onDone }: { orgId: string; member: Member; 
   });
   return (
     <span className="flex items-center gap-2">
-      <Select aria-label={`Role for ${member.user?.email ?? member.userId}`} value={member.role} onChange={(e) => save.mutate(e.target.value)} className="w-auto">
+      <Select aria-label={t("orgSettings.roleFor", { email: member.user?.email ?? member.userId })} value={member.role} onChange={(e) => save.mutate(e.target.value)} className="w-auto">
         <option value="OWNER">OWNER</option>
         <option value="ADMIN">ADMIN</option>
         <option value="MEMBER">MEMBER</option>
@@ -182,6 +185,7 @@ function RolePicker({ orgId, member, onDone }: { orgId: string; member: Member; 
 }
 
 function InviteForm({ orgId, onDone }: { orgId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("MEMBER");
   const [error, setError] = useState<string | null>(null);
@@ -200,12 +204,12 @@ function InviteForm({ orgId, onDone }: { orgId: string; onDone: () => void }): J
     <form className="mt-4" onSubmit={(e) => { e.preventDefault(); invite.mutate(); }}>
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-52 flex-1">
-          <Field label="Invite by email" htmlFor="invite-email">
+          <Field label={t("orgSettings.inviteByEmail")} htmlFor="invite-email">
             <Input id="invite-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
         </div>
         <div>
-          <Field label="Role" htmlFor="invite-role">
+          <Field label={t("orgSettings.roleLabel")} htmlFor="invite-role">
             <Select id="invite-role" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="ADMIN">ADMIN</option>
               <option value="MEMBER">MEMBER</option>
@@ -214,15 +218,16 @@ function InviteForm({ orgId, onDone }: { orgId: string; onDone: () => void }): J
             </Select>
           </Field>
         </div>
-        <Button type="submit" disabled={invite.isPending}>Send invite</Button>
+        <Button type="submit" disabled={invite.isPending}>{t("orgSettings.sendInvite")}</Button>
       </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
-      {link ? <p className="mt-2 text-sm">Invite link (dev only): <a className="underline" href={link}>{link}</a></p> : null}
+      {link ? <p className="mt-2 text-sm">{t("orgSettings.inviteLinkDevOnly")} <a className="underline" href={link}>{link}</a></p> : null}
     </form>
   );
 }
 
 function RemoveMemberButton({ orgId, member, onDone }: { orgId: string; member: Member; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const remove = useMutation({
     mutationFn: () => api.delete(`/organizations/${orgId}/members/${member.userId}`),
@@ -236,12 +241,12 @@ function RemoveMemberButton({ orgId, member, onDone }: { orgId: string; member: 
         size="sm"
         disabled={remove.isPending}
         onClick={() => {
-          if (window.confirm(`Remove ${member.user?.email ?? "this member"} from the workspace? They lose project access immediately.`)) {
+          if (window.confirm(t("orgSettings.removeMemberConfirm", { email: member.user?.email ?? t("orgSettings.thisMember") }))) {
             remove.mutate();
           }
         }}
       >
-        Remove
+        {t("orgSettings.remove")}
       </Button>
       {error ? <Badge tone="red">{error}</Badge> : null}
     </span>
@@ -249,14 +254,16 @@ function RemoveMemberButton({ orgId, member, onDone }: { orgId: string; member: 
 }
 
 function RevokeButton({ orgId, inviteId, onDone }: { orgId: string; inviteId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const revoke = useMutation({
     mutationFn: () => api.delete(`/organizations/${orgId}/invitations/${inviteId}`),
     onSuccess: onDone,
   });
-  return <Button variant="ghost" size="sm" disabled={revoke.isPending} onClick={() => revoke.mutate()}>Revoke</Button>;
+  return <Button variant="ghost" size="sm" disabled={revoke.isPending} onClick={() => revoke.mutate()}>{t("orgSettings.revoke")}</Button>;
 }
 
 function MfaCard(): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [secret, setSecret] = useState<{ secret: string; otpauthUrl: string } | null>(null);
   const [code, setCode] = useState("");
@@ -297,34 +304,34 @@ function MfaCard(): JSX.Element {
   return (
     <div className="text-sm">
       <p>
-        Status: {enabled ? <Badge tone="green">Enabled</Badge> : <Badge>Off</Badge>}
-        <span className="ml-2 text-xs text-slate-500">Authenticator-app codes (TOTP). Owners and admins should enable it.</span>
+        {t("orgSettings.mfaStatus")} {enabled ? <Badge tone="green">{t("orgSettings.mfaEnabled")}</Badge> : <Badge>{t("orgSettings.mfaOff")}</Badge>}
+        <span className="ml-2 text-xs text-slate-500">{t("orgSettings.mfaHint")}</span>
       </p>
       {!enabled && !secret ? (
-        <Button size="sm" className="mt-3" disabled={setup.isPending} onClick={() => setup.mutate()}>Set up authenticator</Button>
+        <Button size="sm" className="mt-3" disabled={setup.isPending} onClick={() => setup.mutate()}>{t("orgSettings.mfaSetup")}</Button>
       ) : null}
       {secret ? (
         <div className="mt-3 space-y-3 rounded-md border border-slate-200 p-3">
-          <p>Add this secret to your authenticator app (shown once):</p>
+          <p>{t("orgSettings.mfaAddSecret")}</p>
           <p className="break-all rounded bg-slate-100 p-2 font-mono text-xs">{secret.secret}</p>
-          <Field label="6-digit code" htmlFor="mfa-code">
+          <Field label={t("orgSettings.mfaCodeLabel")} htmlFor="mfa-code">
             <Input id="mfa-code" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />
           </Field>
-          <Button size="sm" disabled={verify.isPending || !code} onClick={() => verify.mutate()}>Verify and enable</Button>
+          <Button size="sm" disabled={verify.isPending || !code} onClick={() => verify.mutate()}>{t("orgSettings.mfaVerify")}</Button>
         </div>
       ) : null}
       {recovery ? (
         <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3">
-          <p className="font-medium">Recovery codes — store these somewhere safe (shown once):</p>
+          <p className="font-medium">{t("orgSettings.mfaRecoveryTitle")}</p>
           <ul className="mt-1 font-mono text-xs">{recovery.map((c) => <li key={c}>{c}</li>)}</ul>
         </div>
       ) : null}
       {enabled ? (
         <div className="mt-3 flex flex-wrap items-end gap-2">
-          <Field label="Password (to disable)" htmlFor="mfa-disable-pw">
+          <Field label={t("orgSettings.mfaPasswordLabel")} htmlFor="mfa-disable-pw">
             <Input id="mfa-disable-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
-          <Button size="sm" variant="secondary" disabled={disable.isPending || !password} onClick={() => disable.mutate()}>Disable MFA</Button>
+          <Button size="sm" variant="secondary" disabled={disable.isPending || !password} onClick={() => disable.mutate()}>{t("orgSettings.mfaDisable")}</Button>
         </div>
       ) : null}
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
@@ -333,6 +340,7 @@ function MfaCard(): JSX.Element {
 }
 
 function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState<{ otp?: boolean | null; typedName?: boolean | null } | null>(null);
   const current = local ?? org.settings?.stepUp ?? {};
@@ -348,8 +356,8 @@ function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
   return (
     <div>
       <p className="mb-2 text-sm text-slate-600">
-        Extra identity checks on client review links. Projects inherit these defaults unless they pin their own.
-        This confirms who is deciding — it is not an e-signature.
+        {t("orgSettings.stepUpBlurb")}{" "}
+        {t("orgSettings.notEsignature")}
       </p>
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm">
@@ -358,7 +366,7 @@ function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
             checked={current.otp ?? false}
             onChange={(e) => toggle("otp", e.target.checked)}
           />
-          Email code — approvers enter a 6-digit code from an email before deciding
+          {t("orgSettings.stepUpOtp")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -366,7 +374,7 @@ function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
             checked={current.typedName ?? false}
             onChange={(e) => toggle("typedName", e.target.checked)}
           />
-          Typed name — approvers type their full name with the decision
+          {t("orgSettings.stepUpTypedName")}
         </label>
       </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
@@ -375,6 +383,7 @@ function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
 }
 
 function LocaleCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: (defaultLocale: string) => api.patch(`/organizations/${org.id}`, { defaultLocale }),
@@ -384,17 +393,17 @@ function LocaleCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
   return (
     <div>
       <p className="mb-2 text-sm text-slate-600">
-        Language for logged-out client review links. Projects may override this; signed-in users follow their own preference.
+        {t("orgSettings.localeBlurb")}
       </p>
-      <Field label="Review-link language" htmlFor="org-locale">
+      <Field label={t("orgSettings.localeLabel")} htmlFor="org-locale">
         <Select
           id="org-locale"
           value={org.settings?.defaultLocale ?? "en"}
           onChange={(e) => save.mutate(e.target.value)}
           disabled={save.isPending}
         >
-          <option value="en">English</option>
-          <option value="bn">বাংলা (Bangla)</option>
+          <option value="en">{t("policy.localeEnglish")}</option>
+          <option value="bn">{t("policy.localeBangla")}</option>
         </Select>
       </Field>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
@@ -403,6 +412,7 @@ function LocaleCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
 }
 
 function AIToggle({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: (aiEnabled: boolean) => api.patch(`/organizations/${org.id}`, { aiEnabled }),
@@ -413,15 +423,16 @@ function AIToggle({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elemen
     <div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={org.aiEnabled} onChange={(e) => save.mutate(e.target.checked)} />
-        Enable AI assistance for this workspace (projects can opt out individually)
+        {t("orgSettings.aiToggleLabel")}
       </label>
-      <p className="mt-1 text-xs text-slate-500">AI drafts are advisory only — scope only changes through explicit human actions.</p>
+      <p className="mt-1 text-xs text-slate-500">{t("orgSettings.aiAdvisory")}</p>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
     </div>
   );
 }
 
 function BrandingForm({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [displayName, setDisplayName] = useState(org.branding?.displayName ?? org.name);
   const [logoUrl, setLogoUrl] = useState(org.branding?.logoUrl ?? "");
   const [primaryColor, setPrimaryColor] = useState(org.branding?.primaryColor ?? "#0f766e");
@@ -436,17 +447,17 @@ function BrandingForm({ org, onDone }: { org: Org; onDone: () => void }): JSX.El
   });
   return (
     <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
-      <Field label="Display name" htmlFor="brand-name">
+      <Field label={t("orgSettings.displayName")} htmlFor="brand-name">
         <Input id="brand-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
       </Field>
-      <Field label="Logo URL (https, optional)" htmlFor="brand-logo">
+      <Field label={t("orgSettings.logoUrl")} htmlFor="brand-logo">
         <Input id="brand-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" />
       </Field>
-      <Field label="Primary color" htmlFor="brand-color">
+      <Field label={t("orgSettings.primaryColor")} htmlFor="brand-color">
         <Input id="brand-color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} pattern="#[0-9a-fA-F]{6}" />
       </Field>
       {error ? <ErrorBanner message={error} /> : null}
-      <Button size="sm" type="submit" disabled={save.isPending}>Save branding</Button>
+      <Button size="sm" type="submit" disabled={save.isPending}>{t("orgSettings.saveBranding")}</Button>
     </form>
   );
 }

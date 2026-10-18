@@ -65,7 +65,7 @@ export function OptionsCard({
             <li key={o.id} className="rounded-md border border-slate-200 p-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">
-                  {o.label} · {money(o.priceMinor, o.currency ?? currency)} · {o.effortDays ?? "—"} days
+                  {o.label} · {money(o.priceMinor, o.currency ?? currency)} · {o.effortDays ?? t("common.notAvailable")} {t("options.days")}
                 </span>
                 <span className="flex items-center gap-2">
                   {chosenOptionIds.includes(o.id) ? <Badge tone={statusTone("APPROVED")}>{t("options.chosen")}</Badge> : null}
@@ -78,7 +78,7 @@ export function OptionsCard({
                 </span>
               </div>
               {o.description ? <p className="mt-1 text-slate-700">{o.description}</p> : null}
-              {o.milestoneEffect ? <p className="mt-1 text-slate-600">Milestone: {o.milestoneEffect}</p> : null}
+              {o.milestoneEffect ? <p className="mt-1 text-slate-600">{t("options.milestone", { effect: o.milestoneEffect })}</p> : null}
             </li>
           ))}
         </ul>
@@ -119,7 +119,7 @@ export function OptionsCard({
         <Dialog title={t("options.remove")} onClose={() => setRemoving(null)}>
           <p className="text-sm text-slate-700">{t("options.removeConfirm")}</p>
           <div className="mt-4 flex gap-2">
-            <Button variant="secondary" onClick={() => setRemoving(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setRemoving(null)}>{t("options.cancel")}</Button>
             <Button disabled={remove.isPending} onClick={() => remove.mutate(removing)}>{t("options.remove")}</Button>
           </div>
         </Dialog>
@@ -177,14 +177,14 @@ function OptionDialog({
     <Dialog title={title} onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => mutation.mutate(v))(e)} className="space-y-4">
         <Field label={t("options.label")} error={formState.errors.label?.message} htmlFor="option-label">
-          <Input id="option-label" placeholder={t("options.labelPlaceholder")} {...register("label", { required: "Label is required" })} />
+          <Input id="option-label" placeholder={t("options.labelPlaceholder")} {...register("label", { required: t("options.labelRequired") })} />
         </Field>
         <Field label={t("options.description")} htmlFor="option-description">
           <Textarea id="option-description" rows={2} {...register("description")} />
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label={`${t("options.price")} (${currency})`} htmlFor="option-price">
-            <Input id="option-price" inputMode="decimal" placeholder="e.g. 12000.00" {...register("price")} />
+            <Input id="option-price" inputMode="decimal" placeholder={t("options.pricePlaceholder")} {...register("price")} />
           </Field>
           <Field label={t("options.effortDays")} htmlFor="option-effort">
             <Input id="option-effort" inputMode="decimal" {...register("effortDays")} />

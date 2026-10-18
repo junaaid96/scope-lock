@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, Textarea, formatDate, statusTone } from "./ui.js";
 
 interface IntakeLinkRow {
@@ -25,6 +26,7 @@ interface MailboxRow {
 
 export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
   const links = useQuery({
     queryKey: ["intake-links", projectId],
     queryFn: () => fetchAll<IntakeLinkRow>(`/projects/${projectId}/intake-links`),
@@ -43,21 +45,20 @@ export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-2xl text-sm text-slate-600">
-          Public request forms for this project. Anyone with a link can submit — submissions arrive as SUBMITTED changes
-          flagged “unverified submitter”. Revoke a link to shut its form off instantly.
+          {t("intakeAdmin.blurb")}
         </p>
-        <Button size="sm" onClick={() => setShowCreate(true)}>New intake link</Button>
+        <Button size="sm" onClick={() => setShowCreate(true)}>{t("intakeAdmin.newLink")}</Button>
       </div>
       {fresh ? (
         <Card>
-          <h3 className="font-medium">Link ready — copy it now (shown once)</h3>
+          <h3 className="font-medium">{t("intakeAdmin.linkReady")}</h3>
           <p className="mt-1 break-all text-sm text-slate-700">{fresh.url}</p>
-          <p className="mt-2 text-sm text-slate-600">Embed it on any site:</p>
-          <pre className="mt-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{`<iframe src="${fresh.url}" width="100%" height="720" title="${fresh.name} request form"></iframe>`}</pre>
-          <Button size="sm" variant="secondary" className="mt-2" onClick={() => setFresh(null)}>Done</Button>
+          <p className="mt-2 text-sm text-slate-600">{t("intakeAdmin.embedHint")}</p>
+          <pre className="mt-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{`<iframe src="${fresh.url}" width="100%" height="720" title="${fresh.name} ${t("intakeAdmin.requestForm")}"></iframe>`}</pre>
+          <Button size="sm" variant="secondary" className="mt-2" onClick={() => setFresh(null)}>{t("intakeAdmin.done")}</Button>
         </Card>
       ) : null}
-      {list.length === 0 ? <Empty title="No intake links" hint="Create one to accept public requests for this project." /> : null}
+      {list.length === 0 ? <Empty title={t("intakeAdmin.noLinks")} hint={t("intakeAdmin.noLinksHint")} /> : null}
       {list.map((l) => (
         <LinkCard key={l.id} link={l} onChanged={refresh} />
       ))}
@@ -77,6 +78,7 @@ export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
 }
 
 function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const revoke = useMutation({
     mutationFn: () => api.post(`/intake-links/${link.id}/revoke`, {}),
@@ -90,19 +92,19 @@ function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => v
         <Badge tone={link.revokedAt ? "red" : statusTone("SENT")}>{link.revokedAt ? "REVOKED" : "LIVE"}</Badge>
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <dt className="text-slate-500">Submissions</dt>
+        <dt className="text-slate-500">{t("intakeAdmin.submissions")}</dt>
         <dd className="font-medium">{link.submissions}</dd>
-        <dt className="text-slate-500">Last used</dt>
+        <dt className="text-slate-500">{t("intakeAdmin.lastUsed")}</dt>
         <dd>{formatDate(link.lastUsedAt)}</dd>
-        <dt className="text-slate-500">Expires</dt>
+        <dt className="text-slate-500">{t("intakeAdmin.expires")}</dt>
         <dd>{formatDate(link.expiresAt)}</dd>
-        <dt className="text-slate-500">Created</dt>
+        <dt className="text-slate-500">{t("intakeAdmin.created")}</dt>
         <dd>{formatDate(link.createdAt)}</dd>
       </dl>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {!link.revokedAt ? (
         <Button size="sm" variant="ghost" disabled={revoke.isPending} className="mt-3" onClick={() => revoke.mutate()}>
-          Revoke
+          {t("intakeAdmin.revoke")}
         </Button>
       ) : null}
     </Card>
@@ -111,6 +113,7 @@ function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => v
 
 function MailboxSection({ projectId }: { projectId: string }): JSX.Element {
   const client = useQueryClient();
+  const { t } = useLocale();
   const boxes = useQuery({
     queryKey: ["inbound-mailboxes", projectId],
     queryFn: () => fetchAll<MailboxRow>(`/projects/${projectId}/inbound-mailboxes`),
@@ -138,18 +141,17 @@ function MailboxSection({ projectId }: { projectId: string }): JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-semibold">Inbound email</h3>
+        <h3 className="text-base font-semibold">{t("intakeAdmin.inboundEmail")}</h3>
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>New mailbox</Button>
-          <Button size="sm" variant="ghost" onClick={() => setSimulating(true)}>Simulate email…</Button>
+          <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>{t("intakeAdmin.newMailbox")}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSimulating(true)}>{t("intakeAdmin.simulate")}</Button>
         </div>
       </div>
       <p className="max-w-2xl text-sm text-slate-600">
-        Each project gets unguessable alias addresses. Mail forwarded to the signed webhook lands as an unverified
-        SUBMITTED change; quoted history is stripped and attachments are scanned before linking.
+        {t("intakeAdmin.mailboxBlurb")}
       </p>
       {error ? <ErrorBanner message={error} /> : null}
-      {(boxes.data ?? []).length === 0 ? <Empty title="No mailboxes" hint="Create one and point your mail forwarder at it." /> : null}
+      {(boxes.data ?? []).length === 0 ? <Empty title={t("intakeAdmin.noMailboxes")} hint={t("intakeAdmin.noMailboxesHint")} /> : null}
       {(boxes.data ?? []).map((b) => (
         <Card key={b.id}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -157,7 +159,7 @@ function MailboxSection({ projectId }: { projectId: string }): JSX.Element {
               <p className="font-medium">{b.name}</p>
               <p className="break-all text-sm text-slate-600">{b.address}</p>
             </div>
-            <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => remove.mutate(b.id)}>Delete</Button>
+            <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => remove.mutate(b.id)}>{t("intakeAdmin.delete")}</Button>
           </div>
         </Card>
       ))}
@@ -176,20 +178,22 @@ function MailboxSection({ projectId }: { projectId: string }): JSX.Element {
 }
 
 function MailboxDialog({ onClose, onDone }: { onClose: () => void; onDone: (name: string) => void }): JSX.Element {
+  const { t } = useLocale();
   const { register, handleSubmit, formState } = useForm<{ name: string }>();
   return (
-    <Dialog title="New mailbox" onClose={onClose}>
+    <Dialog title={t("intakeAdmin.newMailbox")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => onDone(v.name))(e)} className="space-y-3">
-        <Field label="Name (staff only)" htmlFor="mailbox-name" error={formState.errors.name?.message}>
-          <Input id="mailbox-name" {...register("name", { required: "Name is required", maxLength: 120 })} />
+        <Field label={t("intakeAdmin.staffName")} htmlFor="mailbox-name" error={formState.errors.name?.message}>
+          <Input id="mailbox-name" {...register("name", { required: t("intakeAdmin.nameRequired"), maxLength: 120 })} />
         </Field>
-        <Button type="submit" className="w-full">Create mailbox</Button>
+        <Button type="submit" className="w-full">{t("intakeAdmin.createMailbox")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function SimulateDialog({ projectId, onClose }: { projectId: string; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
   const { register, handleSubmit } = useForm<{ from: string; subject: string; textBody: string }>({
@@ -205,30 +209,31 @@ function SimulateDialog({ projectId, onClose }: { projectId: string; onClose: ()
         subject: v.subject,
         textBody: v.textBody,
       }),
-    onSuccess: (res) => setOutcome(res.status === "created" ? `Created ${res.number}` : `Dropped (${res.reason})`),
+    onSuccess: (res) => setOutcome(res.status === "created" ? t("intakeAdmin.simCreated", { number: res.number ?? "" }) : t("intakeAdmin.simDropped", { reason: res.reason ?? "" })),
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Simulate inbound email" onClose={onClose}>
+    <Dialog title={t("intakeAdmin.simulateTitle")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => send.mutate(v))(e)} className="space-y-3">
-        <Field label="From" htmlFor="sim-from">
+        <Field label={t("intakeAdmin.from")} htmlFor="sim-from">
           <Input id="sim-from" {...register("from", { required: true })} />
         </Field>
-        <Field label="Subject" htmlFor="sim-subject">
+        <Field label={t("intakeAdmin.subject")} htmlFor="sim-subject">
           <Input id="sim-subject" {...register("subject", { required: true })} />
         </Field>
-        <Field label="Body" htmlFor="sim-body">
+        <Field label={t("intakeAdmin.body")} htmlFor="sim-body">
           <Textarea id="sim-body" rows={4} {...register("textBody", { required: true })} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
         {outcome ? <p className="text-sm font-medium text-slate-800" role="status">{outcome}</p> : null}
-        <Button type="submit" disabled={send.isPending} className="w-full">Send test email</Button>
+        <Button type="submit" disabled={send.isPending} className="w-full">{t("intakeAdmin.sendTest")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function CreateDialog({ projectId, onClose, onDone }: { projectId: string; onClose: () => void; onDone: (url: string, name: string) => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<{ name: string; expiresAt: string }>({ defaultValues: { name: "", expiresAt: "" } });
   const save = useMutation({
@@ -244,16 +249,16 @@ function CreateDialog({ projectId, onClose, onDone }: { projectId: string; onClo
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="New intake link" onClose={onClose}>
+    <Dialog title={t("intakeAdmin.newLink")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-3">
-        <Field label="Name (staff only)" htmlFor="intake-name" error={formState.errors.name?.message} hint="e.g. “Website contact form”. Never shown to submitters.">
-          <Input id="intake-name" {...register("name", { required: "Name is required", maxLength: 120 })} />
+        <Field label={t("intakeAdmin.staffName")} htmlFor="intake-name" error={formState.errors.name?.message} hint={t("intakeAdmin.nameHint")}>
+          <Input id="intake-name" {...register("name", { required: t("intakeAdmin.nameRequired"), maxLength: 120 })} />
         </Field>
-        <Field label="Expires at (optional)" htmlFor="intake-expiry">
+        <Field label={t("intakeAdmin.expiresAt")} htmlFor="intake-expiry">
           <Input id="intake-expiry" type="datetime-local" {...register("expiresAt")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Create link</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("intakeAdmin.createLink")}</Button>
       </form>
     </Dialog>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocale } from "../lib/i18n/index.js";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -10,6 +11,7 @@ import { OrgContractStrip } from "../components/contract.js";
 import { MemorySearchPanel } from "../components/memory.js";
 
 export function DashboardPage(): JSX.Element {
+  const { t } = useLocale();
   const { session } = useSession();
   const [orgId, setOrgId] = useState<string | null>(null);
   const activeOrg = session?.organizations.find((o) => o.id === orgId) ?? session?.organizations[0] ?? null;
@@ -36,25 +38,25 @@ export function DashboardPage(): JSX.Element {
   };
 
   if (!session) return <Spinner />;
-  if (!activeOrg) return <Empty title="No organizations yet" hint="Create one to get started." />;
+  if (!activeOrg) return <Empty title={t("dashboard.noOrgs")} hint={t("dashboard.noOrgsHint")} />;
 
   return (
     <div>
       <PageTitle
-        title="Projects"
-        subtitle={`${activeOrg.name} · your role: ${activeOrg.role}`}
+        title={t("dashboard.title")}
+        subtitle={t("dashboard.subtitle", { name: activeOrg.name, role: activeOrg.role ?? "" })}
         actions={
           <>
-            <Select aria-label="Organization" value={activeOrg.id} onChange={(e) => setOrgId(e.target.value)} className="w-auto">
+            <Select aria-label={t("dashboard.orgSelectLabel")} value={activeOrg.id} onChange={(e) => setOrgId(e.target.value)} className="w-auto">
               {session.organizations.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
             </Select>
             <Link to={`/orgs/${activeOrg.id}/settings`}>
-              <Button variant="secondary" size="sm">Workspace settings</Button>
+              <Button variant="secondary" size="sm">{t("dashboard.workspaceSettings")}</Button>
             </Link>
-            <Button variant="secondary" size="sm" onClick={() => setShowClient(true)}>New client</Button>
-            <Button size="sm" onClick={() => setShowProject(true)}>New project</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowClient(true)}>{t("dashboard.newClient")}</Button>
+            <Button size="sm" onClick={() => setShowProject(true)}>{t("dashboard.newProject")}</Button>
           </>
         }
       />
@@ -65,7 +67,7 @@ export function DashboardPage(): JSX.Element {
       ) : projects.isError ? (
         <ErrorBanner message={errorMessage(projects.error)} />
       ) : (projects.data ?? []).length === 0 ? (
-        <Empty title="No projects yet" hint="Create a project for a client, then publish its first scope baseline." />
+        <Empty title={t("dashboard.noProjects")} hint={t("dashboard.noProjectsHint")} />
       ) : (
         <ProjectGroups projects={projects.data ?? []} clients={clients.data ?? []} />
       )}
@@ -80,6 +82,7 @@ export function DashboardPage(): JSX.Element {
 
 /** Projects grouped under their client, so a full workspace stays scannable. */
 function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; clients: Client[] }): JSX.Element {
+  const { t } = useLocale();
   const nameOf = new Map(clients.map((c) => [c.id, c.company ? `${c.name} · ${c.company}` : c.name]));
   const groups = new Map<string, ProjectListItem[]>();
   for (const p of projects) {
@@ -89,14 +92,14 @@ function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; cli
     groups.set(key, list);
   }
   const ordered = [...groups.entries()].sort((a, b) =>
-    (nameOf.get(a[0]) ?? "Other").localeCompare(nameOf.get(b[0]) ?? "Other"),
+    (nameOf.get(a[0]) ?? t("dashboard.other")).localeCompare(nameOf.get(b[0]) ?? t("dashboard.other")),
   );
   return (
     <div className="space-y-6">
       {ordered.map(([clientId, items]) => (
-        <section key={clientId} aria-label={nameOf.get(clientId) ?? "Other"}>
+        <section key={clientId} aria-label={nameOf.get(clientId) ?? t("dashboard.other")}>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
-            {nameOf.get(clientId) ?? "Other"}
+            {nameOf.get(clientId) ?? t("dashboard.other")}
           </h2>
           <ul className="space-y-3">
             {items.map((p) => (
@@ -107,9 +110,9 @@ function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; cli
                     <Badge tone={statusTone(p.status)}>{p.status}</Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-600">
-                    <span>{p.openChanges} open change{p.openChanges === 1 ? "" : "s"}</span>
-                    <span>{p.pendingApprovals} awaiting decision</span>
-                    {p.myInbox > 0 ? <span className="font-medium text-teal-800">{p.myInbox} need{p.myInbox === 1 ? "s" : ""} your decision</span> : null}
+                    <span>{p.openChanges === 1 ? t("dashboard.openChangeOne", { count: p.openChanges }) : t("dashboard.openChanges", { count: p.openChanges })}</span>
+                    <span>{t("dashboard.awaitingDecision", { count: p.pendingApprovals })}</span>
+                    {p.myInbox > 0 ? <span className="font-medium text-teal-800">{p.myInbox === 1 ? t("dashboard.needDecisionOne", { count: p.myInbox }) : t("dashboard.needDecisionOther", { count: p.myInbox })}</span> : null}
                   </div>
                 </Link>
               </li>
@@ -122,6 +125,7 @@ function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; cli
 }
 
 function ClientDialog({ orgId, onClose }: { orgId: string; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<{ name: string; company?: string }>();
@@ -134,22 +138,23 @@ function ClientDialog({ orgId, onClose }: { orgId: string; onClose: () => void }
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="New client" onClose={onClose}>
+    <Dialog title={t("dashboard.newClientTitle")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Client name" error={formState.errors.name?.message} htmlFor="client-name">
-          <Input id="client-name" {...register("name", { required: "Name is required" })} />
+        <Field label={t("dashboard.clientName")} error={formState.errors.name?.message} htmlFor="client-name">
+          <Input id="client-name" {...register("name", { required: t("dashboard.nameRequired") })} />
         </Field>
-        <Field label="Company (optional)" htmlFor="client-company">
+        <Field label={t("dashboard.companyOptional")} htmlFor="client-company">
           <Input id="client-company" {...register("company")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Create client</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.createClient")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Client[]; loading: boolean }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [editing, setEditing] = useState<Client | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,9 +168,9 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
   });
   return (
     <Card className="mt-6">
-      <h2 className="mb-2 font-medium">Clients</h2>
+      <h2 className="mb-2 font-medium">{t("dashboard.clients")}</h2>
       {loading ? <Spinner /> : clients.length === 0 ? (
-        <Empty title="No clients yet" hint="Add a client, then create projects under it." />
+        <Empty title={t("dashboard.noClients")} hint={t("dashboard.noClientsHint")} />
       ) : (
         <ul className="divide-y divide-slate-100">
           {clients.map((c) => (
@@ -176,16 +181,16 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
                 {c.notes ? <span className="block text-xs text-slate-500">{c.notes}</span> : null}
               </span>
               <span className="flex gap-1">
-                <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>Edit</Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>{t("dashboard.edit")}</Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={remove.isPending}
                   onClick={() => {
-                    if (window.confirm(`Delete client ${c.name}? Clients with projects cannot be deleted.`)) remove.mutate(c.id);
+                    if (window.confirm(t("dashboard.deleteClientConfirm", { name: c.name }))) remove.mutate(c.id);
                   }}
                 >
-                  Delete
+                  {t("dashboard.delete")}
                 </Button>
               </span>
             </li>
@@ -199,6 +204,7 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
 }
 
 function ClientEditDialog({ orgId, existing, onClose }: { orgId: string; existing: Client; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit } = useForm<{ name: string; company: string; notes: string }>({
@@ -214,25 +220,26 @@ function ClientEditDialog({ orgId, existing, onClose }: { orgId: string; existin
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Edit client" onClose={onClose}>
+    <Dialog title={t("dashboard.editClient")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Client name" htmlFor="client-edit-name">
+        <Field label={t("dashboard.clientName")} htmlFor="client-edit-name">
           <Input id="client-edit-name" {...register("name")} />
         </Field>
-        <Field label="Company" htmlFor="client-edit-company">
+        <Field label={t("dashboard.company")} htmlFor="client-edit-company">
           <Input id="client-edit-company" {...register("company")} />
         </Field>
-        <Field label="Notes" htmlFor="client-edit-notes">
+        <Field label={t("dashboard.notes")} htmlFor="client-edit-notes">
           <Textarea id="client-edit-notes" rows={3} {...register("notes")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Save client</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.saveClient")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function ProjectDialog({ orgId, clients, onClose }: { orgId: string; clients: Client[]; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<{ clientId: string; name: string; currency: string; startDate: string; targetDate: string; budget: string }>({
@@ -256,35 +263,35 @@ function ProjectDialog({ orgId, clients, onClose }: { orgId: string; clients: Cl
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="New project" onClose={onClose}>
+    <Dialog title={t("dashboard.newProjectTitle")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Client" error={formState.errors.clientId?.message} htmlFor="project-client">
-          <Select id="project-client" {...register("clientId", { required: "Client is required" })}>
-            <option value="">Select a client…</option>
+        <Field label={t("dashboard.client")} error={formState.errors.clientId?.message} htmlFor="project-client">
+          <Select id="project-client" {...register("clientId", { required: t("dashboard.clientRequired") })}>
+            <option value="">{t("dashboard.selectClient")}</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </Select>
         </Field>
-        <Field label="Project name" error={formState.errors.name?.message} htmlFor="project-name">
-          <Input id="project-name" placeholder="Website relaunch" {...register("name", { required: "Name is required" })} />
+        <Field label={t("dashboard.projectName")} error={formState.errors.name?.message} htmlFor="project-name">
+          <Input id="project-name" placeholder={t("dashboard.projectNamePlaceholder")} {...register("name", { required: t("dashboard.nameRequired") })} />
         </Field>
-        <Field label="Currency" htmlFor="project-currency">
+        <Field label={t("dashboard.currency")} htmlFor="project-currency">
           <Input id="project-currency" maxLength={3} {...register("currency", { required: true, pattern: /^[A-Z]{3}$/ })} />
         </Field>
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Start date" htmlFor="project-start">
+          <Field label={t("dashboard.startDate")} htmlFor="project-start">
             <Input id="project-start" type="date" {...register("startDate")} />
           </Field>
-          <Field label="Target date" htmlFor="project-target">
+          <Field label={t("dashboard.targetDate")} htmlFor="project-target">
             <Input id="project-target" type="date" {...register("targetDate")} />
           </Field>
         </div>
-        <Field label="Budget (major units)" htmlFor="project-budget">
-          <Input id="project-budget" inputMode="decimal" placeholder="e.g. 12000.00" {...register("budget")} />
+        <Field label={t("dashboard.budgetLabel")} htmlFor="project-budget">
+          <Input id="project-budget" inputMode="decimal" placeholder={t("dashboard.budgetPlaceholder")} {...register("budget")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Create project</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.createProject")}</Button>
       </form>
     </Dialog>
   );

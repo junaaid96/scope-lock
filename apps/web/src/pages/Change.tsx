@@ -27,7 +27,7 @@ export function ChangePage(): JSX.Element {
   const [showQuestion, setShowQuestion] = useState(false);
   const [showTriage, setShowTriage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { money } = useLocale();
+  const { t, money } = useLocale();
 
   const refresh = (): void => {
     setError(null);
@@ -66,21 +66,21 @@ export function ChangePage(): JSX.Element {
     <div>
       <PageTitle
         title={`${c.number}: ${c.title}`}
-        subtitle={`Governing baseline: ${c.governingVersion ? `v${c.governingVersion.sequence}` : "none published yet"}`}
+        subtitle={t("change.governingBaseline", { value: c.governingVersion ? t("change.versionSeq", { seq: c.governingVersion.sequence }) : t("change.noBaseline") })}
       />
       <ProjectSubnav projectId={projectId} />
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Badge tone={statusTone(c.status)}>{c.status}</Badge>
         {c.classification ? <Badge>{c.classification}</Badge> : null}
-        <Badge>Source: {c.source}</Badge>
-        {c.unverifiedSubmitter ? <Badge tone="amber">Unverified submitter</Badge> : null}
+        <Badge>{t("change.sourceLabel", { source: c.source })}</Badge>
+        {c.unverifiedSubmitter ? <Badge tone="amber">{t("change.unverifiedSubmitter")}</Badge> : null}
       </div>
       {c.unverifiedSubmitter ? (
         <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          This arrived through a public intake form — the submitter never logged in.
-          {c.submitterName || c.submitterEmail ? ` Self-declared contact: ${[c.submitterName, c.submitterEmail].filter(Boolean).join(" · ")} (unverified).` : " No contact details were left."}
-          {" "}Confirm who they are before sharing anything sensitive.
+          {t("change.unverifiedBlurb")}
+          {" "}{c.submitterName || c.submitterEmail ? t("change.unverifiedContact", { contact: [c.submitterName, c.submitterEmail].filter(Boolean).join(" · ") }) : t("change.noContact")}
+          {" "}{t("change.confirmIdentity")}
         </p>
       ) : null}
       <WorkflowStepper status={c.status} />
@@ -88,36 +88,36 @@ export function ChangePage(): JSX.Element {
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card>
-            <h2 className="mb-1 font-medium">Request</h2>
+            <h2 className="mb-1 font-medium">{t("change.request")}</h2>
             <p className="whitespace-pre-wrap text-sm text-slate-800">{c.description}</p>
-            {c.classificationRationale ? <p className="mt-2 text-sm text-slate-600">Classification: {c.classificationRationale}</p> : null}
+            {c.classificationRationale ? <p className="mt-2 text-sm text-slate-600">{t("change.classificationText", { rationale: c.classificationRationale })}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
-              {c.status === "DRAFT" ? <Button size="sm" disabled={submit.isPending} onClick={() => submit.mutate()}>Submit for triage</Button> : null}
+              {c.status === "DRAFT" ? <Button size="sm" disabled={submit.isPending} onClick={() => submit.mutate()}>{t("change.submitForTriage")}</Button> : null}
               <StatusPicker current={c.status} onPick={(status) => patch.mutate({ status })} />
-              <Button size="sm" variant="secondary" onClick={() => setShowTriage(true)}>Classify…</Button>
-              <Button size="sm" variant="secondary" onClick={() => setShowQuestion(true)}>Ask clarification</Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowTriage(true)}>{t("change.classify")}</Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowQuestion(true)}>{t("change.askClarification")}</Button>
             </div>
           </Card>
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">Impact assessment</h2>
-              <Button size="sm" variant="secondary" onClick={() => setShowImpact(true)}>Record impact</Button>
+              <h2 className="font-medium">{t("change.impactTitle")}</h2>
+              <Button size="sm" variant="secondary" onClick={() => setShowImpact(true)}>{t("change.recordImpact")}</Button>
             </div>
-            {!c.impact ? <Empty title="No impact recorded" /> : (
+            {!c.impact ? <Empty title={t("change.noImpact")} /> : (
               <dl className="grid grid-cols-2 gap-2 text-sm">
-                <dt className="text-slate-500">Price</dt>
+                <dt className="text-slate-500">{t("change.price")}</dt>
                 <dd className="font-medium">{money(c.impact.priceMinor, c.impact.currency ?? "USD")}</dd>
-                <dt className="text-slate-500">Effort</dt>
-                <dd>{c.impact.effortDays ?? "—"} days</dd>
-                <dt className="text-slate-500">Timeline</dt>
-                <dd>{c.impact.timelineDays ?? "—"} days{c.impact.milestoneEffect ? ` · ${c.impact.milestoneEffect}` : ""}</dd>
-                <dt className="text-slate-500">Confidence</dt>
+                <dt className="text-slate-500">{t("change.effort")}</dt>
+                <dd>{t("change.daysValue", { value: c.impact.effortDays ?? "—" })}</dd>
+                <dt className="text-slate-500">{t("change.timeline")}</dt>
+                <dd>{t("change.daysValue", { value: c.impact.timelineDays ?? "—" })}{c.impact.milestoneEffect ? ` · ${c.impact.milestoneEffect}` : ""}</dd>
+                <dt className="text-slate-500">{t("change.confidence")}</dt>
                 <dd>{c.impact.confidence}</dd>
               </dl>
             )}
             {(c.impact?.risks ?? []).length > 0 ? (
-              <div className="mt-2 text-sm"><p className="font-medium">Risks</p><ul className="list-disc pl-5">{c.impact?.risks.map((r) => <li key={r}>{r}</li>)}</ul></div>
+              <div className="mt-2 text-sm"><p className="font-medium">{t("change.risks")}</p><ul className="list-disc pl-5">{c.impact?.risks.map((r) => <li key={r}>{r}</li>)}</ul></div>
             ) : null}
             {c.impact?.notes ? <p className="mt-2 text-sm text-slate-700">{c.impact.notes}</p> : null}
             {c.impact?.pricing ? <PricingBreakdown impact={c.impact} /> : null}
@@ -143,17 +143,17 @@ export function ChangePage(): JSX.Element {
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">Linked requirements & dependencies</h2>
-              <Button size="sm" variant="secondary" onClick={() => setShowLink(true)}>Add link</Button>
+              <h2 className="font-medium">{t("change.linkedTitle")}</h2>
+              <Button size="sm" variant="secondary" onClick={() => setShowLink(true)}>{t("change.addLink")}</Button>
             </div>
-            {c.links.length === 0 ? <Empty title="No links yet" hint="Link the baseline requirements this request affects." /> : (
+            {c.links.length === 0 ? <Empty title={t("change.noLinks")} hint={t("change.noLinksHint")} /> : (
               <ul className="space-y-2 text-sm">
                 {c.links.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-2">
                     <span>
                       <Badge>{l.kind}</Badge> {l.targetTitle ?? l.targetRequirementId ?? l.targetChangeId}
-                      {l.condition ? <span className="text-slate-500"> · needs {l.condition}</span> : null}
-                      {l.overrideRationale ? <span className="text-slate-500"> · override: {l.overrideRationale}</span> : null}
+                      {l.condition ? <span className="text-slate-500">{" "}{t("change.needsCondition", { condition: l.condition })}</span> : null}
+                      {l.overrideRationale ? <span className="text-slate-500">{" "}{t("change.overrideDetail", { rationale: l.overrideRationale })}</span> : null}
                     </span>
                     <RemoveLink changeId={c.id} linkId={l.id} onDone={refresh} />
                   </li>
@@ -165,13 +165,13 @@ export function ChangePage(): JSX.Element {
           </Card>
 
           <Card>
-            <h2 className="mb-2 font-medium">Clarifications</h2>
-            {c.clarifications.length === 0 ? <Empty title="No questions yet" /> : (
+            <h2 className="mb-2 font-medium">{t("change.clarifications")}</h2>
+            {c.clarifications.length === 0 ? <Empty title={t("change.noQuestions")} /> : (
               <ul className="space-y-2 text-sm">
                 {c.clarifications.map((q) => (
                   <li key={q.id} className="rounded-md border border-slate-200 p-2">
-                    <p className="font-medium">Q: {q.question}</p>
-                    {q.answer ? <p className="mt-1">A: {q.answer}</p> : <AnswerBox changeId={c.id} clarId={q.id} onDone={refresh} />}
+                    <p className="font-medium">{t("change.questionPrefix", { question: q.question })}</p>
+                    {q.answer ? <p className="mt-1">{t("change.answerPrefix", { answer: q.answer })}</p> : <AnswerBox changeId={c.id} clarId={q.id} onDone={refresh} />}
                   </li>
                 ))}
               </ul>
@@ -180,10 +180,10 @@ export function ChangePage(): JSX.Element {
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="font-medium">Attachments</h2>
+              <h2 className="font-medium">{t("change.attachments")}</h2>
               <UploadBox projectId={projectId} linked={{ linkedType: "CHANGE", linkedId: c.id }} onDone={refresh} />
             </div>
-            {(c.attachments ?? []).length === 0 ? <Empty title="No attachments" /> : (
+            {(c.attachments ?? []).length === 0 ? <Empty title={t("change.noAttachments")} /> : (
               <ul className="space-y-2 text-sm">
                 {(c.attachments ?? []).map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-2">
@@ -199,11 +199,11 @@ export function ChangePage(): JSX.Element {
           </Card>
 
           <Card>
-            <h2 className="mb-2 font-medium">External work items</h2>
-            {c.externalLinks.length === 0 ? <p className="text-sm text-slate-600">None linked.</p> : (
+            <h2 className="mb-2 font-medium">{t("change.externalTitle")}</h2>
+            {c.externalLinks.length === 0 ? <p className="text-sm text-slate-600">{t("change.noneLinked")}</p> : (
               <ul className="space-y-1 text-sm">
                 {c.externalLinks.map((e) => (
-                  <li key={e.id}>{e.provider} · {e.externalId} {e.url ? <a className="underline" href={e.url}>open</a> : null}</li>
+                  <li key={e.id}>{e.provider} · {e.externalId} {e.url ? <a className="underline" href={e.url}>{t("change.openLink")}</a> : null}</li>
                 ))}
               </ul>
             )}
@@ -212,7 +212,7 @@ export function ChangePage(): JSX.Element {
 
         <div className="space-y-5">
           <Card>
-            <h2 className="mb-2 font-medium">Decision</h2>
+            <h2 className="mb-2 font-medium">{t("change.decision")}</h2>
             {c.sendBlockers.length > 0 && c.status !== "PENDING_APPROVAL" ? (
               <ul className="mb-3 list-disc pl-5 text-xs text-amber-800">
                 {c.sendBlockers.map((b) => <li key={b}>{b}</li>)}
@@ -220,16 +220,16 @@ export function ChangePage(): JSX.Element {
             ) : null}
             {c.drawPool || c.drawDown ? (
               <p className="mb-2 rounded-md bg-sky-50 px-3 py-2 text-xs text-sky-900">
-                Allowance: {c.drawPool ? `draws from “${c.drawPool.name}” on approval` : "linked pool removed"}
-                {c.drawDown ? ` · drew ${c.drawDown.hours !== null && c.drawDown.hours !== undefined ? `${c.drawDown.hours}h` : money(c.drawDown.amountMinor, c.impact?.currency ?? "USD")} (${c.drawDown.status.replace(/_/g, " ").toLowerCase()})` : ""}
+                {t("change.allowanceLine", { detail: c.drawPool ? t("change.drawsFromPool", { name: c.drawPool.name }) : t("change.linkedPoolRemoved") })}
+                {c.drawDown ? ` ${t("change.drewDetail", { amount: c.drawDown.hours !== null && c.drawDown.hours !== undefined ? `${c.drawDown.hours}h` : money(c.drawDown.amountMinor, c.impact?.currency ?? "USD"), status: c.drawDown.status.replace(/_/g, " ").toLowerCase() })}` : ""}
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={c.sendBlockers.length > 0} onClick={() => setShowSend(true)}>Send for approval…</Button>
+              <Button size="sm" disabled={c.sendBlockers.length > 0} onClick={() => setShowSend(true)}>{t("change.sendForApproval")}</Button>
               {c.status === "APPROVED" ? (
                 <>
-                  <Button size="sm" variant="secondary" disabled={convert.isPending} onClick={() => convert.mutate()}>Convert to scope draft</Button>
-                  <Button size="sm" variant="secondary" disabled={implement.isPending} onClick={() => implement.mutate()}>Mark implemented</Button>
+                  <Button size="sm" variant="secondary" disabled={convert.isPending} onClick={() => convert.mutate()}>{t("change.convertToScope")}</Button>
+                  <Button size="sm" variant="secondary" disabled={implement.isPending} onClick={() => implement.mutate()}>{t("change.markImplemented")}</Button>
                 </>
               ) : null}
             </div>
@@ -237,16 +237,16 @@ export function ChangePage(): JSX.Element {
               {c.approvals.map((a) => (
                 <li key={a.id} className="rounded-md border border-slate-200 p-2">
                   <span className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{a.title ?? "Review package"}</span>
+                    <span className="font-medium">{a.title ?? t("change.reviewPackage")}</span>
                     <Badge tone={statusTone(a.status)}>{a.status}</Badge>
                   </span>
-                  <span className="text-xs text-slate-500">expires {formatDate(a.expiresAt)}</span>
-                  {a.invalidatedReason ? <p className="text-xs text-red-700">Invalidated: {a.invalidatedReason}</p> : null}
-                  {a.chosenOptionId ? <p className="text-xs text-teal-800">Chose option “{(a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?"}”</p> : null}
+                  <span className="text-xs text-slate-500">{t("change.expiresOn", { date: formatDate(a.expiresAt) })}</span>
+                  {a.invalidatedReason ? <p className="text-xs text-red-700">{t("change.invalidated", { reason: a.invalidatedReason })}</p> : null}
+                  {a.chosenOptionId ? <p className="text-xs text-teal-800">{t("change.choseOption", { label: (a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?" })}</p> : null}
                   {(a.status === "SENT" || a.status === "DECIDED") ? (
                     <p className="text-xs">
                       <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${a.id}/pdf`} download>
-                        Change order (PDF)
+                        {t("change.changeOrderPdf")}
                       </a>
                     </p>
                   ) : null}
@@ -258,9 +258,9 @@ export function ChangePage(): JSX.Element {
                 {c.decisions.map((d) => (
                   <li key={d.id} className="rounded-md bg-slate-50 p-2">
                     <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
-                    {d.optionLabel ? <span className="ml-2 text-sm font-medium">Option “{d.optionLabel}”</span> : null}
-                    {d.typedName ? <span className="ml-2 text-sm text-slate-600">Confirmed by {d.typedName}</span> : null}
-                    <p className="mt-1">{d.comment ?? "No comment"}</p>
+                    {d.optionLabel ? <span className="ml-2 text-sm font-medium">{t("change.optionChosen", { label: d.optionLabel })}</span> : null}
+                    {d.typedName ? <span className="ml-2 text-sm text-slate-600">{t("change.confirmedBy", { name: d.typedName })}</span> : null}
+                    <p className="mt-1">{d.comment ?? t("change.noComment")}</p>
                     <p className="text-xs text-slate-500">{d.approverEmail} · {formatDate(d.createdAt)}</p>
                   </li>
                 ))}
@@ -268,7 +268,7 @@ export function ChangePage(): JSX.Element {
             ) : null}
           </Card>
           <Card>
-            <h2 className="mb-2 font-medium">Export</h2>
+            <h2 className="mb-2 font-medium">{t("change.export")}</h2>
             <ExportButton projectId={projectId} changeId={c.id} />
           </Card>
         </div>
@@ -295,23 +295,24 @@ export function ChangePage(): JSX.Element {
 const CLASSIFICATIONS = ["IN_SCOPE", "POTENTIAL_CHANGE", "DUPLICATE", "NEEDS_CLARIFICATION"] as const;
 
 function TriageDialog({ change, onClose, onSave }: { change: ChangeDetail; onClose: () => void; onSave: (c: string | null, r: string) => void }): JSX.Element {
+  const { t } = useLocale();
   const [classification, setClassification] = useState(change.classification ?? "POTENTIAL_CHANGE");
   const [rationale, setRationale] = useState(change.classificationRationale ?? "");
   return (
-    <Dialog title="Classify request" onClose={onClose}>
+    <Dialog title={t("change.triageTitle")} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          A considered triage call with a rationale — not a legal declaration. It guides estimation and review.
+          {t("change.triageBlurb")}
         </p>
-        <Field label="Classification" htmlFor="triage-class">
+        <Field label={t("change.classificationLabel")} htmlFor="triage-class">
           <Select id="triage-class" value={classification} onChange={(e) => setClassification(e.target.value)}>
             {CLASSIFICATIONS.map((c) => <option key={c} value={c}>{c}</option>)}
           </Select>
         </Field>
-        <Field label="Rationale" htmlFor="triage-rationale">
-          <Textarea id="triage-rationale" rows={3} value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder="Why is this in or out of the agreed scope?" />
+        <Field label={t("change.rationaleLabel")} htmlFor="triage-rationale">
+          <Textarea id="triage-rationale" rows={3} value={rationale} onChange={(e) => setRationale(e.target.value)} placeholder={t("change.rationalePlaceholder")} />
         </Field>
-        <Button className="w-full" onClick={() => onSave(classification, rationale)}>Save classification</Button>
+        <Button className="w-full" onClick={() => onSave(classification, rationale)}>{t("change.saveClassification")}</Button>
       </div>
     </Dialog>
   );
@@ -319,29 +320,30 @@ function TriageDialog({ change, onClose, onSave }: { change: ChangeDetail; onClo
 
 /** Linear workflow progress: Draft → Submitted → Triage → Estimating → Approval → Approved → Implemented. */
 function WorkflowStepper({ status }: { status: string }): JSX.Element {
+  const { t } = useLocale();
   const steps = [
-    { id: "DRAFT", label: "Draft" },
-    { id: "SUBMITTED", label: "Submitted" },
-    { id: "TRIAGING", label: "Triage" },
-    { id: "ESTIMATING", label: "Estimating" },
-    { id: "PENDING_APPROVAL", label: "Approval" },
-    { id: "APPROVED", label: "Approved" },
-    { id: "IMPLEMENTED", label: "Implemented" },
+    { id: "DRAFT", label: t("change.stepDraft") },
+    { id: "SUBMITTED", label: t("change.stepSubmitted") },
+    { id: "TRIAGING", label: t("change.stepTriage") },
+    { id: "ESTIMATING", label: t("change.stepEstimating") },
+    { id: "PENDING_APPROVAL", label: t("change.stepApproval") },
+    { id: "APPROVED", label: t("change.stepApproved") },
+    { id: "IMPLEMENTED", label: t("change.stepImplemented") },
   ];
   const current = steps.findIndex((s) => s.id === status);
   const sideNote =
     status === "NEEDS_CLARIFICATION"
-      ? "Waiting on answers — the workflow resumes at triage or estimation."
+      ? t("change.sideNoteClarification")
       : status === "REJECTED"
-        ? "Rejected by the client — revise the estimate or withdraw it."
+        ? t("change.sideNoteRejected")
         : status === "WITHDRAWN"
-          ? "Withdrawn — reopen it as a draft to continue."
+          ? t("change.sideNoteWithdrawn")
           : status === "PARKED"
-            ? "Parked — revive it into a new submission when the timing is right."
+            ? t("change.sideNoteParked")
             : null;
   return (
     <div className="mb-5">
-      <ol className="flex flex-wrap items-center gap-y-2" aria-label="Workflow progress">
+      <ol className="flex flex-wrap items-center gap-y-2" aria-label={t("change.workflowProgress")}>
         {steps.map((s, i) => {
           const state = current === -1 ? "todo" : i < current ? "done" : i === current ? "current" : "todo";
           return (
@@ -367,13 +369,14 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
 }
 
 function StatusPicker({ current, onPick }: { current: string; onPick: (s: string) => void }): JSX.Element {
+  const { t } = useLocale();
   const [value, setValue] = useState(current);
   return (
     <span className="flex items-center gap-2">
-      <Select aria-label="Change status" value={value} onChange={(e) => setValue(e.target.value)} className="w-auto">
+      <Select aria-label={t("change.statusPickerLabel")} value={value} onChange={(e) => setValue(e.target.value)} className="w-auto">
         {MANUAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
       </Select>
-      <Button size="sm" variant="secondary" disabled={value === current} onClick={() => onPick(value)}>Move</Button>
+      <Button size="sm" variant="secondary" disabled={value === current} onClick={() => onPick(value)}>{t("change.move")}</Button>
     </span>
   );
 }
@@ -454,10 +457,10 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Record impact" onClose={onClose} wide>
+    <Dialog title={t("change.recordImpact")} onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v as unknown as Record<string, string>))(e)} className="grid grid-cols-2 gap-4">
         <fieldset className="col-span-2">
-          <legend className="mb-1 text-sm font-medium text-slate-700">Price</legend>
+          <legend className="mb-1 text-sm font-medium text-slate-700">{t("change.price")}</legend>
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-1.5">
               <input type="radio" name="price-mode" checked={mode === "manual"} onChange={() => setMode("manual")} />
@@ -470,7 +473,7 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
           </div>
         </fieldset>
         {mode === "manual" ? (
-          <Field label="Price (major units, e.g. 1200.00)" htmlFor="imp-price">
+          <Field label={t("change.priceMajorLabel")} htmlFor="imp-price">
             <Input id="imp-price" inputMode="decimal" {...register("priceMinor")} />
           </Field>
         ) : (
@@ -529,13 +532,13 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
             ) : null}
           </div>
         )}
-        <Field label="Effort (days)" htmlFor="imp-effort">
+        <Field label={t("options.effortDays")} htmlFor="imp-effort">
           <Input id="imp-effort" inputMode="decimal" {...register("effortDays")} />
         </Field>
-        <Field label="Timeline effect (days)" htmlFor="imp-timeline">
+        <Field label={t("change.timelineEffectLabel")} htmlFor="imp-timeline">
           <Input id="imp-timeline" inputMode="numeric" {...register("timelineDays")} />
         </Field>
-        <Field label="Confidence" htmlFor="imp-confidence">
+        <Field label={t("change.confidence")} htmlFor="imp-confidence">
           <Select id="imp-confidence" {...register("confidence")}>
             <option value="LOW">LOW</option>
             <option value="MEDIUM">MEDIUM</option>
@@ -543,22 +546,22 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
           </Select>
         </Field>
         <div className="col-span-2">
-          <Field label="Milestone effect" htmlFor="imp-milestone">
+          <Field label={t("options.milestoneEffect")} htmlFor="imp-milestone">
             <Input id="imp-milestone" {...register("milestoneEffect")} />
           </Field>
         </div>
         <div className="col-span-2">
-          <Field label="Risks (one per line)" htmlFor="imp-risks">
+          <Field label={t("change.risksLabel")} htmlFor="imp-risks">
             <Textarea id="imp-risks" rows={2} {...register("risks")} />
           </Field>
         </div>
         <div className="col-span-2">
-          <Field label="Notes" htmlFor="imp-notes">
+          <Field label={t("options.notes")} htmlFor="imp-notes">
             <Textarea id="imp-notes" rows={2} {...register("notes")} />
           </Field>
         </div>
         {error ? <div className="col-span-2"><ErrorBanner message={error} /></div> : null}
-        <div className="col-span-2"><Button type="submit" disabled={save.isPending} className="w-full">Save impact</Button></div>
+        <div className="col-span-2"><Button type="submit" disabled={save.isPending} className="w-full">{t("change.saveImpact")}</Button></div>
       </form>
     </Dialog>
   );
@@ -597,6 +600,7 @@ function PricingBreakdown({ impact }: { impact: NonNullable<ChangeDetail["impact
 }
 
 function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDetail; projectId: string; onClose: () => void; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const requirements = useQuery({
     queryKey: ["requirements", projectId],
@@ -623,30 +627,30 @@ function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Add link" onClose={onClose}>
+    <Dialog title={t("change.addLink")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v as unknown as Record<string, string>))(e)} className="space-y-4">
-        <Field label="Target type" htmlFor="link-type">
+        <Field label={t("change.targetTypeLabel")} htmlFor="link-type">
           <Select id="link-type" {...register("targetType")}>
-            <option value="REQUIREMENT">Requirement</option>
-            <option value="CHANGE">Change request</option>
+            <option value="REQUIREMENT">{t("change.requirementWord")}</option>
+            <option value="CHANGE">{t("change.changeRequestWord")}</option>
           </Select>
         </Field>
         {targetType === "REQUIREMENT" ? (
-          <Field label="Requirement" htmlFor="link-req">
+          <Field label={t("change.requirementWord")} htmlFor="link-req">
             <Select id="link-req" {...register("targetRequirementId")}>
-              <option value="">Select…</option>
+              <option value="">{t("change.selectOption")}</option>
               {(requirements.data?.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.stableKey} · {(r.published ?? r.draft)?.title ?? r.status}</option>)}
             </Select>
           </Field>
         ) : (
-          <Field label="Change request" htmlFor="link-change">
+          <Field label={t("change.changeRequestWord")} htmlFor="link-change">
             <Select id="link-change" {...register("targetChangeId")}>
-              <option value="">Select…</option>
+              <option value="">{t("change.selectOption")}</option>
               {(changes.data ?? []).filter((c) => c.id !== change.id).map((c) => <option key={c.id} value={c.id}>{c.number}: {c.title}</option>)}
             </Select>
           </Field>
         )}
-        <Field label="Kind" htmlFor="link-kind">
+        <Field label={t("change.kindLabel")} htmlFor="link-kind">
           <Select id="link-kind" {...register("kind")}>
             <option value="AFFECTS">AFFECTS</option>
             <option value="RELATED">RELATED</option>
@@ -656,33 +660,35 @@ function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
         </Field>
         {kind === "DEPENDS_ON" ? (
           <>
-            <Field label="Condition" htmlFor="link-condition">
+            <Field label={t("change.conditionLabel")} htmlFor="link-condition">
               <Select id="link-condition" {...register("condition")}>
                 <option value="PREREQ_APPROVED">PREREQ_APPROVED</option>
                 <option value="PREREQ_IMPLEMENTED">PREREQ_IMPLEMENTED</option>
               </Select>
             </Field>
-            <Field label="Override rationale (leads only, optional)" htmlFor="link-override">
+            <Field label={t("change.overrideRationaleLabel")} htmlFor="link-override">
               <Input id="link-override" {...register("overrideRationale")} />
             </Field>
           </>
         ) : null}
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Add link</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("change.addLink")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function RemoveLink({ changeId, linkId, onDone }: { changeId: string; linkId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const remove = useMutation({
     mutationFn: () => api.delete(`/change-requests/${changeId}/links/${linkId}`),
     onSuccess: onDone,
   });
-  return <Button variant="ghost" size="sm" disabled={remove.isPending} onClick={() => remove.mutate()}>Remove</Button>;
+  return <Button variant="ghost" size="sm" disabled={remove.isPending} onClick={() => remove.mutate()}>{t("pricing.remove")}</Button>;
 }
 
 function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDetail; projectId: string; onClose: () => void; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [links, setLinks] = useState<string[] | null>(null);
   const members = useQuery({
@@ -714,9 +720,9 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Send for approval" onClose={onClose}>
+    <Dialog title={t("change.sendTitle")} onClose={onClose}>
       <p className="mb-3 text-sm text-slate-600">
-        This freezes the request, impact, and linked requirements into an immutable review package. Any later edit invalidates it.
+        {t("change.sendBlurb")}
       </p>
       {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
         <label key={m.userId} className="flex items-center gap-2 text-sm">
@@ -725,18 +731,18 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
         </label>
       ))}
       <div className="mt-3">
-        <Field label="Extra approver emails (comma-separated, optional)" htmlFor="send-emails" hint="External reviewers get a secure review link without a workspace account.">
+        <Field label={t("change.extraEmailsLabel")} htmlFor="send-emails" hint={t("change.extraEmailsHint")}>
           <Input id="send-emails" type="text" inputMode="email" placeholder="client@example.com" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
         </Field>
       </div>
       <div className="mt-3">
         <Field
-          label="Allowance pool (optional)"
+          label={t("change.poolLabel")}
           htmlFor="send-pool"
-          hint="Active pools only. On approval the change draws its impact from the pool and the client is notified."
+          hint={t("change.poolHint")}
         >
           <select id="send-pool" value={poolId} onChange={(e) => setPoolId(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-            <option value="">No pool — standard approval</option>
+            <option value="">{t("change.noPool")}</option>
             {(pools.data ?? []).filter((p) => p.enabled && p.status === "ACTIVE").map((p) => (
               <option key={p.id} value={p.id}>{p.name} ({p.kind.toLowerCase()})</option>
             ))}
@@ -745,31 +751,31 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
       </div>
       <div className="mt-3">
         <Field
-          label="Decision rule"
+          label={t("change.decisionRuleLabel")}
           htmlFor="send-policy"
-          hint="Project default resolves from the amount thresholds on the Policy tab. ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+          hint={t("change.decisionRuleHint")}
         >
           <select id="send-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-            <option value="">Project default</option>
-            <option value="ANY">Any approver decides</option>
-            <option value="ALL">All must approve</option>
-            <option value="SEQUENTIAL">In order</option>
+            <option value="">{t("change.projectDefault")}</option>
+            <option value="ANY">{t("policy.modeANY")}</option>
+            <option value="ALL">{t("policy.modeALL")}</option>
+            <option value="SEQUENTIAL">{t("policy.modeSEQUENTIAL")}</option>
           </select>
         </Field>
       </div>
       <div className="mt-3">
-        <Field label="Expires at" htmlFor="send-expiry">
+        <Field label={t("change.expiresAtLabel")} htmlFor="send-expiry">
           <Input id="send-expiry" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
       </div>
       {error ? <div className="mt-3"><ErrorBanner message={error} /></div> : null}
       {links ? (
         <ul className="mt-3 space-y-1 text-sm">
-          {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>Open review link</Link></li>)}
+          {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>{t("change.openReviewLink")}</Link></li>)}
         </ul>
       ) : (
         <Button className="mt-3 w-full" disabled={send.isPending || approvers.length === 0 || !expiry} onClick={() => send.mutate()}>
-          Send package
+          {t("change.sendPackage")}
         </Button>
       )}
     </Dialog>
@@ -777,6 +783,7 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
 }
 
 function QuestionDialog({ changeId, onClose, onDone }: { changeId: string; onClose: () => void; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<{ question: string }>();
   const save = useMutation({
@@ -785,19 +792,20 @@ function QuestionDialog({ changeId, onClose, onDone }: { changeId: string; onClo
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Ask for clarification" onClose={onClose}>
+    <Dialog title={t("change.askClarification")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Question" error={formState.errors.question?.message} htmlFor="q-text">
-          <Textarea id="q-text" rows={3} {...register("question", { required: "Question is required" })} />
+        <Field label={t("change.questionLabel")} error={formState.errors.question?.message} htmlFor="q-text">
+          <Textarea id="q-text" rows={3} {...register("question", { required: t("change.questionRequired") })} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" className="w-full">Send question</Button>
+        <Button type="submit" className="w-full">{t("change.sendQuestion")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function AnswerBox({ changeId, clarId, onDone }: { changeId: string; clarId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [answer, setAnswer] = useState("");
   const save = useMutation({
     mutationFn: () => api.post(`/change-requests/${changeId}/clarifications/${clarId}/answer`, { answer }),
@@ -805,8 +813,8 @@ function AnswerBox({ changeId, clarId, onDone }: { changeId: string; clarId: str
   });
   return (
     <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
-      <Input aria-label="Answer" value={answer} onChange={(e) => setAnswer(e.target.value)} required />
-      <Button size="sm" type="submit" disabled={save.isPending}>Answer</Button>
+      <Input aria-label={t("change.answerWord")} value={answer} onChange={(e) => setAnswer(e.target.value)} required />
+      <Button size="sm" type="submit" disabled={save.isPending}>{t("change.answerWord")}</Button>
     </form>
   );
 }
@@ -820,6 +828,7 @@ interface DriftOutput {
 }
 
 function DriftPanel({ changeId, projectId, onDone }: { changeId: string; projectId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [result, setResult] = useState<{
     deterministic: Array<{ stableKey: string; score: number; explanation: string }>;
     status: string;
@@ -850,40 +859,40 @@ function DriftPanel({ changeId, projectId, onDone }: { changeId: string; project
   return (
     <div className="mt-3 rounded-md bg-slate-50 p-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">Scope drift check</p>
+        <p className="text-sm font-medium">{t("change.driftTitle")}</p>
         <Button size="sm" variant="secondary" disabled={run.isPending} onClick={() => run.mutate()}>
-          {run.isPending ? "Checking…" : "Run check"}
+          {run.isPending ? t("change.checking") : t("change.runCheck")}
         </Button>
       </div>
       {run.isError ? <p className="mt-2 text-sm text-red-700">{errorMessage(run.error)}</p> : null}
       {result ? (
         <div className="mt-2 space-y-2 text-sm">
           <p className="text-xs text-slate-500">
-            AI status: {result.status}
-            {result.output.suggestedClassification ? ` · suggested: ${result.output.suggestedClassification}` : ""}
-            {(result.output.droppedInventedIds ?? 0) > 0 ? ` · ${result.output.droppedInventedIds} invented reference(s) rejected` : ""}
+            {t("change.aiStatus", { status: result.status })}
+            {result.output.suggestedClassification ? ` ${t("change.suggestedValue", { value: result.output.suggestedClassification })}` : ""}
+            {(result.output.droppedInventedIds ?? 0) > 0 ? ` ${t("change.inventedRejected", { count: result.output.droppedInventedIds ?? 0 })}` : ""}
           </p>
           {result.output.note ? <p className="text-xs text-slate-500">{result.output.note}</p> : null}
           {result.output.links.filter((l) => !dismissed.includes(l.requirementId)).map((l) => (
             <div key={l.requirementId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
               <span>
-                <Badge>AI</Badge> {keyById.get(l.requirementId)?.stableKey ?? l.requirementId}
+                <Badge>{t("change.aiBadge")}</Badge> {keyById.get(l.requirementId)?.stableKey ?? l.requirementId}
                 {" "}({Math.round(l.confidence * 100)}%): {l.explanation}
               </span>
               <span className="flex gap-1">
-                <Button size="sm" variant="secondary" disabled={accept.isPending} onClick={() => accept.mutate(l.requirementId)}>Accept link</Button>
-                <Button size="sm" variant="ghost" onClick={() => setDismissed([...dismissed, l.requirementId])}>Dismiss</Button>
+                <Button size="sm" variant="secondary" disabled={accept.isPending} onClick={() => accept.mutate(l.requirementId)}>{t("change.acceptLink")}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setDismissed([...dismissed, l.requirementId])}>{t("change.dismiss")}</Button>
               </span>
             </div>
           ))}
           {result.output.missingContext.length > 0 ? (
-            <p className="text-xs text-slate-500">Missing context: {result.output.missingContext.join(" · ")}</p>
+            <p className="text-xs text-slate-500">{t("change.missingContext", { items: result.output.missingContext.join(" · ") })}</p>
           ) : null}
           <div>
-            <p className="text-xs font-medium text-slate-500">Deterministic matches (always shown)</p>
-            {result.deterministic.length === 0 ? <p className="text-xs">No overlapping requirements found.</p> : (
+            <p className="text-xs font-medium text-slate-500">{t("change.deterministicTitle")}</p>
+            {result.deterministic.length === 0 ? <p className="text-xs">{t("change.noOverlap")}</p> : (
               <ul className="text-xs text-slate-600">
-                {result.deterministic.map((d) => <li key={d.stableKey}>{d.stableKey} (score {d.score}): {d.explanation}</li>)}
+                {result.deterministic.map((d) => <li key={d.stableKey}>{t("change.matchScore", { key: d.stableKey, score: d.score, explanation: d.explanation })}</li>)}
               </ul>
             )}
           </div>
@@ -894,6 +903,7 @@ function DriftPanel({ changeId, projectId, onDone }: { changeId: string; project
 }
 
 function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [questions, setQuestions] = useState<string[] | null>(null);
   const [draft, setDraft] = useState<{ subject: string; summary: string; bullets: string[]; nextSteps?: string } | null>(null);
   const [draftText, setDraftText] = useState("");
@@ -920,15 +930,15 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
   return (
     <div className="mt-3 rounded-md bg-slate-50 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium">AI assistance</p>
+        <p className="text-sm font-medium">{t("change.aiAssistTitle")}</p>
         <Button size="sm" variant="secondary" disabled={clarify.isPending} onClick={() => clarify.mutate()}>
-          {clarify.isPending ? "Thinking…" : "Suggest questions"}
+          {clarify.isPending ? t("change.thinking") : t("change.suggestQuestions")}
         </Button>
         <Button size="sm" variant="secondary" disabled={proposal.isPending} onClick={() => proposal.mutate()}>
-          {proposal.isPending ? "Drafting…" : "Draft proposal"}
+          {proposal.isPending ? t("change.drafting") : t("change.draftProposal")}
         </Button>
       </div>
-      <p className="mt-1 text-xs text-slate-500">Suggestions only — nothing is sent or published automatically.</p>
+      <p className="mt-1 text-xs text-slate-500">{t("change.aiDisclaimer")}</p>
       {clarify.isError ? <p className="mt-2 text-sm text-red-700">{errorMessage(clarify.error)}</p> : null}
       {proposal.isError ? <p className="mt-2 text-sm text-red-700">{errorMessage(proposal.error)}</p> : null}
       {questions ? (
@@ -936,18 +946,18 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
           {questions.map((q) => (
             <li key={q} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
               <span>{q}</span>
-              <Button size="sm" variant="secondary" disabled={useQuestion.isPending} onClick={() => useQuestion.mutate(q)}>Use as question</Button>
+              <Button size="sm" variant="secondary" disabled={useQuestion.isPending} onClick={() => useQuestion.mutate(q)}>{t("change.useAsQuestion")}</Button>
             </li>
           ))}
         </ul>
       ) : null}
       {draft ? (
         <div className="mt-2 rounded-md border border-slate-200 bg-white p-2">
-          <Textarea aria-label="Proposal draft (editable)" rows={6} value={draftText} onChange={(e) => setDraftText(e.target.value)} />
+          <Textarea aria-label={t("change.proposalDraftAria")} rows={6} value={draftText} onChange={(e) => setDraftText(e.target.value)} />
           {draft.bullets.length > 0 ? (
             <ul className="mt-1 list-disc pl-5 text-xs text-slate-600">{draft.bullets.map((b) => <li key={b}>{b}</li>)}</ul>
           ) : null}
-          {draft.nextSteps ? <p className="mt-1 text-xs text-slate-600">Next: {draft.nextSteps}</p> : null}
+          {draft.nextSteps ? <p className="mt-1 text-xs text-slate-600">{t("change.nextSteps", { steps: draft.nextSteps })}</p> : null}
         </div>
       ) : null}
     </div>
@@ -955,6 +965,7 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
 }
 
 function ExportButton({ projectId, changeId }: { projectId: string; changeId: string }): JSX.Element {
+  const { t } = useLocale();
   const [downloading, setDownloading] = useState(false);
   return (
     <Button
@@ -977,7 +988,7 @@ function ExportButton({ projectId, changeId }: { projectId: string; changeId: st
           .finally(() => setDownloading(false));
       }}
     >
-      Download summary (JSON)
+      {t("change.downloadSummary")}
     </Button>
   );
 }

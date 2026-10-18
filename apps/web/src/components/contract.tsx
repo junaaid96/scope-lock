@@ -143,7 +143,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
                       </Link>
                     </td>
                     <td className={td}>{date(a.decidedAt)}</td>
-                    <td className={`${td} ${num}`}>{a.effortDays === null ? "—" : number(a.effortDays)}</td>
+                    <td className={`${td} ${num}`}>{a.effortDays === null ? t("common.notAvailable") : number(a.effortDays)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -170,7 +170,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
                   <tr key={v.scopeVersionId}>
                     <td className={td}>v{v.sequence}{v.title ? ` · ${v.title}` : ""}</td>
                     <td className={td}><Badge tone={statusTone(v.status)}>{v.status}</Badge></td>
-                    <td className={td}>{v.changeNumbers.join(", ") || "—"}</td>
+                    <td className={td}>{v.changeNumbers.join(", ") || t("common.notAvailable")}</td>
                     <td className={`${td} ${num}`}>+{money(v.deltaMinor, c.currency)}</td>
                   </tr>
                 ))}
@@ -224,7 +224,7 @@ function InvoiceExportCard({ projectId }: { projectId: string }): JSX.Element {
     const params = new URLSearchParams({ from, to, format });
     fetch(`/api/v1/projects/${projectId}/export/invoice-ready?${params.toString()}`, { credentials: "include" })
       .then((res) => {
-        if (!res.ok) throw new Error(`Export failed (${res.status})`);
+        if (!res.ok) throw new Error(t("contract.exportFailed", { status: res.status }));
         return res.blob().then((blob) => ({ blob, disposition: res.headers.get("content-disposition") }));
       })
       .then(({ blob, disposition }) => {

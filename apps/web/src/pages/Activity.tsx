@@ -5,8 +5,10 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ActivityEvent, AiAnalysisRow, AuditVerifyResult } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 export function ActivityPage(): JSX.Element {
+  const { t } = useLocale();
   const { id } = useParams<{ id: string }>();
   const projectId = id as string;
   const activity = useQuery({
@@ -22,11 +24,11 @@ export function ActivityPage(): JSX.Element {
   return (
     <div>
       <PageTitle
-        title="Activity"
-        subtitle="Append-only audit trail: every state change, who made it, and when."
+        title={t("activity.title")}
+        subtitle={t("activity.subtitle")}
       />
       <ProjectSubnav projectId={projectId} />
-      {events.length === 0 ? <Empty title="No activity yet" /> : (
+      {events.length === 0 ? <Empty title={t("activity.emptyTitle")} /> : (
         <Card>
           <ul className="space-y-3">
             {events.map((e) => (
@@ -35,7 +37,7 @@ export function ActivityPage(): JSX.Element {
                   <span className="font-medium">{prettyAction(e.action)}</span>{" "}
                   <RecordLink projectId={projectId} targetType={e.targetType} targetId={e.targetId} />
                 </p>
-                <p className="text-xs text-slate-500">{e.actorEmail ?? "system"} · {formatDate(e.createdAt)}</p>
+                <p className="text-xs text-slate-500">{e.actorEmail ?? t("activity.systemActor")} · {formatDate(e.createdAt)}</p>
                 <Transition before={e.before} after={e.after} />
               </li>
             ))}
@@ -54,6 +56,7 @@ export function ActivityPage(): JSX.Element {
 }
 
 function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
+  const { t } = useLocale();
   const [asked, setAsked] = useState(false);
   const check = useQuery({
     queryKey: ["audit-verify", projectId],
@@ -63,32 +66,31 @@ function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
   const result = check.data;
   return (
     <Card>
-      <h2 className="mb-1 font-medium">Audit integrity</h2>
+      <h2 className="mb-1 font-medium">{t("activity.integrityTitle")}</h2>
       <p className="mb-2 text-xs text-slate-500">
-        Every event links to its predecessor by SHA-256. Recompute the whole chain to prove nothing was edited,
-        deleted, or reordered.
+        {t("activity.integrityBody")}
       </p>
       <Button size="sm" disabled={check.isFetching} onClick={() => { setAsked(true); void check.refetch(); }}>
-        {check.isFetching ? "Verifying…" : "Verify chain"}
+        {check.isFetching ? t("activity.verifying") : t("activity.verifyChain")}
       </Button>
       {check.isError ? <ErrorBanner message={errorMessage(check.error)} /> : null}
       {result ? (
         <div className="mt-3 text-sm" role="status">
           {result.valid ? (
-            <p><Badge tone="green">Chain valid</Badge></p>
+            <p><Badge tone="green">{t("activity.chainValid")}</Badge></p>
           ) : (
             <p>
-              <Badge tone="red">Chain broken</Badge>{" "}
+              <Badge tone="red">{t("activity.chainBroken")}</Badge>{" "}
               <span className="text-slate-700">
-                at entry {result.breakAtSeq}: {result.reason}
+                {t("activity.chainBrokenAt", { seq: result.breakAtSeq ?? "", reason: result.reason ?? "" })}
               </span>
             </p>
           )}
           <p className="mt-2 text-xs text-slate-500">
-            {result.chained} chained event{result.chained === 1 ? "" : "s"}
-            {result.legacy > 0 ? ` · ${result.legacy} pre-chain (legacy)` : ""}
-            {result.headHash ? ` · head ${result.headHash.slice(0, 12)}…` : " · no chained events yet"}
-            {" · "}checked {formatDate(result.verifiedAt)}
+            {result.chained === 1 ? t("activity.chainedOne", { count: result.chained }) : t("activity.chainedMany", { count: result.chained })}
+            {result.legacy > 0 ? t("activity.legacyEvents", { count: result.legacy }) : ""}
+            {result.headHash ? t("activity.headHash", { hash: result.headHash.slice(0, 12) }) : t("activity.noChainedYet")}
+            {t("activity.checkedAt", { date: formatDate(result.verifiedAt) })}
           </p>
         </div>
       ) : null}
@@ -132,6 +134,7 @@ interface DecisionHit {
 }
 
 function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
+  const { t } = useLocale();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
   const results = useQuery({
@@ -140,26 +143,26 @@ function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
   });
   return (
     <Card>
-      <h2 className="mb-1 font-medium">Decision memory</h2>
-      <p className="mb-2 text-xs text-slate-500">Search past decisions across authorized project records.</p>
+      <h2 className="mb-1 font-medium">{t("activity.decisionsTitle")}</h2>
+      <p className="mb-2 text-xs text-slate-500">{t("activity.decisionsBody")}</p>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setSubmitted(q); }}>
-        <Input aria-label="Search decisions" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search rationale…" />
-        <Button size="sm" type="submit">Search</Button>
+        <Input aria-label={t("activity.searchDecisionsLabel")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("activity.searchDecisionsPlaceholder")} />
+        <Button size="sm" type="submit">{t("activity.searchButton")}</Button>
       </form>
       {results.isLoading ? <Spinner /> : (
         <ul className="mt-3 space-y-2">
           {(results.data ?? []).map((d) => (
             <li key={d.id} className="rounded-md bg-slate-50 p-2 text-sm">
               <Badge tone={d.decision === "APPROVED" ? "green" : d.decision === "REJECTED" ? "red" : "amber"}>{d.decision}</Badge>
-              {" "}{d.approvalTitle ?? "Review package"}
+              {" "}{d.approvalTitle ?? t("activity.reviewPackageFallback")}
               {d.comment ? <p className="mt-1 text-slate-700">{d.comment}</p> : null}
               <p className="mt-1 text-xs text-slate-500">
-                {d.approverEmail ?? "system"} · {formatDate(d.createdAt)}
-                {d.changeRequestId ? <> · <Link className="underline" to={`/projects/${projectId}/changes/${d.changeRequestId}`}>open request</Link></> : null}
+                {d.approverEmail ?? t("activity.systemActor")} · {formatDate(d.createdAt)}
+                {d.changeRequestId ? <> · <Link className="underline" to={`/projects/${projectId}/changes/${d.changeRequestId}`}>{t("activity.openRequest")}</Link></> : null}
               </p>
             </li>
           ))}
-          {(results.data ?? []).length === 0 ? <li className="text-sm text-slate-500">No decisions found.</li> : null}
+          {(results.data ?? []).length === 0 ? <li className="text-sm text-slate-500">{t("activity.noDecisions")}</li> : null}
         </ul>
       )}
     </Card>
@@ -167,6 +170,7 @@ function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
 }
 
 function AiLog({ projectId }: { projectId: string }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const log = useQuery({
     queryKey: ["ai-log", projectId],
@@ -179,23 +183,23 @@ function AiLog({ projectId }: { projectId: string }): JSX.Element {
   });
   return (
     <Card>
-      <h2 className="mb-1 font-medium">AI usage log</h2>
-      <p className="mb-2 text-xs text-slate-500">Every AI action with its model, status, and reviewer disposition.</p>
+      <h2 className="mb-1 font-medium">{t("activity.aiLogTitle")}</h2>
+      <p className="mb-2 text-xs text-slate-500">{t("activity.aiLogBody")}</p>
       {log.isLoading ? <Spinner /> : log.isError ? (
         <ErrorBanner message={errorMessage(log.error)} />
       ) : (log.data ?? []).length === 0 ? (
-        <Empty title="No AI activity yet" />
+        <Empty title={t("activity.aiEmptyTitle")} />
       ) : (
         <ul className="space-y-2">
           {(log.data ?? []).slice(0, 20).map((a) => (
             <li key={a.id} className="rounded-md bg-slate-50 p-2 text-sm">
               <p>
-                <Badge>{a.kind}</Badge> <span className="text-xs text-slate-500">{a.model} · {a.status} · {formatDate(a.createdAt)}{a.usage ? ` · ${a.usage.totalTokens} tokens` : ""}</span>
+                <Badge>{a.kind}</Badge> <span className="text-xs text-slate-500">{a.model} · {a.status} · {formatDate(a.createdAt)}{a.usage ? t("activity.tokensUsed", { count: a.usage.totalTokens }) : ""}</span>
               </p>
               {a.error ? <p className="mt-1 text-xs text-red-700">{a.error}</p> : null}
               <p className="mt-1 text-xs">
                 {a.reviewerDisposition ? (
-                  <span className="text-slate-600">Reviewed: {a.reviewerDisposition}</span>
+                  <span className="text-slate-600">{t("activity.reviewedAs", { d: a.reviewerDisposition })}</span>
                 ) : (
                   <span className="flex gap-1">
                     {(["ACCEPTED", "EDITED", "DISMISSED"] as const).map((d) => (

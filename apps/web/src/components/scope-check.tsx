@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { errorMessage } from "../lib/api.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Badge, Button, ErrorBanner } from "./ui.js";
 
 export interface ScopeMatch {
@@ -23,6 +24,7 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
   onCheck: (title: string, description: string) => Promise<{ deterministic: ScopeMatch[]; aiNote: string | null }>;
   onMatches: (requirementIds: string[]) => void;
 }): JSX.Element {
+  const { t } = useLocale();
   const [matches, setMatches] = useState<ScopeMatch[] | null>(null);
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -46,21 +48,21 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-slate-800">Already covered?</p>
+        <p className="text-sm font-medium text-slate-800">{t("scopeCheck.title")}</p>
         <Button size="sm" variant="secondary" disabled={checking || title.trim().length === 0} onClick={() => void run()}>
-          {checking ? "Checking…" : "Check against agreed scope"}
+          {checking ? t("scopeCheck.checking") : t("scopeCheck.check")}
         </Button>
       </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {matches !== null ? (
         matches.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">
-            No overlap found in the current baseline. This looks like genuinely new work — submit it below.
+            {t("scopeCheck.noOverlap")}
           </p>
         ) : (
           <div className="mt-2">
             <p className="text-sm text-slate-700">
-              This might already be covered. Advisory only — submit anyway if none of these fit.
+              {t("scopeCheck.advisory")}
             </p>
             <ul className="mt-2 space-y-2">
               {matches.map((m) => (
@@ -69,7 +71,7 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
                     {m.stableKey} <Badge tone={m.risk === "HIGH" ? "amber" : "slate"}>{m.risk}</Badge>
                   </p>
                   <p className="mt-1 text-slate-700">{m.excerpt}</p>
-                  <p className="mt-1 text-xs text-slate-500">Matched: {m.matchedTerms.join(", ")}</p>
+                  <p className="mt-1 text-xs text-slate-500">{t("scopeCheck.matched", { terms: m.matchedTerms.join(", ") })}</p>
                 </li>
               ))}
             </ul>
@@ -77,7 +79,7 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
           </div>
         )
       ) : (
-        <p className="mt-1 text-xs text-slate-500">Compares your words against the agreed baseline before you submit.</p>
+        <p className="mt-1 text-xs text-slate-500">{t("scopeCheck.hint")}</p>
       )}
     </div>
   );

@@ -5,11 +5,13 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { api, errorMessage } from "../lib/api.js";
 import { Button, Card, ErrorBanner, Field, Input } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 const RequestSchema = z.object({ email: z.string().email() });
 const ConfirmSchema = z.object({ newPassword: z.string().min(10) });
 
 export function ResetPasswordPage(): JSX.Element {
+  const { t } = useLocale();
   const [params] = useSearchParams();
   const token = params.get("token");
   const [done, setDone] = useState(false);
@@ -21,10 +23,10 @@ export function ResetPasswordPage(): JSX.Element {
   if (!token) {
     return (
       <Card>
-        <h1 className="mb-1 text-xl font-semibold">Reset password</h1>
-        <p className="mb-5 text-sm text-slate-600">We will email you a one-hour reset link if the address exists.</p>
+        <h1 className="mb-1 text-xl font-semibold">{t("auth.resetPasswordTitle")}</h1>
+        <p className="mb-5 text-sm text-slate-600">{t("auth.resetRequestSubtitle")}</p>
         {done ? (
-          <p className="text-sm text-slate-700">If that email is registered, a reset link is on its way.</p>
+          <p className="text-sm text-slate-700">{t("auth.resetRequestDone")}</p>
         ) : (
           <form onSubmit={(e) => void reqForm.handleSubmit(async (v) => {
             setError(null);
@@ -35,15 +37,15 @@ export function ResetPasswordPage(): JSX.Element {
               setError(errorMessage(err));
             }
           })(e)} className="space-y-4" noValidate>
-            <Field label="Email" error={reqForm.formState.errors.email?.message} htmlFor="email">
+            <Field label={t("auth.emailLabel")} error={reqForm.formState.errors.email?.message} htmlFor="email">
               <Input id="email" type="email" {...reqForm.register("email")} />
             </Field>
             {error ? <ErrorBanner message={error} /> : null}
-            <Button type="submit" className="w-full">Send reset link</Button>
+            <Button type="submit" className="w-full">{t("auth.sendResetLink")}</Button>
           </form>
         )}
         <p className="mt-4 text-center text-sm text-slate-600">
-          <Link to="/login" className="font-medium text-teal-800 underline">Back to login</Link>
+          <Link to="/login" className="font-medium text-teal-800 underline">{t("auth.backToLogin")}</Link>
         </p>
       </Card>
     );
@@ -51,10 +53,10 @@ export function ResetPasswordPage(): JSX.Element {
 
   return (
     <Card>
-      <h1 className="mb-1 text-xl font-semibold">Choose a new password</h1>
+      <h1 className="mb-1 text-xl font-semibold">{t("auth.choosePasswordTitle")}</h1>
       {done ? (
         <p className="text-sm text-slate-700">
-          Password updated. <Link to="/login" className="font-medium text-teal-800 underline">Log in</Link>
+          {t("auth.passwordUpdated")}{" "}<Link to="/login" className="font-medium text-teal-800 underline">{t("auth.login")}</Link>
         </p>
       ) : (
         <form onSubmit={(e) => void confirmForm.handleSubmit(async (v) => {
@@ -66,11 +68,11 @@ export function ResetPasswordPage(): JSX.Element {
             setError(errorMessage(err));
           }
         })(e)} className="space-y-4" noValidate>
-          <Field label="New password" error={confirmForm.formState.errors.newPassword?.message} htmlFor="newPassword">
+          <Field label={t("auth.newPasswordLabel")} error={confirmForm.formState.errors.newPassword?.message} htmlFor="newPassword">
             <Input id="newPassword" type="password" autoComplete="new-password" {...confirmForm.register("newPassword")} />
           </Field>
           {error ? <ErrorBanner message={error} /> : null}
-          <Button type="submit" className="w-full">Update password</Button>
+          <Button type="submit" className="w-full">{t("auth.updatePassword")}</Button>
         </form>
       )}
     </Card>

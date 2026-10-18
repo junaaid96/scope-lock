@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocale } from "../lib/i18n/index.js";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -21,6 +22,7 @@ interface Diff {
 }
 
 export function ScopePage(): JSX.Element {
+  const { t } = useLocale();
   const { id } = useParams<{ id: string }>();
   const projectId = id as string;
   const client = useQueryClient();
@@ -81,12 +83,12 @@ export function ScopePage(): JSX.Element {
   return (
     <div>
       <PageTitle
-        title="Scope ledger"
-        subtitle="The versioned record of what was agreed. Published versions are immutable."
+        title={t("scope.pageTitle")}
+        subtitle={t("scope.pageSubtitle")}
         actions={!draft ? (
           <>
-            <Button size="sm" variant="secondary" onClick={() => setShowTemplate(true)}>From template…</Button>
-            <Button size="sm" onClick={() => setShowDraft(true)}>New draft</Button>
+            <Button size="sm" variant="secondary" onClick={() => setShowTemplate(true)}>{t("scope.fromTemplate")}</Button>
+            <Button size="sm" onClick={() => setShowDraft(true)}>{t("scope.newDraft")}</Button>
           </>
         ) : null}
       />
@@ -94,8 +96,8 @@ export function ScopePage(): JSX.Element {
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
       <div className="grid gap-5 md:grid-cols-3">
         <Card className="md:col-span-1">
-          <h2 className="mb-2 font-medium">Versions</h2>
-          {list.length === 0 ? <Empty title="No versions yet" /> : (
+          <h2 className="mb-2 font-medium">{t("scope.versions")}</h2>
+          {list.length === 0 ? <Empty title={t("scope.noVersions")} /> : (
             <ul className="space-y-2">
               {list.map((v) => (
                 <li key={v.id}>
@@ -116,9 +118,9 @@ export function ScopePage(): JSX.Element {
           )}
           {list.length > 1 && selected ? (
             <div className="mt-4">
-              <Field label="Compare against" htmlFor="compare">
+              <Field label={t("scope.compareAgainst")} htmlFor="compare">
                 <Select id="compare" value={compareId ?? ""} onChange={(e) => setCompareId(e.target.value || null)}>
-                  <option value="">Select a version…</option>
+                  <option value="">{t("scope.selectVersionOption")}</option>
                   {list.filter((v) => v.id !== selected.id).map((v) => (
                     <option key={v.id} value={v.id}>v{v.sequence} ({v.status})</option>
                   ))}
@@ -130,7 +132,7 @@ export function ScopePage(): JSX.Element {
 
         <div className="space-y-4 md:col-span-2">
           {!selected || !detail.data ? (
-            <Empty title="Select a version" hint="Choose a version on the left to inspect its exact contents." />
+            <Empty title={t("scope.selectVersionTitle")} hint={t("scope.selectVersionHint")} />
           ) : (
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -142,17 +144,17 @@ export function ScopePage(): JSX.Element {
               </div>
               {detail.data.status === "DRAFT" ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => setShowRequirement(true)}>Add requirement</Button>
-                  <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>Import CSV…</Button>
-                  <Button size="sm" variant="secondary" onClick={() => setShowExtract(true)}>Extract from proposal…</Button>
-                  <Button size="sm" variant="secondary" onClick={() => setShowAssumptions(true)}>Edit assumptions…</Button>
+                  <Button size="sm" onClick={() => setShowRequirement(true)}>{t("scope.addRequirement")}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>{t("scope.importCsv")}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowExtract(true)}>{t("scope.extractFromProposal")}</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowAssumptions(true)}>{t("scope.editAssumptions")}</Button>
                   <Button size="sm" variant="secondary" disabled={publish.isPending} onClick={() => publish.mutate()}>
-                    {list.some((v) => v.status === "PUBLISHED") ? "Publish amendment" : "Publish baseline"}
+                    {list.some((v) => v.status === "PUBLISHED") ? t("scope.publishAmendment") : t("scope.publishBaseline")}
                   </Button>
                 </div>
               ) : null}
               {detail.data.status === "DRAFT" && list.some((v) => v.status === "PUBLISHED") ? (
-                <p className="mt-2 text-xs text-slate-500">Amendments publish only with a linked approved change — convert or link one first.</p>
+                <p className="mt-2 text-xs text-slate-500">{t("scope.amendmentHint")}</p>
               ) : null}
               <RevisionList
                 projectId={projectId}
@@ -165,8 +167,8 @@ export function ScopePage(): JSX.Element {
                 onEdit={setEditing}
                 onError={setError}
               />
-              <Assumptions title="Assumptions" items={detail.data.assumptions} />
-              <Assumptions title="Exclusions" items={detail.data.exclusions} />
+              <Assumptions title={t("scope.assumptions")} items={detail.data.assumptions} />
+              <Assumptions title={t("scope.exclusions")} items={detail.data.exclusions} />
             </Card>
           )}
           {diff.data ? <DiffCard diff={diff.data.diff} /> : null}
@@ -220,6 +222,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
   onEdit: (r: Revision) => void;
   onError: (m: string) => void;
 }): JSX.Element {
+  const { t } = useLocale();
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
   const [acceptanceFor, setAcceptanceFor] = useState<Revision | null>(null);
   const [busy, setBusy] = useState(false);
@@ -249,7 +252,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
   };
 
   const remove = async (rev: Revision): Promise<void> => {
-    if (!window.confirm(`Remove ${rev.stableKey} from this draft? Published history is untouched.`)) return;
+    if (!window.confirm(t("scope.removeConfirm", { stableKey: rev.stableKey ?? "" }))) return;
     setBusy(true);
     try {
       const v = (await api.get<ScopeVersion>(`/scope-versions/${version.id}`)).version;
@@ -263,7 +266,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
   };
 
   if (revisions.length === 0) {
-    return <div className="mt-3"><Empty title="Empty draft" hint="Add at least one requirement before publishing." /></div>;
+    return <div className="mt-3"><Empty title={t("scope.emptyDraft")} hint={t("scope.emptyDraftHint")} /></div>;
   }
   return (
     <>
@@ -286,19 +289,19 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
           ) : null}
           <div className="mt-2 flex flex-wrap gap-1">
             <Button variant="ghost" size="sm" onClick={() => setEvidenceFor(evidenceFor === r.requirementId ? null : r.requirementId)}>
-              {evidenceFor === r.requirementId ? "Hide evidence" : "Evidence"}
+              {evidenceFor === r.requirementId ? t("scope.hideEvidence") : t("scope.evidence")}
             </Button>
             {r.status === "DELIVERED" ? (
               <Button variant="ghost" size="sm" onClick={() => setAcceptanceFor(r)}>
-                Request acceptance
+                {t("scope.requestAcceptance")}
               </Button>
             ) : null}
             {isDraft ? (
               <>
-                <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>Edit</Button>
-                <Button variant="ghost" size="sm" disabled={busy} aria-label={`Move ${r.stableKey} up`} onClick={() => void move(r, -1)}>↑</Button>
-                <Button variant="ghost" size="sm" disabled={busy} aria-label={`Move ${r.stableKey} down`} onClick={() => void move(r, 1)}>↓</Button>
-                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void remove(r)}>Remove</Button>
+                <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>{t("scope.edit")}</Button>
+                <Button variant="ghost" size="sm" disabled={busy} aria-label={t("scope.moveUp", { stableKey: r.stableKey ?? "" })} onClick={() => void move(r, -1)}>↑</Button>
+                <Button variant="ghost" size="sm" disabled={busy} aria-label={t("scope.moveDown", { stableKey: r.stableKey ?? "" })} onClick={() => void move(r, 1)}>↓</Button>
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void remove(r)}>{t("scope.remove")}</Button>
               </>
             ) : null}
           </div>
@@ -316,6 +319,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
 }
 
 function AcceptanceDialog({ projectId, revision, onClose }: { projectId: string; revision: Revision; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [links, setLinks] = useState<string[] | null>(null);
   const [approvers, setApprovers] = useState<string[]>([]);
@@ -339,9 +343,9 @@ function AcceptanceDialog({ projectId, revision, onClose }: { projectId: string;
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title={`Request acceptance — ${revision.stableKey ?? revision.requirementId}`} onClose={onClose}>
+    <Dialog title={t("scope.requestAcceptanceTitle", { ref: revision.stableKey ?? revision.requirementId })} onClose={onClose}>
       <p className="mb-3 text-sm text-slate-600">
-        This freezes “{revision.title}” and its delivery evidence into an immutable review package for the client.
+        {t("scope.acceptanceBlurb", { title: revision.title })}
       </p>
       {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
         <label key={m.userId} className="flex items-center gap-2 text-sm">
@@ -350,37 +354,37 @@ function AcceptanceDialog({ projectId, revision, onClose }: { projectId: string;
         </label>
       ))}
       <div className="mt-3">
-        <Field label="Extra approver emails (comma-separated, optional)" htmlFor="accept-emails" hint="External reviewers get a secure review link without a workspace account.">
+        <Field label={t("scope.extraApproverEmails")} htmlFor="accept-emails" hint={t("scope.extraApproverEmailsHint")}>
           <Input id="accept-emails" type="text" inputMode="email" placeholder="client@example.com" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
         </Field>
       </div>
       <div className="mt-3">
         <Field
-          label="Decision rule"
+          label={t("scope.decisionRule")}
           htmlFor="accept-policy"
-          hint="Amount thresholds never apply to acceptance (no price). ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+          hint={t("scope.decisionRuleHint")}
         >
           <select id="accept-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
-            <option value="">Project default (any approver)</option>
-            <option value="ANY">Any approver decides</option>
-            <option value="ALL">All must approve</option>
-            <option value="SEQUENTIAL">In order</option>
+            <option value="">{t("scope.projectDefaultPolicy")}</option>
+            <option value="ANY">{t("scope.policyAny")}</option>
+            <option value="ALL">{t("scope.policyAll")}</option>
+            <option value="SEQUENTIAL">{t("scope.policySequential")}</option>
           </select>
         </Field>
       </div>
       <div className="mt-3">
-        <Field label="Deadline (optional)" htmlFor="accept-expiry" hint="Leave blank to use the project's deemed-acceptance window from the Policy tab.">
+        <Field label={t("scope.deadline")} htmlFor="accept-expiry" hint={t("scope.deadlineHint")}>
           <Input id="accept-expiry" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
       </div>
       {error ? <div className="mt-3"><ErrorBanner message={error} /></div> : null}
       {links ? (
         <ul className="mt-3 space-y-1 text-sm">
-          {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>Open review link</Link></li>)}
+          {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>{t("scope.openReviewLink")}</Link></li>)}
         </ul>
       ) : (
         <Button className="mt-3 w-full" disabled={send.isPending || approvers.length === 0} onClick={() => send.mutate()}>
-          Send acceptance package
+          {t("scope.sendAcceptancePackage")}
         </Button>
       )}
     </Dialog>
@@ -398,18 +402,19 @@ function Assumptions({ title, items }: { title: string; items: string[] }): JSX.
 }
 
 function DiffCard({ diff }: { diff: Diff }): JSX.Element {
+  const { t } = useLocale();
   return (
     <Card>
-      <h2 className="mb-2 font-medium">Agreement diff</h2>
+      <h2 className="mb-2 font-medium">{t("scope.agreementDiff")}</h2>
       {diff.added.length === 0 && diff.removed.length === 0 && diff.modified.length === 0 && !diff.assumptionsChanged && !diff.exclusionsChanged ? (
-        <p className="text-sm text-slate-600">No differences.</p>
+        <p className="text-sm text-slate-600">{t("scope.noDifferences")}</p>
       ) : (
         <div className="space-y-2 text-sm">
-          {diff.added.map((r) => <p key={r.stableKey}><Badge tone="green">Added</Badge> {r.stableKey} · {r.title}</p>)}
-          {diff.removed.map((r) => <p key={r.stableKey}><Badge tone="red">Removed</Badge> {r.stableKey} · {r.title}</p>)}
+          {diff.added.map((r) => <p key={r.stableKey}><Badge tone="green">{t("scope.added")}</Badge> {r.stableKey} · {r.title}</p>)}
+          {diff.removed.map((r) => <p key={r.stableKey}><Badge tone="red">{t("scope.removed")}</Badge> {r.stableKey} · {r.title}</p>)}
           {diff.modified.map((r) => (
             <div key={r.stableKey}>
-              <p><Badge tone="amber">Modified</Badge> {r.stableKey}</p>
+              <p><Badge tone="amber">{t("scope.modified")}</Badge> {r.stableKey}</p>
               <ul className="ml-4 list-disc text-xs text-slate-600">
                 {r.changes.map((c) => (
                   <li key={c.field}>{c.field}: {JSON.stringify(c.before)} → {JSON.stringify(c.after)}</li>
@@ -417,8 +422,8 @@ function DiffCard({ diff }: { diff: Diff }): JSX.Element {
               </ul>
             </div>
           ))}
-          {diff.assumptionsChanged ? <p><Badge>Assumptions changed</Badge></p> : null}
-          {diff.exclusionsChanged ? <p><Badge>Exclusions changed</Badge></p> : null}
+          {diff.assumptionsChanged ? <p><Badge>{t("scope.assumptionsChanged")}</Badge></p> : null}
+          {diff.exclusionsChanged ? <p><Badge>{t("scope.exclusionsChanged")}</Badge></p> : null}
         </div>
       )}
     </Card>
@@ -426,6 +431,7 @@ function DiffCard({ diff }: { diff: Diff }): JSX.Element {
 }
 
 function AssumptionsDialog({ version, onClose }: { version: ScopeVersion; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit } = useForm<{ assumptions: string; exclusions: string }>({
@@ -446,22 +452,23 @@ function AssumptionsDialog({ version, onClose }: { version: ScopeVersion; onClos
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Edit assumptions & exclusions" onClose={onClose} wide>
+    <Dialog title={t("scope.editAssumptionsTitle")} onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Assumptions (one per line)" htmlFor="asm-a">
+        <Field label={t("scope.assumptionsPerLine")} htmlFor="asm-a">
           <Textarea id="asm-a" rows={4} {...register("assumptions")} />
         </Field>
-        <Field label="Exclusions (one per line)" htmlFor="asm-e">
+        <Field label={t("scope.exclusionsPerLine")} htmlFor="asm-e">
           <Textarea id="asm-e" rows={4} {...register("exclusions")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Save in draft</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("scope.saveInDraft")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function EvidencePanel({ projectId, requirementId }: { projectId: string; requirementId: string }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const evidence = useQuery({
@@ -507,24 +514,24 @@ function EvidencePanel({ projectId, requirementId }: { projectId: string; requir
   const readyFiles = (attachments.data ?? []).filter((a) => a.status === "READY");
   return (
     <div className="mt-2 rounded-md bg-slate-50 p-3">
-      <p className="text-sm font-medium">Delivery evidence</p>
+      <p className="text-sm font-medium">{t("scope.deliveryEvidence")}</p>
       {evidence.isLoading ? <Spinner /> : (evidence.data ?? []).length === 0 ? (
-        <p className="mt-1 text-xs text-slate-500">No evidence attached yet.</p>
+        <p className="mt-1 text-xs text-slate-500">{t("scope.noEvidence")}</p>
       ) : (
         <ul className="mt-2 space-y-1 text-sm">
           {(evidence.data ?? []).map((e) => (
             <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
               <span>
                 <Badge>{e.type}</Badge> {e.title}
-                {e.url ? <> · <a className="underline" href={e.url} target="_blank" rel="noreferrer">open</a></> : null}
+                {e.url ? <> · <a className="underline" href={e.url} target="_blank" rel="noreferrer">{t("scope.openLink")}</a></> : null}
                 {e.note ? <span className="text-slate-600"> · {e.note}</span> : null}
                 {" "}<Badge tone={statusTone(e.status)}>{e.status}</Badge>
                 <span className="text-xs text-slate-500"> · {formatDate(e.createdAt)}</span>
               </span>
               {e.status === "PENDING" ? (
                 <span className="flex gap-1">
-                  <Button size="sm" variant="secondary" disabled={verify.isPending} onClick={() => verify.mutate({ id: e.id, status: "REVIEWED" })}>Mark reviewed</Button>
-                  <Button size="sm" variant="secondary" disabled={verify.isPending} onClick={() => verify.mutate({ id: e.id, status: "ACCEPTED" })}>Accept</Button>
+                  <Button size="sm" variant="secondary" disabled={verify.isPending} onClick={() => verify.mutate({ id: e.id, status: "REVIEWED" })}>{t("scope.markReviewed")}</Button>
+                  <Button size="sm" variant="secondary" disabled={verify.isPending} onClick={() => verify.mutate({ id: e.id, status: "ACCEPTED" })}>{t("scope.accept")}</Button>
                 </span>
               ) : null}
             </li>
@@ -532,14 +539,14 @@ function EvidencePanel({ projectId, requirementId }: { projectId: string; requir
         </ul>
       )}
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Field label="Type" htmlFor={`ev-type-${requirementId}`}>
+        <Field label={t("scope.fieldType")} htmlFor={`ev-type-${requirementId}`}>
           <Select id={`ev-type-${requirementId}`} value={type} onChange={(e) => setType(e.target.value)}>
             <option value="URL">URL</option>
-            <option value="FILE">File</option>
-            <option value="NOTE">Note</option>
+            <option value="FILE">{t("scope.evidenceFile")}</option>
+            <option value="NOTE">{t("scope.note")}</option>
           </Select>
         </Field>
-        <Field label="Title" htmlFor={`ev-title-${requirementId}`}>
+        <Field label={t("scope.fieldTitle")} htmlFor={`ev-title-${requirementId}`}>
           <Input id={`ev-title-${requirementId}`} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         {type === "URL" ? (
@@ -551,16 +558,16 @@ function EvidencePanel({ projectId, requirementId }: { projectId: string; requir
         ) : null}
         {type === "NOTE" ? (
           <div className="col-span-2">
-            <Field label="Note" htmlFor={`ev-note-${requirementId}`}>
+            <Field label={t("scope.note")} htmlFor={`ev-note-${requirementId}`}>
               <Textarea id={`ev-note-${requirementId}`} rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
           </div>
         ) : null}
         {type === "FILE" ? (
           <div className="col-span-2">
-            <Field label="Ready file" htmlFor={`ev-file-${requirementId}`}>
+            <Field label={t("scope.readyFile")} htmlFor={`ev-file-${requirementId}`}>
               <Select id={`ev-file-${requirementId}`} value={attachmentId} onChange={(e) => setAttachmentId(e.target.value)}>
-                <option value="">Select an uploaded file…</option>
+                <option value="">{t("scope.selectUploadedFile")}</option>
                 {readyFiles.map((a) => <option key={a.id} value={a.id}>{a.fileName}</option>)}
               </Select>
             </Field>
@@ -568,7 +575,7 @@ function EvidencePanel({ projectId, requirementId }: { projectId: string; requir
         ) : null}
       </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
-      <Button size="sm" className="mt-2" disabled={attach.isPending || !title} onClick={() => attach.mutate()}>Attach evidence</Button>
+      <Button size="sm" className="mt-2" disabled={attach.isPending || !title} onClick={() => attach.mutate()}>{t("scope.attachEvidence")}</Button>
     </div>
   );
 }
@@ -582,6 +589,7 @@ interface ExtractedItem {
 }
 
 function ExtractDialog({ projectId, draftId, onClose }: { projectId: string; draftId: string | null; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [sourceText, setSourceText] = useState("");
   const [output, setOutput] = useState<{ requirements: ExtractedItem[]; assumptions: string[]; exclusions: string[] } | null>(null);
@@ -628,18 +636,18 @@ function ExtractDialog({ projectId, draftId, onClose }: { projectId: string; dra
     }
   };
   return (
-    <Dialog title="Extract requirements from proposal" onClose={onClose} wide>
+    <Dialog title={t("scope.extractTitle")} onClose={onClose} wide>
       <div className="space-y-4">
-        <p className="text-sm text-slate-600">AI output is a clearly labeled draft — review every item. Only selected items are added.</p>
-        <Field label="Proposal text (min 20 characters)" htmlFor="ext-text">
+        <p className="text-sm text-slate-600">{t("scope.extractBlurb")}</p>
+        <Field label={t("scope.proposalText")} htmlFor="ext-text">
           <Textarea id="ext-text" rows={6} value={sourceText} onChange={(e) => setSourceText(e.target.value)} />
         </Field>
         <Button disabled={run.isPending || sourceText.length < 20} onClick={() => run.mutate()} className="w-full">
-          {run.isPending ? "Extracting…" : "Run extraction"}
+          {run.isPending ? t("scope.extracting") : t("scope.runExtraction")}
         </Button>
         {output ? (
           <div>
-            <p className="text-sm font-medium">Draft requirements ({output.requirements.length})</p>
+            <p className="text-sm font-medium">{t("scope.draftRequirements", { count: output.requirements.length })}</p>
             <ul className="mt-2 max-h-64 space-y-2 overflow-auto">
               {output.requirements.map((r, i) => (
                 <li key={`${r.title}-${i}`}>
@@ -653,7 +661,7 @@ function ExtractDialog({ projectId, draftId, onClose }: { projectId: string; dra
                     <span>
                       <span className="font-medium">{r.title}</span>
                       <span className="block text-slate-600">{r.description}</span>
-                      {r.acceptanceCriteria.length > 0 ? <span className="block text-xs">AC: {r.acceptanceCriteria.join(" · ")}</span> : null}
+                      {r.acceptanceCriteria.length > 0 ? <span className="block text-xs">{t("scope.extractAc", { criteria: r.acceptanceCriteria.join(" · ") })}</span> : null}
                       {(r.category ?? r.priority) ? <span className="block text-xs">{[r.category, r.priority].filter(Boolean).join(" · ")}</span> : null}
                     </span>
                   </label>
@@ -662,11 +670,11 @@ function ExtractDialog({ projectId, draftId, onClose }: { projectId: string; dra
             </ul>
             {(output.assumptions.length > 0 || output.exclusions.length > 0) ? (
               <p className="mt-2 text-xs text-slate-500">
-                Suggested assumptions: {output.assumptions.join(" · ") || "—"} · Exclusions: {output.exclusions.join(" · ") || "—"}
+                {t("scope.extractSuggestions", { assumptions: output.assumptions.join(" · ") || "—", exclusions: output.exclusions.join(" · ") || "—" })}
               </p>
             ) : null}
             <Button disabled={adding || selected.length === 0 || !draftId} onClick={() => void addSelected()} className="mt-3 w-full">
-              {!draftId ? "Create a draft first to add items" : adding ? "Adding…" : `Add ${selected.length} selected to draft`}
+              {!draftId ? t("scope.createDraftFirst") : adding ? t("scope.adding") : t("scope.addSelected", { count: selected.length })}
             </Button>
           </div>
         ) : null}
@@ -677,6 +685,7 @@ function ExtractDialog({ projectId, draftId, onClose }: { projectId: string; dra
 }
 
 function DraftDialog({ projectId, versions, onClose, onCreated }: { projectId: string; versions: ScopeVersion[]; onClose: () => void; onCreated: (id: string) => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit } = useForm<{ title: string; copyFromVersionId: string }>();
@@ -695,21 +704,21 @@ function DraftDialog({ projectId, versions, onClose, onCreated }: { projectId: s
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="New draft" onClose={onClose}>
+    <Dialog title={t("scope.newDraft")} onClose={onClose}>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Title (optional)" htmlFor="draft-title">
-          <Input id="draft-title" placeholder="v2 amendment" {...register("title")} />
+        <Field label={t("scope.titleOptional")} htmlFor="draft-title">
+          <Input id="draft-title" placeholder={t("scope.draftTitlePlaceholder")} {...register("title")} />
         </Field>
-        <Field label="Copy from (optional)" htmlFor="draft-copy">
+        <Field label={t("scope.copyFrom")} htmlFor="draft-copy">
           <Select id="draft-copy" {...register("copyFromVersionId")}>
-            <option value="">Start empty</option>
+            <option value="">{t("scope.startEmpty")}</option>
             {versions.filter((v) => v.status !== "DRAFT").map((v) => (
               <option key={v.id} value={v.id}>v{v.sequence}{v.title ? ` · ${v.title}` : ""}</option>
             ))}
           </Select>
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Create draft</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("scope.createDraft")}</Button>
       </form>
     </Dialog>
   );
@@ -725,6 +734,7 @@ type RequirementForm = {
 };
 
 function RequirementDialog({ projectId, draftId, onClose }: { projectId: string; draftId: string; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<RequirementForm>();
@@ -748,22 +758,22 @@ function RequirementDialog({ projectId, draftId, onClose }: { projectId: string;
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Add requirement" onClose={onClose} wide>
+    <Dialog title={t("scope.addRequirement")} onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Title" error={formState.errors.title?.message} htmlFor="req-title">
-          <Input id="req-title" {...register("title", { required: "Title is required" })} />
+        <Field label={t("scope.fieldTitle")} error={formState.errors.title?.message} htmlFor="req-title">
+          <Input id="req-title" {...register("title", { required: t("scope.titleRequired") })} />
         </Field>
-        <Field label="Description" error={formState.errors.description?.message} htmlFor="req-description">
-          <Textarea id="req-description" rows={3} {...register("description", { required: "Description is required" })} />
+        <Field label={t("scope.fieldDescription")} error={formState.errors.description?.message} htmlFor="req-description">
+          <Textarea id="req-description" rows={3} {...register("description", { required: t("scope.descriptionRequired") })} />
         </Field>
-        <Field label="Acceptance criteria (one per line)" htmlFor="req-ac">
+        <Field label={t("scope.fieldAcceptanceCriteria")} htmlFor="req-ac">
           <Textarea id="req-ac" rows={3} {...register("acceptanceCriteria")} />
         </Field>
         <div className="grid grid-cols-3 gap-4">
-          <Field label="Category" htmlFor="req-category">
-            <Input id="req-category" placeholder="e.g. Checkout" {...register("category")} />
+          <Field label={t("scope.fieldCategory")} htmlFor="req-category">
+            <Input id="req-category" placeholder={t("scope.categoryPlaceholder")} {...register("category")} />
           </Field>
-          <Field label="Priority" htmlFor="req-priority">
+          <Field label={t("scope.fieldPriority")} htmlFor="req-priority">
             <Select id="req-priority" {...register("priority")}>
               <option value="">—</option>
               <option value="LOW">LOW</option>
@@ -772,18 +782,19 @@ function RequirementDialog({ projectId, draftId, onClose }: { projectId: string;
               <option value="CRITICAL">CRITICAL</option>
             </Select>
           </Field>
-          <Field label="Order" htmlFor="req-order">
+          <Field label={t("scope.fieldOrder")} htmlFor="req-order">
             <Input id="req-order" inputMode="numeric" placeholder="0" {...register("order")} />
           </Field>
         </div>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Add to draft</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("scope.addToDraft")}</Button>
       </form>
     </Dialog>
   );
 }
 
 function EditRequirementDialog({ projectId, draft, editing, onClose }: { projectId: string; draft: ScopeVersion; editing: Revision; onClose: () => void }): JSX.Element {
+  const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit } = useForm<RequirementForm>({
@@ -820,22 +831,22 @@ function EditRequirementDialog({ projectId, draft, editing, onClose }: { project
     onError: (err) => setError(errorMessage(err)),
   });
   return (
-    <Dialog title="Edit requirement in draft" onClose={onClose} wide>
+    <Dialog title={t("scope.editRequirementTitle")} onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v))(e)} className="space-y-4">
-        <Field label="Title" htmlFor="edit-title">
+        <Field label={t("scope.fieldTitle")} htmlFor="edit-title">
           <Input id="edit-title" {...register("title")} />
         </Field>
-        <Field label="Description" htmlFor="edit-description">
+        <Field label={t("scope.fieldDescription")} htmlFor="edit-description">
           <Textarea id="edit-description" rows={3} {...register("description")} />
         </Field>
-        <Field label="Acceptance criteria (one per line)" htmlFor="edit-ac">
+        <Field label={t("scope.fieldAcceptanceCriteria")} htmlFor="edit-ac">
           <Textarea id="edit-ac" rows={3} {...register("acceptanceCriteria")} />
         </Field>
         <div className="grid grid-cols-3 gap-4">
-          <Field label="Category" htmlFor="edit-category">
+          <Field label={t("scope.fieldCategory")} htmlFor="edit-category">
             <Input id="edit-category" {...register("category")} />
           </Field>
-          <Field label="Priority" htmlFor="edit-priority">
+          <Field label={t("scope.fieldPriority")} htmlFor="edit-priority">
             <Select id="edit-priority" {...register("priority")}>
               <option value="">—</option>
               <option value="LOW">LOW</option>
@@ -844,12 +855,12 @@ function EditRequirementDialog({ projectId, draft, editing, onClose }: { project
               <option value="CRITICAL">CRITICAL</option>
             </Select>
           </Field>
-          <Field label="Order" htmlFor="edit-order">
+          <Field label={t("scope.fieldOrder")} htmlFor="edit-order">
             <Input id="edit-order" inputMode="numeric" {...register("order")} />
           </Field>
         </div>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">Save in draft</Button>
+        <Button type="submit" disabled={save.isPending} className="w-full">{t("scope.saveInDraft")}</Button>
       </form>
     </Dialog>
   );

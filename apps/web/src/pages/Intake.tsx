@@ -5,6 +5,7 @@ import { api, errorMessage } from "../lib/api.js";
 import { LoadingScreen } from "../components/layout.js";
 import { Button, Card, ErrorBanner, Field, Input, Textarea } from "../components/ui.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 interface IntakeInfo {
   projectName: string;
@@ -28,15 +29,16 @@ export function IntakePage(): JSX.Element {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [suggestedIds, setSuggestedIds] = useState<string[]>([]);
+  const { t } = useLocale();
 
-  if (info.isLoading) return <LoadingScreen message="Loading the request form…" />;
+  if (info.isLoading) return <LoadingScreen message={t("intakeForm.loadingForm")} />;
   if (info.isError || !info.data) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
         <Card>
-          <h1 className="mb-1 text-xl font-semibold">Form unavailable</h1>
+          <h1 className="mb-1 text-xl font-semibold">{t("intakeForm.unavailableTitle")}</h1>
           <p className="text-sm text-slate-600">{errorMessage(info.error)}</p>
-          <p className="mt-3 text-sm"><Link to="/login" className="underline">Log in</Link> if you have an account.</p>
+          <p className="mt-3 text-sm"><Link to="/login" className="underline">{t("intakeForm.loginLink")}</Link> {t("intakeForm.loginSuffix")}</p>
         </Card>
       </div>
     );
@@ -72,25 +74,25 @@ export function IntakePage(): JSX.Element {
           <p className="text-lg font-semibold" style={{ color: accent }}>
             {info.data.branding?.displayName ?? info.data.organizationName}
           </p>
-          <p className="text-sm text-slate-600">{info.data.projectName} · request form</p>
+          <p className="text-sm text-slate-600">{t("intakeForm.headerSubtitle", { project: info.data.projectName })}</p>
         </div>
       </header>
       <Card>
-        <h1 className="text-xl font-semibold">Request a change</h1>
+        <h1 className="text-xl font-semibold">{t("intakeForm.title")}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Describe what you need. The agency triages every request — nothing here changes the agreement by itself.
+          {t("intakeForm.blurb")}
         </p>
         {done !== null ? (
           <div className="mt-4 rounded-md bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
-            <p className="font-medium">Received{done ? ` — reference ${done}` : ""}.</p>
-            <p className="mt-1">The agency will triage it and be in touch{email ? ` at ${email}` : ""}. No account needed.</p>
+            <p className="font-medium">{t("intakeForm.received", { ref: done ? t("intakeForm.receivedRef", { ref: done }) : "" })}</p>
+            <p className="mt-1">{t("intakeForm.triageNote", { at: email ? t("intakeForm.triageAt", { email }) : "" })}</p>
           </div>
         ) : (
           <form onSubmit={(e) => void submit(e)} className="mt-4 space-y-3">
-            <Field label="Title" htmlFor="intake-title" hint="One line, e.g. “Add a booking calendar to the contact page”.">
+            <Field label={t("intakeForm.titleLabel")} htmlFor="intake-title" hint={t("intakeForm.titleHint")}>
               <Input id="intake-title" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={4} maxLength={200} />
             </Field>
-            <Field label="Details" htmlFor="intake-description" hint="What should happen, and why? At least a sentence or two.">
+            <Field label={t("intakeForm.detailsLabel")} htmlFor="intake-description" hint={t("intakeForm.detailsHint")}>
               <Textarea id="intake-description" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={8000} />
             </Field>
             <ScopeCheckPanel
@@ -103,26 +105,26 @@ export function IntakePage(): JSX.Element {
               }}
             />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Your name (optional)" htmlFor="intake-name">
+              <Field label={t("intakeForm.nameLabel")} htmlFor="intake-name">
                 <Input id="intake-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" />
               </Field>
-              <Field label="Email for follow-ups (optional)" htmlFor="intake-email">
+              <Field label={t("intakeForm.emailLabel")} htmlFor="intake-email">
                 <Input id="intake-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} autoComplete="email" />
               </Field>
             </div>
             <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
-              <label htmlFor="intake-website">Website (leave blank)</label>
+              <label htmlFor="intake-website">{t("intakeForm.websiteLabel")}</label>
               <input id="intake-website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
             </div>
             {error ? <ErrorBanner message={error} /> : null}
             <Button type="submit" disabled={saving} className="w-full" style={{ backgroundColor: accent }}>
-              {saving ? "Sending…" : "Send request"}
+              {saving ? t("intakeForm.sending") : t("intakeForm.send")}
             </Button>
           </form>
         )}
       </Card>
       <p className="mt-4 text-center text-xs text-slate-500">
-        Requests are triaged by the agency before anything is agreed or scheduled.
+        {t("intakeForm.footerNote")}
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, errorMessage } from "../lib/api.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { Badge, Button, Card, ErrorBanner, Input } from "./ui.js";
 
 export interface MemoryHit {
@@ -28,6 +29,7 @@ interface MemoryResponse {
  * conclusions. The server filters by project access before ranking.
  */
 export function MemorySearchPanel({ organizationId }: { organizationId: string }): JSX.Element {
+  const { t } = useLocale();
   const [q, setQ] = useState("");
   const [searched, setSearched] = useState<MemoryResponse | null>(null);
   const [searching, setSearching] = useState(false);
@@ -52,21 +54,21 @@ export function MemorySearchPanel({ organizationId }: { organizationId: string }
 
   return (
     <Card className="mt-4">
-      <form onSubmit={(e) => void run(e)} role="search" aria-label="Search past decisions">
+      <form onSubmit={(e) => void run(e)} role="search" aria-label={t("memory.searchAria")}>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="memory-q" className="text-sm font-medium text-slate-800">
-            Past decisions
+            {t("memory.title")}
           </label>
           <Input
             id="memory-q"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search decided changes…"
+            placeholder={t("memory.placeholder")}
             className="min-w-0 flex-1"
             autoComplete="off"
           />
           <Button type="submit" size="sm" disabled={searching || q.trim().length < 2}>
-            {searching ? "Searching…" : "Search"}
+            {searching ? t("memory.searching") : t("memory.search")}
           </Button>
         </div>
       </form>
@@ -79,8 +81,10 @@ export function MemorySearchPanel({ organizationId }: { organizationId: string }
         <div className="mt-3">
           <p className="text-xs text-slate-500" aria-live="polite">
             {searched.data.length === 0
-              ? `No past decisions match “${searched.query}”.`
-              : `${searched.data.length} past decision${searched.data.length === 1 ? "" : "s"} · ${searched.mode} match`}
+              ? t("memory.noMatch", { query: searched.query })
+              : searched.data.length === 1
+                ? t("memory.oneResult", { mode: searched.mode })
+                : t("memory.manyResults", { count: searched.data.length, mode: searched.mode })}
           </p>
           <ul className="mt-2 space-y-2">
             {searched.data.map((hit) => (
@@ -98,7 +102,7 @@ export function MemorySearchPanel({ organizationId }: { organizationId: string }
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  {hit.projectName} · decided {new Date(hit.decidedAt).toLocaleDateString()}
+                  {hit.projectName} · {t("memory.decided", { date: new Date(hit.decidedAt).toLocaleDateString() })}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">{hit.excerpt}</p>
               </li>

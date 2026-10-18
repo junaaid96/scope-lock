@@ -9,39 +9,44 @@ import { api, errorMessage, ApiError } from "../lib/api.js";
 import { invalidateAll } from "../lib/query.js";
 import { CreditPill } from "../components/credit.js";
 import { Button, Card, ErrorBanner, Field, Input } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
-const OAUTH_ERRORS: Record<string, string> = {
-  denied: "The provider sign-in was cancelled. Try again or use your password.",
-  nolink: "No account is linked to that provider identity. Log in with your password, then link it under workspace settings.",
-  mismatch: "That provider address does not match your account email, so nothing was linked.",
-  taken: "That provider identity is already linked to a different account.",
-  linked: "That provider identity is already linked to your account.",
-  failed: "The provider sign-in failed. Try again or use your password.",
-  invalid: "That sign-in request expired. Start again.",
-};
+
 
 type Form = z.infer<typeof LoginSchema>;
 
-/** One-click logins for the `npm run seed:portfolio` demo workspace. */
-const DEMO_ACCOUNTS: Array<{ label: string; detail: string; email: string }> = [
-  { label: "Agency owner", detail: "Junaid · full workspace", email: "demo@codejborg.studio" },
-  { label: "Green Biotech", detail: "Nazmul · approver", email: "nazmul@greenbiotech.test" },
-  { label: "Haat", detail: "Tanvir · approver", email: "tanvir@haat.test" },
-  { label: "QuickFood", detail: "Sakib · approver", email: "sakib@quickfood.test" },
-  { label: "Nibash", detail: "Rahim · approver", email: "rahim@privateclient.test" },
-  { label: "HealthOps", detail: "Dr. Sadia · approver", email: "sadia@healthops.test" },
-];
+
 const DEMO_PASSWORD = "password1234";
 
-const HIGHLIGHTS: Array<{ title: string; body: string }> = [
-  { title: "Versioned scope ledger", body: "A frozen, agreed record of what will be delivered — never a chat thread." },
-  { title: "Change requests", body: "Every ask captured, linked to the baseline, and priced before it happens." },
-  { title: "Client approvals", body: "Review links with immutable packages, decisions, and a full audit trail." },
-  { title: "Impact & health", body: "Price, effort, and timeline effects up front, plus explainable health signals." },
-];
+
 
 export function LoginPage(): JSX.Element {
+  const { t } = useLocale();
   const navigate = useNavigate();
+  const OAUTH_ERRORS: Record<string, string> = {
+    denied: t("auth.oauthDenied"),
+    nolink: t("auth.oauthNoLink"),
+    mismatch: t("auth.oauthMismatch"),
+    taken: t("auth.oauthTaken"),
+    linked: t("auth.oauthLinked"),
+    failed: t("auth.oauthFailed"),
+    invalid: t("auth.oauthInvalid"),
+  };
+  /** One-click logins for the `npm run seed:portfolio` demo workspace. */
+  const DEMO_ACCOUNTS: Array<{ label: string; detail: string; email: string }> = [
+    { label: t("auth.demoOwner"), detail: "Junaid · full workspace", email: "demo@codejborg.studio" },
+    { label: t("auth.demoGreenBiotech"), detail: "Nazmul · approver", email: "nazmul@greenbiotech.test" },
+    { label: t("auth.demoHaat"), detail: "Tanvir · approver", email: "tanvir@haat.test" },
+    { label: t("auth.demoQuickFood"), detail: "Sakib · approver", email: "sakib@quickfood.test" },
+    { label: t("auth.demoNibash"), detail: "Rahim · approver", email: "rahim@privateclient.test" },
+    { label: t("auth.demoHealthOps"), detail: "Dr. Sadia · approver", email: "sadia@healthops.test" },
+  ];
+  const HIGHLIGHTS: Array<{ title: string; body: string }> = [
+    { title: t("auth.highlightLedgerTitle"), body: t("auth.highlightLedgerBody") },
+    { title: t("auth.highlightChangesTitle"), body: t("auth.highlightChangesBody") },
+    { title: t("auth.highlightApprovalsTitle"), body: t("auth.highlightApprovalsBody") },
+    { title: t("auth.highlightHealthTitle"), body: t("auth.highlightHealthBody") },
+  ];
   const [params] = useSearchParams();
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const [ticket, setTicket] = useState<string | null>(null);
@@ -58,7 +63,7 @@ export function LoginPage(): JSX.Element {
     const mfaTicket = params.get("mfaTicket");
     if (mfaTicket) setTicket(mfaTicket);
     const oauthError = params.get("oauthError");
-    if (oauthError) setError({ message: OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.failed ?? "Sign-in failed." });
+    if (oauthError) setError({ message: OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.failed ?? t("auth.signInFailed") });
   }, [params]);
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +130,7 @@ export function LoginPage(): JSX.Element {
       navigate("/");
     } catch (err) {
       setError({
-        message: `${errorMessage(err)} (demo accounts come from \`npm run seed:portfolio\`)`,
+        message: t("auth.demoLoginFailed", { error: errorMessage(err) }),
         correlationId: err instanceof ApiError ? err.correlationId : undefined,
       });
     } finally {
@@ -153,7 +158,7 @@ export function LoginPage(): JSX.Element {
     <div className="flex min-h-screen">
       <aside className="hidden w-[400px] shrink-0 flex-col bg-teal-800 px-10 py-12 text-white lg:flex">
         <p className="text-xl font-semibold tracking-tight">ScopeLock</p>
-        <p className="mt-2 text-sm text-teal-100">The shared system of record for client scope, change requests, and approvals.</p>
+        <p className="mt-2 text-sm text-teal-100">{t("auth.heroTagline")}</p>
         <ol className="mt-10 space-y-6">
           {HIGHLIGHTS.map((h, i) => (
             <li key={h.title} className="flex gap-4">
@@ -165,37 +170,37 @@ export function LoginPage(): JSX.Element {
             </li>
           ))}
         </ol>
-        <p className="mt-auto pt-10 text-xs text-teal-200">Agreed scope · priced changes · signed decisions.</p>
+        <p className="mt-auto pt-10 text-xs text-teal-200">{t("auth.heroFooter")}</p>
       </aside>
 
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <p className="mb-6 text-center text-xl font-semibold tracking-tight lg:hidden">ScopeLock</p>
           <Card>
-            <h1 className="mb-1 text-xl font-semibold">Log in</h1>
-            <p className="mb-5 text-sm text-slate-600">Welcome back to your scope ledger.</p>
+            <h1 className="mb-1 text-xl font-semibold">{t("auth.login")}</h1>
+            <p className="mb-5 text-sm text-slate-600">{t("auth.loginSubtitle")}</p>
             {ticket ? (
               <form onSubmit={(e) => void onChallenge(e)} className="space-y-4">
-                <p className="text-sm text-slate-600">Your account uses two-factor authentication. Enter a code from your authenticator app (or a recovery code).</p>
-                <Field label="Authenticator code" htmlFor="mfa-code">
+                <p className="text-sm text-slate-600">{t("auth.mfaPrompt")}</p>
+                <Field label={t("auth.mfaCodeLabel")} htmlFor="mfa-code">
                   <Input id="mfa-code" inputMode="text" autoComplete="one-time-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} />
                 </Field>
                 {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
                 <Button type="submit" disabled={mfaBusy || !mfaCode} className="w-full">
-                  {mfaBusy ? "Verifying…" : "Verify"}
+                  {mfaBusy ? t("auth.verifying") : t("auth.verify")}
                 </Button>
               </form>
             ) : (
               <form onSubmit={(e) => void onSubmit(e)} className="space-y-4" noValidate>
-                <Field label="Email" error={formState.errors.email?.message} htmlFor="email">
+                <Field label={t("auth.emailLabel")} error={formState.errors.email?.message} htmlFor="email">
                   <Input id="email" type="email" autoComplete="email" {...register("email")} />
                 </Field>
-                <Field label="Password" error={formState.errors.password?.message} htmlFor="password">
+                <Field label={t("auth.passwordLabel")} error={formState.errors.password?.message} htmlFor="password">
                   <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
                 </Field>
                 {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
                 <Button type="submit" disabled={formState.isSubmitting} className="w-full">
-                  {formState.isSubmitting ? "Logging in…" : "Log in"}
+                  {formState.isSubmitting ? t("auth.loggingIn") : t("auth.login")}
                 </Button>
               </form>
             )}
@@ -208,7 +213,7 @@ export function LoginPage(): JSX.Element {
                         href="/api/v1/auth/oauth/google/start"
                         className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
                       >
-                        Continue with Google
+                        {t("auth.continueGoogle")}
                       </a>
                     )}
                     {methods.github && (
@@ -216,38 +221,38 @@ export function LoginPage(): JSX.Element {
                         href="/api/v1/auth/oauth/github/start"
                         className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
                       >
-                        Continue with GitHub
+                        {t("auth.continueGithub")}
                       </a>
                     )}
                   </div>
                 )}
                 <div className="mt-3 flex gap-2">
                   <div className="flex-1">
-                    <label htmlFor="pk-email" className="sr-only">Account address for passkey sign-in (optional)</label>
+                    <label htmlFor="pk-email" className="sr-only">{t("auth.passkeyLabel")}</label>
                     <Input
                       id="pk-email"
                       type="email"
                       autoComplete="email webauthn"
-                      placeholder="Account (optional)"
+                      placeholder={t("auth.passkeyPlaceholder")}
                       value={pkEmail}
                       onChange={(e) => setPkEmail(e.target.value)}
                     />
                   </div>
                   <Button type="button" variant="secondary" disabled={pkBusy} onClick={() => void loginWithPasskey()}>
-                    {pkBusy ? "Waiting…" : "Passkey"}
+                    {pkBusy ? t("auth.passkeyWaiting") : t("auth.passkeyButton")}
                   </Button>
                 </div>
               </div>
             )}
             <p className="mt-4 text-center text-sm text-slate-600">
-              No account? <Link to="/register" className="font-medium text-teal-800 underline">Create one</Link>
+              {t("auth.noAccount")}{" "}<Link to="/register" className="font-medium text-teal-800 underline">{t("auth.createOne")}</Link>
               {" · "}
-              <Link to="/reset-password" className="font-medium text-teal-800 underline">Reset password</Link>
+              <Link to="/reset-password" className="font-medium text-teal-800 underline">{t("auth.resetPasswordLink")}</Link>
             </p>
             {ticket ? null : (
               <div className="mt-6 border-t border-slate-200 pt-4">
-                <p className="mb-1 text-sm font-medium text-slate-800">Explore the demo workspace</p>
-                <p className="mb-3 text-xs text-slate-600">One-click sign in as the agency or a client approver.</p>
+                <p className="mb-1 text-sm font-medium text-slate-800">{t("auth.demoTitle")}</p>
+                <p className="mb-3 text-xs text-slate-600">{t("auth.demoSubtitle")}</p>
                 <ul className="grid grid-cols-2 gap-2">
                   {DEMO_ACCOUNTS.map((a) => (
                     <li key={a.email}>
@@ -258,7 +263,7 @@ export function LoginPage(): JSX.Element {
                         className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm transition-colors hover:border-teal-600 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <span className="block font-medium text-slate-900">
-                          {demoBusy === a.email ? "Signing in…" : a.label}
+                          {demoBusy === a.email ? t("auth.signingIn") : a.label}
                         </span>
                         <span className="block text-xs text-slate-500">{a.detail}</span>
                       </button>

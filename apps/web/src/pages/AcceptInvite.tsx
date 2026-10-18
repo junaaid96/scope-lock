@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import { invalidateAll } from "../lib/query.js";
 import { Button, Card, ErrorBanner, Field, Input, Spinner } from "../components/ui.js";
+import { useLocale } from "../lib/i18n/index.js";
 
 interface Preview {
   email: string;
@@ -15,12 +16,14 @@ interface Preview {
   projectRole: string | null;
 }
 
-const AcceptSchema = z.object({
-  name: z.string().min(1, "Name is required").max(120).optional().or(z.literal("")),
-  password: z.string().min(10, "Password needs at least 10 characters").max(200).optional().or(z.literal("")),
-});
+
 
 export function AcceptInvitePage(): JSX.Element {
+  const { t } = useLocale();
+  const AcceptSchema = z.object({
+    name: z.string().min(1, t("auth.inviteNameRequired")).max(120).optional().or(z.literal("")),
+    password: z.string().min(10, t("auth.invitePasswordMin")).max(200).optional().or(z.literal("")),
+  });
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
@@ -51,30 +54,29 @@ export function AcceptInvitePage(): JSX.Element {
   if (preview.isError || !preview.data) {
     return (
       <Card>
-        <h1 className="mb-1 text-xl font-semibold">Invitation unavailable</h1>
-        <p className="text-sm text-slate-600">This invitation is invalid, expired, or was already used.</p>
+        <h1 className="mb-1 text-xl font-semibold">{t("auth.inviteUnavailableTitle")}</h1>
+        <p className="text-sm text-slate-600">{t("auth.inviteUnavailableBody")}</p>
       </Card>
     );
   }
 
   return (
     <Card>
-      <h1 className="mb-1 text-xl font-semibold">Join {preview.data.organizationName}</h1>
+      <h1 className="mb-1 text-xl font-semibold">{t("auth.inviteJoin", { org: preview.data.organizationName })}</h1>
       <p className="mb-5 text-sm text-slate-600">
-        Invited as {preview.data.email} ({preview.data.role}
-        {preview.data.projectRole ? `, project ${preview.data.projectRole}` : ""}). If you already have an account with
-        this email, just accept — otherwise set your name and password.
+        {t("auth.inviteIntro", { email: preview.data.email, role: preview.data.role, project: preview.data.projectRole ? t("auth.inviteIntroProject", { role: preview.data.projectRole }) : "" })}{" "}
+        {t("auth.inviteIntroHelp")}
       </p>
       <form onSubmit={(e) => void onSubmit(e)} className="space-y-4" noValidate>
-        <Field label="Name (new accounts)" error={formState.errors.name?.message} htmlFor="name">
+        <Field label={t("auth.inviteNameLabel")} error={formState.errors.name?.message} htmlFor="name">
           <Input id="name" autoComplete="name" {...register("name")} />
         </Field>
-        <Field label="Password (new accounts)" error={formState.errors.password?.message} htmlFor="password">
+        <Field label={t("auth.invitePasswordLabel")} error={formState.errors.password?.message} htmlFor="password">
           <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
         </Field>
         {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
         <Button type="submit" disabled={formState.isSubmitting} className="w-full">
-          {formState.isSubmitting ? "Accepting…" : "Accept invitation"}
+          {formState.isSubmitting ? t("auth.accepting") : t("auth.acceptInvite")}
         </Button>
       </form>
     </Card>

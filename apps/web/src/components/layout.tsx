@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, fetchAll } from "../lib/api.js";
 import { useLogout, useSession } from "../lib/auth.js";
+import { useLocale } from "../lib/i18n/index.js";
 import { CommandPalette, CommandPaletteTrigger } from "./command-palette.js";
 import { CreditPill } from "./credit.js";
 import { cn } from "./ui.js";
@@ -49,19 +50,20 @@ const ICON_INBOX = [
 
 /** Primary nav links, shared by the desktop sidebar and the mobile menu. `badge` counts everything awaiting attention in the inbox. */
 function SidebarNav({ badge, onNavigate }: { badge: number; onNavigate?: () => void }): JSX.Element {
+  const { t } = useLocale();
   return (
     <div className="space-y-1">
-      <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-slate-500">Workspace</p>
+      <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-slate-500">{t("shell.workspace")}</p>
       <NavLink to="/" end className={navClass} onClick={onNavigate}>
         <span className="flex items-center gap-2.5">
           <NavIcon paths={ICON_PROJECTS} />
-          Projects
+          {t("shell.projects")}
         </span>
       </NavLink>
       <NavLink to="/inbox" className={navClass} onClick={onNavigate}>
         <span className="flex items-center gap-2.5">
           <NavIcon paths={ICON_INBOX} />
-          <span className="flex-1">Inbox</span>
+          <span className="flex-1">{t("shell.inbox")}</span>
           {badge > 0 ? (
             <span className="inline-flex items-center justify-center rounded-full bg-teal-700 px-1.5 text-xs text-white">
               {badge}
@@ -87,20 +89,21 @@ function LanguageSwitcher({ id }: { id: string }): JSX.Element {
       // Preference save failures surface on next navigation; never break the shell.
     }
   };
+  const { t } = useLocale();
   return (
     <span className="inline-flex items-center gap-1">
       <label htmlFor={id} className="sr-only">
-        Language
+        {t("shell.language")}
       </label>
       <select
         id={id}
         value={current}
         onChange={(e) => void switchTo(e.target.value)}
         className="rounded-md border border-slate-200 bg-white px-1 py-1 text-sm text-slate-700"
-        aria-label="Language"
+        aria-label={t("shell.language")}
       >
-        <option value="en">English</option>
-        <option value="bn">বাংলা</option>
+        <option value="en">{t("shell.english")}</option>
+        <option value="bn">{t("shell.bangla")}</option>
       </select>
     </span>
   );
@@ -112,6 +115,7 @@ export function Shell(): JSX.Element {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -150,7 +154,7 @@ export function Shell(): JSX.Element {
               className="rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100 md:hidden"
               aria-expanded={menuOpen}
               aria-controls="mobile-nav"
-              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={menuOpen ? t("shell.closeMenu") : t("shell.openMenu")}
               onClick={() => setMenuOpen((v) => !v)}
             >
               {menuOpen ? "✕" : "☰"}
@@ -162,7 +166,7 @@ export function Shell(): JSX.Element {
           <div className="flex items-center gap-1 text-sm sm:gap-3">
             <CommandPaletteTrigger onOpen={() => setPaletteOpen(true)} />
             <Link to="/inbox" className="relative rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100">
-              Inbox
+              {t("shell.inbox")}
               {badge > 0 ? (
                 <span className="ml-1 inline-flex items-center justify-center rounded-full bg-teal-700 px-1.5 text-xs text-white">
                   {badge}
@@ -178,25 +182,25 @@ export function Shell(): JSX.Element {
               className="hidden rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100 sm:inline"
               onClick={onLogout}
             >
-              Log out
+              {t("shell.logOut")}
             </button>
           </div>
         </div>
         {menuOpen ? (
-          <nav id="mobile-nav" aria-label="Primary" className="border-t border-slate-100 px-4 py-3 md:hidden">
+          <nav id="mobile-nav" aria-label={t("shell.primaryNav")} className="border-t border-slate-100 px-4 py-3 md:hidden">
             <SidebarNav badge={badge} onNavigate={() => setMenuOpen(false)} />
-            <p className="px-3 pb-1 pt-3 text-xs text-slate-500">Signed in as {session?.user.name}</p>
+            <p className="px-3 pb-1 pt-3 text-xs text-slate-500">{t("shell.signedInAs", { name: session?.user.name ?? "" })}</p>
             <div className="px-3 py-1">
               <LanguageSwitcher id="language-switcher-mobile" />
             </div>
             <button type="button" className={cn(navClass({ isActive: false }), "w-full text-left")} onClick={onLogout}>
-              Log out
+              {t("shell.logOut")}
             </button>
           </nav>
         ) : null}
       </header>
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">
-        <nav aria-label="Primary" className="hidden w-52 shrink-0 self-start md:sticky md:top-20 md:block">
+        <nav aria-label={t("shell.primaryNav")} className="hidden w-52 shrink-0 self-start md:sticky md:top-20 md:block">
           <SidebarNav badge={badge} />
         </nav>
         <main className="min-w-0 flex-1">
@@ -205,7 +209,7 @@ export function Shell(): JSX.Element {
       </div>
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-4 text-xs text-slate-500 sm:flex-row">
-          <p>© {new Date().getFullYear()} ScopeLock · Client scope, changes & approvals</p>
+          <p>{t("shell.footer", { year: new Date().getFullYear() })}</p>
           <CreditPill />
         </div>
       </footer>
@@ -216,15 +220,16 @@ export function Shell(): JSX.Element {
 
 /** Secondary navigation shared by all project pages (overview, scope, activity, health). */
 export function ProjectSubnav({ projectId }: { projectId: string }): JSX.Element {
+  const { t } = useLocale();
   const items = [
-    { to: `/projects/${projectId}`, end: true, label: "Overview" },
-    { to: `/projects/${projectId}/scope`, end: false, label: "Scope ledger" },
-    { to: `/projects/${projectId}/timeline`, end: false, label: "Timeline" },
-    { to: `/projects/${projectId}/activity`, end: false, label: "Activity" },
-    { to: `/projects/${projectId}/health`, end: false, label: "Health" },
+    { to: `/projects/${projectId}`, end: true, label: t("shell.overview") },
+    { to: `/projects/${projectId}/scope`, end: false, label: t("shell.scopeLedger") },
+    { to: `/projects/${projectId}/timeline`, end: false, label: t("shell.timeline") },
+    { to: `/projects/${projectId}/activity`, end: false, label: t("shell.activity") },
+    { to: `/projects/${projectId}/health`, end: false, label: t("shell.health") },
   ];
   return (
-    <nav aria-label="Project sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200">
+    <nav aria-label={t("shell.projectSections")} className="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200">
       {items.map((item) => (
         <NavLink
           key={item.to}
@@ -255,11 +260,12 @@ export function Centered({ children }: { children: React.ReactNode }): JSX.Eleme
 
 /** Full-viewport loading state (auth check, review lookup). No credit line here by design. */
 export function LoadingScreen({ message }: { message?: string }): JSX.Element {
+  const { t } = useLocale();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
       <p className="text-xl font-semibold tracking-tight text-slate-900">ScopeLock</p>
-      <span role="status" aria-label={message ?? "Loading"} className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-teal-700 motion-reduce:animate-none" />
-      <p className="text-sm text-slate-500">{message ?? "Loading your workspace…"}</p>
+      <span role="status" aria-label={message ?? t("common.loadingLabel")} className="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-teal-700 motion-reduce:animate-none" />
+      <p className="text-sm text-slate-500">{message ?? t("shell.loadingWorkspace")}</p>
     </div>
   );
 }
