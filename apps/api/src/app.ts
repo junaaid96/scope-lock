@@ -22,6 +22,7 @@ import { requirementRoutes } from "./modules/requirements.js";
 import { changeRoutes } from "./modules/changes.js";
 import { lifecycleRoutes } from "./modules/lifecycle.js";
 import { approvalRoutes } from "./modules/approvals.js";
+import { changeOrderRoutes } from "./modules/change-order.js";
 import { fileRoutes } from "./modules/files.js";
 import { aiRoutes } from "./modules/ai-routes.js";
 import { activityRoutes } from "./modules/activity.js";
@@ -97,6 +98,7 @@ export function createApp(ctx: AppContext): Express {
   v1.use(changeRoutes(ctx));
   v1.use(lifecycleRoutes(ctx));
   v1.use(approvalRoutes(ctx));
+  v1.use(changeOrderRoutes(ctx));
   v1.use(fileRoutes(ctx));
   v1.use(aiRoutes(ctx));
   v1.use(activityRoutes(ctx));

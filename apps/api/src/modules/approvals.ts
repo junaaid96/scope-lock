@@ -874,7 +874,7 @@ export function approvalRoutes(ctx: AppContext): Router {
   return router;
 }
 
-async function loadTokenPackage(ctx: AppContext, rawToken: string): Promise<{ approval: ApprovalRequest; token: { id: string; approvalRequestId: string; approverUserId: string | null; approverEmail: string | null } }> {
+export async function loadTokenPackage(ctx: AppContext, rawToken: string): Promise<{ approval: ApprovalRequest; token: { id: string; approvalRequestId: string; approverUserId: string | null; approverEmail: string | null } }> {
   const token = await ctx.store.findApprovalTokenByHash(sha256Hex(rawToken));
   if (!token || token.revokedAt) throw DomainError.notFound("Review package not found");
   if (token.expiresAt <= nowIso()) throw DomainError.gone("This review link has expired");
