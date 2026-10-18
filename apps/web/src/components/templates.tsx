@@ -72,7 +72,7 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
   return (
     <Card>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-medium">{t("templates.title")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("templates.title")}</h2>
         {canManage ? <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>{t("templates.newButton")}</Button> : null}
       </div>
       <p className="text-sm text-slate-600">{t("templates.blurb")}</p>

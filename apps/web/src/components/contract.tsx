@@ -4,12 +4,12 @@ import { Link } from "react-router-dom";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { ContractLedger, OrgContractRollup } from "../lib/types.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner, statusTone } from "./ui.js";
+import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, statusTone, PageSkeleton } from "./ui.js";
 
-const tableWrap = "overflow-x-auto rounded-lg border border-slate-200";
-const table = "w-full min-w-[560px] border-collapse bg-white text-sm";
-const th = "border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-medium text-slate-600";
-const td = "border-b border-slate-100 px-3 py-2 text-slate-800";
+const tableWrap = "overflow-x-auto rounded-xl border border-slate-200 shadow-card";
+const table = "w-full min-w-[560px] border-collapse bg-surface text-sm";
+const th = "border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500";
+const td = "border-b border-slate-100 px-4 py-3 text-slate-800";
 const num = "text-right tabular-nums";
 
 /** Project "Contract" tab: derived baseline + approved deltas = current value. */
@@ -17,7 +17,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
   const { t, money, date, number } = useLocale();
   const ledger = useQuery({ queryKey: ["contract", projectId], queryFn: () => api.get<ContractLedger>(`/projects/${projectId}/contract`) });
 
-  if (ledger.isLoading) return <Spinner />;
+  if (ledger.isLoading) return <PageSkeleton />;
   if (ledger.isError || !ledger.data) return <ErrorBanner message={errorMessage(ledger.error)} />;
   const c = ledger.data;
 
@@ -38,7 +38,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
           </div>
           <div>
             <dt className="text-sm text-slate-600">{t("contract.currentValue")}</dt>
-            <dd className="text-lg font-semibold tabular-nums text-teal-800">
+            <dd className="text-lg font-semibold tabular-nums text-link">
               {c.currentMinor === null ? t("contract.noBaseline") : money(c.currentMinor, c.currency)}
             </dd>
           </div>
@@ -276,18 +276,21 @@ export function OrgContractStrip({ organizationId }: { organizationId: string })
   });
   if (rollup.isLoading || rollup.isError || !rollup.data || rollup.data.projects.length === 0) return null;
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-base font-semibold text-slate-900">{t("orgContract.title")}</h2>
-      <ul className="flex flex-wrap gap-x-8 gap-y-2">
+    <Card className="mb-5 bg-gradient-to-br from-surface to-teal-50/60">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.1em] text-slate-500">{t("orgContract.title")}</h2>
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {rollup.data.totalsByCurrency.map((total) => (
-          <li key={total.currency} className="text-sm text-slate-700">
+          <li key={total.currency} className="rounded-xl bg-surface/80 p-4 text-sm text-slate-700 ring-1 ring-slate-200">
             <span className="font-medium text-slate-900">{total.currency}</span>
             {" · "}
             {t("orgContract.projects", { count: number(total.projectCount) })}
-            {" · "}
-            {t("orgContract.current")} <strong className="tabular-nums">{money(total.currentMinor, total.currency)}</strong>
-            {" · "}
-            {t("orgContract.pending")} <strong className="tabular-nums">{money(total.pendingExposureMinor, total.currency)}</strong>
+            <p className="mt-3 text-xs font-medium text-slate-500">{t("orgContract.current")}</p>
+            <p className="text-2xl font-semibold tracking-tight text-slate-900">
+              <strong className="tabular-nums">{money(total.currentMinor, total.currency)}</strong>
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {t("orgContract.pending")} <strong className="tabular-nums text-amber-700">{money(total.pendingExposureMinor, total.currency)}</strong>
+            </p>
           </li>
         ))}
       </ul>

@@ -40,7 +40,7 @@ export function UploadBox({ projectId, linked, onDone }: {
   const [error, setError] = useState<string | null>(null);
   return (
     <div>
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-teal-800 underline">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-link underline">
         <input
           type="file"
           className="hidden"

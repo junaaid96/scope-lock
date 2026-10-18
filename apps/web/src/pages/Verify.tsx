@@ -69,7 +69,7 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
       <Card>
         <div
           role={v.match ? "status" : "alert"}
-          className={`rounded-md p-3 text-sm font-medium ${v.match ? "bg-teal-50 text-teal-900" : "bg-red-50 text-red-900"}`}
+          className={`rounded-md p-3 text-sm font-medium ${v.match ? "bg-teal-50 text-link-strong" : "bg-red-50 text-red-900"}`}
         >
           {v.match
             ? t("verify.matchOk")
@@ -89,14 +89,14 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
 
         {pkg.request ? (
           <section className="mt-4" aria-label={t("verify.requestAria")}>
-            <h2 className="font-medium">{pkg.request.number} {pkg.request.title}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{pkg.request.number} {pkg.request.title}</h2>
             <p className="mt-1 text-sm text-slate-700">{pkg.request.description}</p>
           </section>
         ) : null}
 
         {pkg.impact ? (
           <section className="mt-4" aria-label={t("verify.impactAria")}>
-            <h2 className="font-medium">{t("verify.impactTitle")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("verify.impactTitle")}</h2>
             <p className="mt-1 text-sm">
               {pkg.impact.currency} {((pkg.impact.priceMinor ?? 0) / 100).toFixed(2)} · {t("verify.impactEffort", { effort: pkg.impact.effortDays ?? "—", timeline: pkg.impact.timelineDays ?? "—" })}
             </p>
@@ -105,7 +105,7 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
 
         {(pkg.options ?? []).length > 0 ? (
           <section className="mt-4" aria-label={t("verify.optionsLabel")}>
-            <h2 className="font-medium">{t("verify.optionsLabel")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("verify.optionsLabel")}</h2>
             <ul className="mt-1 list-disc pl-5 text-sm">
               {(pkg.options ?? []).map((o) => (
                 <li key={o.optionId}>{o.label} — {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)}</li>
@@ -115,7 +115,7 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
         ) : null}
 
         <section className="mt-4" aria-label={t("verify.decisionsAria")}>
-          <h2 className="font-medium">{t("verify.decisionsTitle")}</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("verify.decisionsTitle")}</h2>
           {v.decisions.length === 0 ? (
             <p className="mt-1 text-sm text-slate-600">{t("verify.awaitingDecision")}</p>
           ) : (

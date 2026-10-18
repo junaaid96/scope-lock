@@ -1,21 +1,191 @@
+@import "@fontsource-variable/inter";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+/* ---- Design tokens -------------------------------------------------------
+   Every palette is a CSS-variable scale; `.dark` swaps the values, so existing
+   utility classes (text-slate-600, bg-teal-700, bg-red-50 ...) work in both themes. */
+:root {
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+  --teal-50: 240 253 250;
+  --teal-100: 204 251 241;
+  --teal-200: 153 246 228;
+  --teal-300: 94 234 212;
+  --teal-400: 45 212 191;
+  --teal-500: 20 184 166;
+  --teal-600: 13 148 136;
+  --teal-700: 15 118 110;
+  --teal-800: 17 94 89;
+  --teal-900: 19 78 74;
+  --teal-950: 4 47 46;
+  --emerald-50: 236 253 245;
+  --emerald-100: 209 250 229;
+  --emerald-200: 167 243 208;
+  --emerald-300: 110 231 183;
+  --emerald-400: 52 211 153;
+  --emerald-500: 16 185 129;
+  --emerald-600: 5 150 105;
+  --emerald-700: 4 120 87;
+  --emerald-800: 6 95 70;
+  --emerald-900: 6 78 59;
+  --emerald-950: 2 44 34;
+  --amber-50: 255 251 235;
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-400: 251 191 36;
+  --amber-500: 245 158 11;
+  --amber-600: 217 119 6;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --amber-900: 120 53 15;
+  --amber-950: 69 26 3;
+  --red-50: 254 242 242;
+  --red-100: 254 226 226;
+  --red-200: 254 202 202;
+  --red-300: 252 165 165;
+  --red-400: 248 113 113;
+  --red-500: 239 68 68;
+  --red-600: 220 38 38;
+  --red-700: 185 28 28;
+  --red-800: 153 27 27;
+  --red-900: 127 29 29;
+  --red-950: 69 10 10;
+  --sky-50: 240 249 255;
+  --sky-100: 224 242 254;
+  --sky-200: 186 230 253;
+  --sky-300: 125 211 252;
+  --sky-400: 56 189 248;
+  --sky-500: 14 165 233;
+  --sky-600: 2 132 199;
+  --sky-700: 3 105 161;
+  --sky-800: 7 89 133;
+  --sky-900: 12 74 110;
+  --sky-950: 8 47 73;
+  --surface: 255 255 255;
+  --surface-2: 248 250 252;
+  --link: 15 118 110;
+  --link-strong: 19 78 74;
+  --ink: 15 23 42;
+  --shadow: 15 23 42;
+  color-scheme: light;
+}
+.dark {
+  --slate-50: 11 16 25;
+  --slate-100: 20 27 40;
+  --slate-200: 35 45 63;
+  --slate-300: 51 65 87;
+  --slate-400: 100 116 139;
+  --slate-500: 138 151 171;
+  --slate-600: 169 180 196;
+  --slate-700: 197 206 219;
+  --slate-800: 224 230 238;
+  --slate-900: 241 245 249;
+  --slate-950: 248 250 252;
+  --teal-50: 12 37 35;
+  --teal-100: 17 64 60;
+  --teal-200: 22 90 84;
+  --teal-300: 45 212 191;
+  --teal-400: 45 212 191;
+  --teal-500: 20 184 166;
+  --teal-600: 20 160 148;
+  --teal-700: 15 138 128;
+  --teal-800: 13 116 108;
+  --teal-900: 153 246 228;
+  --teal-950: 204 251 241;
+  --emerald-50: 11 42 32;
+  --emerald-100: 15 61 45;
+  --emerald-200: 20 84 61;
+  --emerald-300: 52 211 153;
+  --emerald-400: 52 211 153;
+  --emerald-500: 16 185 129;
+  --emerald-600: 5 150 105;
+  --emerald-700: 110 231 183;
+  --emerald-800: 167 243 208;
+  --emerald-900: 209 250 229;
+  --emerald-950: 236 253 245;
+  --amber-50: 46 33 8;
+  --amber-100: 68 48 10;
+  --amber-200: 94 67 16;
+  --amber-300: 251 191 36;
+  --amber-400: 251 191 36;
+  --amber-500: 245 158 11;
+  --amber-600: 217 119 6;
+  --amber-700: 252 211 77;
+  --amber-800: 253 230 138;
+  --amber-900: 254 243 199;
+  --amber-950: 255 251 235;
+  --red-50: 51 19 22;
+  --red-100: 74 26 30;
+  --red-200: 101 33 39;
+  --red-300: 248 113 113;
+  --red-400: 248 113 113;
+  --red-500: 239 68 68;
+  --red-600: 220 38 38;
+  --red-700: 252 165 165;
+  --red-800: 254 202 202;
+  --red-900: 254 226 226;
+  --red-950: 254 242 242;
+  --sky-50: 11 37 53;
+  --sky-100: 15 53 80;
+  --sky-200: 21 72 104;
+  --sky-300: 125 211 252;
+  --sky-400: 56 189 248;
+  --sky-500: 14 165 233;
+  --sky-600: 2 132 199;
+  --sky-700: 125 211 252;
+  --sky-800: 186 230 253;
+  --sky-900: 224 242 254;
+  --sky-950: 240 249 255;
+  --surface: 17 24 37;
+  --surface-2: 14 20 31;
+  --link: 94 234 212;
+  --link-strong: 153 246 228;
+  --ink: 241 245 249;
+  --shadow: 0 0 0;
+  color-scheme: dark;
 }
 
-:focus-visible {
-  @apply outline-2 outline-offset-2 outline-teal-700;
+@layer base {
+  html { font-feature-settings: "cv11", "ss01", "ss03"; -webkit-text-size-adjust: 100%; }
+  body { @apply bg-slate-50 text-slate-900 antialiased; font-family: theme("fontFamily.sans"); transition: background-color .2s ease, color .2s ease; }
+  h1, h2, h3 { text-wrap: balance; }
+  ::selection { background-color: rgb(var(--teal-300) / 0.45); }
+  :focus-visible { outline: 2px solid rgb(var(--teal-600)); outline-offset: 2px; border-radius: 6px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; box-shadow: 0 0 0 3px rgb(var(--teal-500) / 0.28); border-color: rgb(var(--teal-600)); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--slate-300)); border-radius: 999px; border: 2px solid rgb(var(--slate-50)); }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--slate-400)); }
 }
 
-::selection {
-  background-color: #ccfbf1;
+@layer components {
+  .bg-dots { background-image: radial-gradient(rgb(var(--slate-300) / 0.55) 1px, transparent 1px); background-size: 22px 22px; }
+  .bg-aurora { background:
+      radial-gradient(60rem 30rem at 85% -10%, rgb(var(--teal-400) / 0.22), transparent 60%),
+      radial-gradient(45rem 28rem at 0% 0%, rgb(var(--sky-400) / 0.16), transparent 60%); }
+  .text-gradient { background-image: linear-gradient(120deg, rgb(var(--teal-600)), rgb(var(--sky-500))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .skeleton { position: relative; overflow: hidden; background: rgb(var(--slate-200) / 0.8); border-radius: 0.5rem; }
+  .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(var(--surface) / 0.55), transparent); animation: shimmer 1.4s infinite; }
+  .tap { transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease; }
+  .tap:active { transform: scale(0.98); }
+  .lift { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+  .lift:hover { transform: translateY(-2px); box-shadow: theme("boxShadow.lift"); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
+  html { scroll-behavior: smooth; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

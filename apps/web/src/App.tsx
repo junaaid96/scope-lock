@@ -5,6 +5,7 @@ import { AuthProvider, useSession } from "./lib/auth.js";
 import { SessionLocaleProvider } from "./lib/i18n/index.js";
 import { Centered, LoadingScreen, Shell } from "./components/layout.js";
 import { LoginPage } from "./pages/Login.js";
+import { LandingPage } from "./pages/Landing.js";
 import { RegisterPage } from "./pages/Register.js";
 import { AcceptInvitePage } from "./pages/AcceptInvite.js";
 import { ResetPasswordPage } from "./pages/ResetPassword.js";
@@ -31,6 +32,7 @@ function RequireAuth(): JSX.Element {
 }
 
 const router = createBrowserRouter([
+  { path: "/welcome", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <Centered><RegisterPage /></Centered> },
   { path: "/accept-invite/:token", element: <Centered><AcceptInvitePage /></Centered> },

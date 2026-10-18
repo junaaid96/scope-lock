@@ -49,7 +49,7 @@ export function PreferencesCard(): JSX.Element {
 
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("channels.prefsTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("channels.prefsTitle")}</h2>
       <p className="mb-3 text-sm text-slate-600">{t("channels.prefsHint")}</p>
       {error ? <ErrorBanner message={error} /> : null}
       {notice ? <p className="mb-2 text-sm text-slate-600" role="status">{notice}</p> : null}
@@ -140,7 +140,7 @@ export function SlackCard({ organizationId, slackConfigured, canManage, onDone }
   return (
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("channels.slackTitle")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("channels.slackTitle")}</h2>
         {slackConfigured ? <Badge tone="teal">{t("channels.connected")}</Badge> : <Badge tone="slate">{t("channels.notConnected")}</Badge>}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("channels.slackHint")}</p>

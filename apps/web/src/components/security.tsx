@@ -47,7 +47,7 @@ export function OAuthCard(): JSX.Element {
 
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("security.connectedTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("security.connectedTitle")}</h2>
       <p className="text-sm text-slate-600">{t("security.connectedHint")}</p>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {accounts.isLoading ? (
@@ -74,7 +74,7 @@ export function OAuthCard(): JSX.Element {
         {methods.data?.google && !linked.has("google") && (
           <a
             href="/api/v1/auth/oauth/google/start"
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
+            className="rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
           >
             {t("security.linkGoogle")}
           </a>
@@ -82,7 +82,7 @@ export function OAuthCard(): JSX.Element {
         {methods.data?.github && !linked.has("github") && (
           <a
             href="/api/v1/auth/oauth/github/start"
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
+            className="rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-xs font-medium text-slate-800 transition-colors hover:bg-slate-100"
           >
             {t("security.linkGitHub")}
           </a>
@@ -139,7 +139,7 @@ export function PasskeysCard(): JSX.Element {
 
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("security.passkeysTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("security.passkeysTitle")}</h2>
       <p className="text-sm text-slate-600">{t("security.passkeysHint")}</p>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {passkeys.isLoading ? (

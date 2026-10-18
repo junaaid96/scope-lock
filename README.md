@@ -3,7 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-teal.svg)](LICENSE)
 
-> Open-source shared system of record for client scope, change requests, approvals, and delivery evidence.
+> Open-source SaaS: the shared system of record for client scope, change requests, approvals, and delivery evidence.
+
+![ScopeLock agency dashboard](docs/screenshots/03-dashboard.png)
 
 ScopeLock answers four questions without searching through email, chat, and meeting notes:
 
@@ -402,15 +404,69 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   or Bangla with Intl money/date/number formatting, persisted to your
   profile. Review links and decision certificates render in the
   project/org default language instead.
-- Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
+- **Modern SaaS UI** — app shell with sidebar navigation, light/dark theme
+  (follows the OS, one-click toggle), design tokens, skeleton loading states,
+  keyboard-first command palette, and a public landing page at `/welcome`.
+- Fully navigable on mobile and tablet (drawer menu, responsive tables and dialogs).
 
 ### Screenshots
 
-Captured from the portfolio demo seed (`npm run screenshots` regenerates them):
+Every screen below is captured from the portfolio demo seed with
+`npm run screenshots` (1440×900; mobile shots are 390×844). The UI is a
+responsive SaaS shell with a light/dark theme, a command palette (Ctrl/⌘ K),
+skeleton loading states and full English + Bangla coverage.
 
-![Agency dashboard over the 16-project portfolio](docs/screenshots/dashboard.png)
-![Login-free client review link with impact and related scope](docs/screenshots/review.png)
-![Change request detail with audit trail](docs/screenshots/change.png)
+**Public**
+
+| Landing page | Sign-in with demo roles |
+| --- | --- |
+| ![Landing page](docs/screenshots/01-landing.png) | ![Login with one-click demo accounts](docs/screenshots/02-login.png) |
+
+**Agency workspace**
+
+| Dashboard | Project changes |
+| --- | --- |
+| ![Agency dashboard](docs/screenshots/03-dashboard.png) | ![Project change requests](docs/screenshots/04-project-changes.png) |
+| Change board | Contract value ledger |
+| ![Change board](docs/screenshots/05-board.png) | ![Contract tab](docs/screenshots/06-contract.png) |
+| Allowance pool | Estimate vs actual |
+| ![Allowance pool](docs/screenshots/07-allowance.png) | ![Estimate vs actual](docs/screenshots/08-estimate-vs-actual.png) |
+| Public intake links + inbound email | Approval policy + step-up |
+| ![Intake](docs/screenshots/09-intake.png) | ![Approval policy](docs/screenshots/10-approval-policy.png) |
+| GitHub linking | Members and roles |
+| ![Integrations](docs/screenshots/11-integrations.png) | ![Members](docs/screenshots/12-members.png) |
+| Scope ledger | Agreement diff between versions |
+| ![Scope ledger](docs/screenshots/13-scope-ledger.png) | ![Scope compare](docs/screenshots/14-scope-compare.png) |
+| Timeline | Activity / tamper-evident audit trail |
+| ![Timeline](docs/screenshots/15-timeline.png) | ![Activity](docs/screenshots/16-activity-audit.png) |
+| Scope health | Change request detail |
+| ![Scope health](docs/screenshots/17-health.png) | ![Change detail](docs/screenshots/18-change-detail.png) |
+| Decided change with actuals | Command palette |
+| ![Decided change](docs/screenshots/19-change-decided.png) | ![Command palette](docs/screenshots/20-command-palette.png) |
+| Workspace settings | Agency inbox |
+| ![Workspace settings](docs/screenshots/21-workspace-settings.png) | ![Inbox](docs/screenshots/22-inbox.png) |
+
+**Themes and languages**
+
+| Dark mode dashboard | Dark mode change detail |
+| --- | --- |
+| ![Dark dashboard](docs/screenshots/23-dashboard-dark.png) | ![Dark change detail](docs/screenshots/24-change-dark.png) |
+| Bangla UI (scope health) | |
+| ![Bangla health](docs/screenshots/25-health-bangla.png) | |
+
+**Client side (no account needed for the first three)**
+
+| Login-free review link | Public intake form |
+| --- | --- |
+| ![Client review](docs/screenshots/26-client-review.png) | ![Client intake form](docs/screenshots/27-client-intake-form.png) |
+| Decision certificate (checksum verify) | Client approver inbox |
+| ![Decision certificate](docs/screenshots/28-decision-certificate.png) | ![Client inbox](docs/screenshots/29-client-inbox.png) |
+
+**Mobile**
+
+| Review on a phone | Inbox | Navigation drawer |
+| --- | --- | --- |
+| ![Mobile review](docs/screenshots/30-mobile-review.png) | ![Mobile inbox](docs/screenshots/31-mobile-inbox.png) | ![Mobile menu](docs/screenshots/32-mobile-menu.png) |
 
 ## Scripts
 

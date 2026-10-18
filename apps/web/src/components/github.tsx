@@ -80,7 +80,7 @@ export function IntegrationsTab({ project, canManage }: { project: ProjectDetail
   return (
     <div className="space-y-5">
       <Card>
-        <h2 className="mb-1 font-medium">{t("github.title")}</h2>
+        <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("github.title")}</h2>
         <p className="mb-3 text-sm text-slate-600">{t("github.hint")}</p>
         {error ? <ErrorBanner message={error} /> : null}
         {canManage ? (
@@ -149,7 +149,7 @@ export function IntegrationsTab({ project, canManage }: { project: ProjectDetail
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-medium">{t("github.work")}</h2>
+        <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("github.work")}</h2>
         {work.isLoading ? <Spinner /> : work.isError ? (
           <ErrorBanner message={errorMessage(work.error)} />
         ) : (work.data ?? []).length === 0 ? (
@@ -160,7 +160,7 @@ export function IntegrationsTab({ project, canManage }: { project: ProjectDetail
               <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <div className="min-w-0">
                   {item.url ? (
-                    <a className="font-medium text-teal-800 underline" href={item.url} target="_blank" rel="noreferrer">{item.externalId}</a>
+                    <a className="font-medium text-link underline" href={item.url} target="_blank" rel="noreferrer">{item.externalId}</a>
                   ) : (
                     <span className="font-medium text-slate-900">{item.externalId}</span>
                   )}{" "}

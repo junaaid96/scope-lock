@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ActivityEvent, AiAnalysisRow, AuditVerifyResult } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate } from "../components/ui.js";
+import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate, PageSkeleton } from "../components/ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 export function ActivityPage(): JSX.Element {
@@ -17,7 +17,7 @@ export function ActivityPage(): JSX.Element {
     refetchInterval: 30_000,
   });
 
-  if (activity.isLoading) return <Spinner />;
+  if (activity.isLoading) return <PageSkeleton />;
   if (activity.isError) return <ErrorBanner message={errorMessage(activity.error)} />;
   const events = activity.data ?? [];
 
@@ -66,7 +66,7 @@ function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
   const result = check.data;
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("activity.integrityTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("activity.integrityTitle")}</h2>
       <p className="mb-2 text-xs text-slate-500">
         {t("activity.integrityBody")}
       </p>
@@ -120,7 +120,7 @@ function RecordLink({ projectId, targetType, targetId }: { projectId: string; ta
             ? `/projects/${projectId}`
             : null;
   if (!to) return <span className="text-slate-500">{label}</span>;
-  return <Link className="text-teal-800 underline" to={to}>{label}</Link>;
+  return <Link className="text-link underline" to={to}>{label}</Link>;
 }
 
 interface DecisionHit {
@@ -143,7 +143,7 @@ function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
   });
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("activity.decisionsTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("activity.decisionsTitle")}</h2>
       <p className="mb-2 text-xs text-slate-500">{t("activity.decisionsBody")}</p>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setSubmitted(q); }}>
         <Input aria-label={t("activity.searchDecisionsLabel")} value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("activity.searchDecisionsPlaceholder")} />
@@ -183,7 +183,7 @@ function AiLog({ projectId }: { projectId: string }): JSX.Element {
   });
   return (
     <Card>
-      <h2 className="mb-1 font-medium">{t("activity.aiLogTitle")}</h2>
+      <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("activity.aiLogTitle")}</h2>
       <p className="mb-2 text-xs text-slate-500">{t("activity.aiLogBody")}</p>
       {log.isLoading ? <Spinner /> : log.isError ? (
         <ErrorBanner message={errorMessage(log.error)} />

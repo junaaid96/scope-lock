@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
-import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner } from "../components/ui.js";
+import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner, PageSkeleton } from "../components/ui.js";
 import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
 import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
 import { PreferencesCard, SlackCard } from "../components/channels.js";
@@ -57,7 +57,7 @@ export function OrgSettingsPage(): JSX.Element {
   const myRole = session?.organizations.find((o) => o.id === orgId)?.role ?? null;
   const canManage = myRole === "OWNER" || myRole === "ADMIN";
 
-  if (org.isLoading) return <Spinner />;
+  if (org.isLoading) return <PageSkeleton />;
   if (org.isError || !org.data) return <ErrorBanner message={errorMessage(org.error)} />;
 
   return (
@@ -69,7 +69,7 @@ export function OrgSettingsPage(): JSX.Element {
       />
       <div className="space-y-5">
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.members")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.members")}</h2>
           <ul className="divide-y divide-slate-100">
             {(members.data ?? []).map((m) => (
               <li key={m.id} className="flex items-center justify-between py-2 text-sm">
@@ -98,7 +98,7 @@ export function OrgSettingsPage(): JSX.Element {
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.signInSecurity")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.signInSecurity")}</h2>
           <MfaCard />
         </Card>
 
@@ -106,23 +106,23 @@ export function OrgSettingsPage(): JSX.Element {
         <PasskeysCard />
 
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.aiAssistance")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.aiAssistance")}</h2>
           <AIToggle org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.brandingTitle")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.brandingTitle")}</h2>
           <BrandingForm org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.stepUpTitle")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.stepUpTitle")}</h2>
           <StepUpCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         {canManage ? (
           <Card>
-            <h2 className="mb-2 font-medium">{t("orgSettings.localeTitle")}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.localeTitle")}</h2>
             <LocaleCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
           </Card>
         ) : null}
@@ -142,7 +142,7 @@ export function OrgSettingsPage(): JSX.Element {
           />
         ) : null}
         <Card>
-          <h2 className="mb-2 font-medium">{t("orgSettings.usageTitle", { period: usage.data?.period ?? t("common.notAvailable") })}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("orgSettings.usageTitle", { period: usage.data?.period ?? t("common.notAvailable") })}</h2>
           {usage.isLoading ? <Spinner /> : usage.isError ? (
             <p className="text-sm text-slate-600">{t("orgSettings.usageStaffOnly")}</p>
           ) : usage.data ? (
@@ -300,7 +300,7 @@ function MfaCard(): JSX.Element {
     onError: (err) => setError(errorMessage(err)),
   });
 
-  if (me.isLoading) return <Spinner />;
+  if (me.isLoading) return <PageSkeleton />;
   return (
     <div className="text-sm">
       <p>

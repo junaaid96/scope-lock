@@ -46,10 +46,10 @@ export function CommandPaletteTrigger({ onOpen }: { onOpen: () => void }): JSX.E
       onClick={onOpen}
       aria-label={t("palette.openTrigger")}
       title={t("palette.triggerTitle")}
-      className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:border-teal-600 hover:text-slate-800"
+      className="tap flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm text-slate-500 shadow-card transition-colors hover:border-teal-600 hover:text-slate-800 lg:w-64"
     >
       <SearchIcon />
-      <span className="hidden lg:inline">{t("palette.jumpTo")}</span>
+      <span className="hidden flex-1 text-left lg:inline">{t("palette.jumpTo")}</span>
       <span className="hidden lg:inline"><Kbd>{t("palette.keyCtrlK")}</Kbd></span>
     </button>
   );
@@ -199,12 +199,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   let lastGroup = "";
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/50 p-4 pt-[12vh]" onClick={onClose} role="presentation">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center bg-black/50 p-4 pt-[12vh] backdrop-blur-sm" onClick={onClose} role="presentation">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.dialogLabel")}
-        className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-xl"
+        className="w-full max-w-xl animate-pop-in overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-slate-200 px-4">
@@ -243,8 +243,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                     data-active={i === cursor}
                     onClick={() => e.run()}
                     onMouseEnter={() => setCursor(i)}
-                    className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm ${
-                      i === cursor ? "bg-teal-50 text-teal-900" : "text-slate-800"
+                    className={`mx-2 flex w-[calc(100%-1rem)] items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${
+                      i === cursor ? "bg-teal-50 text-link-strong ring-1 ring-inset ring-teal-200/70" : "text-slate-800"
                     }`}
                   >
                     <span className="truncate">{e.label}</span>

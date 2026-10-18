@@ -78,18 +78,19 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
   const accent = r.branding?.primaryColor ?? "#0f766e";
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <header className="mb-6 flex items-center gap-3">
-        {r.branding?.logoUrl ? <img src={r.branding.logoUrl} alt="" className="h-8 w-8 rounded" /> : null}
-        <div>
-          <p className="text-lg font-semibold" style={{ color: accent }}>{r.branding?.displayName ?? r.organizationName ?? "ScopeLock"}</p>
+    <div className="bg-aurora min-h-screen">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+      <header className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-200 bg-surface/80 p-4 shadow-card backdrop-blur">
+        {r.branding?.logoUrl ? <img src={r.branding.logoUrl} alt="" className="h-10 w-10 rounded-lg" /> : <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: accent }}>{(r.branding?.displayName ?? r.organizationName ?? "S").slice(0, 1).toUpperCase()}</span>}
+        <div className="min-w-0 flex-1">
+          <p className="text-lg font-semibold tracking-tight" style={{ color: accent }}>{r.branding?.displayName ?? r.organizationName ?? "ScopeLock"}</p>
           <p className="text-sm text-slate-600">{t("review.projectReview", { project: r.projectName ?? t("review.defaultProject") })}</p>
         </div>
       </header>
 
-      <Card>
+      <Card className="p-6 shadow-lift sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">{r.title ?? t("review.defaultTitle")}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{r.title ?? t("review.defaultTitle")}</h1>
           <Badge tone={statusTone(r.status)}>{r.status}</Badge>
         </div>
         <p className="mt-1 text-xs text-slate-500">
@@ -128,13 +129,13 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
 
         {pkg.request ? (
           <section className="mt-4">
-            <h2 className="font-medium">{pkg.request.number}: {pkg.request.title}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{pkg.request.number}: {pkg.request.title}</h2>
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{pkg.request.description}</p>
           </section>
         ) : null}
         {pkg.allowance ? (
           <section className="mt-4" aria-label={t("review.allowanceTerms")}>
-            <h2 className="font-medium">{t("review.allowanceTerms")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.allowanceTerms")}</h2>
             <p className="mt-1 text-sm text-slate-700">
               {t("review.allowanceBlurb")}
             </p>
@@ -150,7 +151,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
         ) : null}
         {pkg.acceptance ? (
           <section className="mt-4" aria-label={t("review.deliverablesAria")}>
-            <h2 className="font-medium">{t("review.deliverablesTitle", { count: pkg.acceptance.requirements.length })}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.deliverablesTitle", { count: pkg.acceptance.requirements.length })}</h2>
             <p className="mt-1 text-sm text-slate-600">
               {t("review.acceptanceBlurb")}
             </p>
@@ -187,7 +188,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
         ) : null}
         {pkg.members.length > 0 ? (
           <section className="mt-4">
-            <h2 className="font-medium">{t("review.bundledTitle", { count: pkg.members.length })}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.bundledTitle", { count: pkg.members.length })}</h2>
             <ul className="mt-1 space-y-2">
               {pkg.members.map((m) => (
                 <li key={m.changeId} className="rounded-md border border-slate-200 p-2 text-sm">
@@ -201,7 +202,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
 
         {pkg.impact ? (
           <section className="mt-4">
-            <h2 className="font-medium">{t("review.agreedImpact")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.agreedImpact")}</h2>
             <dl className="mt-1 grid grid-cols-2 gap-2 text-sm">
               <dt className="text-slate-500">{t("review.priceLabel")}</dt>
               <dd className="font-medium">
@@ -228,7 +229,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
 
         {(pkg.options ?? []).length > 0 ? (
           <section className="mt-4" aria-label={t("review.optionsAria")}>
-            <h2 className="font-medium">{t("review.optionsTitle")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.optionsTitle")}</h2>
             <ul className="mt-2 space-y-2 text-sm">
               {(pkg.options ?? []).map((o) => (
                 <li key={o.optionId} className="rounded-md border border-slate-200 p-3">
@@ -249,7 +250,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
 
         {pkg.requirements.length > 0 ? (
           <section className="mt-4">
-            <h2 className="font-medium">{t("review.relatedScope")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.relatedScope")}</h2>
             <ul className="mt-1 space-y-2 text-sm">
               {pkg.requirements.map((q) => (
                 <li key={q.requirementId} className="rounded-md border border-slate-200 p-2">
@@ -264,11 +265,11 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
         {(pkg.assumptions.length > 0 || pkg.exclusions.length > 0) ? (
           <section className="mt-4 grid gap-3 text-sm md:grid-cols-2">
             <div>
-              <h2 className="font-medium">{t("review.assumptionsTitle")}</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.assumptionsTitle")}</h2>
               <ul className="list-disc pl-5 text-slate-700">{pkg.assumptions.map((a) => <li key={a}>{a}</li>)}</ul>
             </div>
             <div>
-              <h2 className="font-medium">{t("review.outOfScopeTitle")}</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.outOfScopeTitle")}</h2>
               <ul className="list-disc pl-5 text-slate-700">{pkg.exclusions.map((a) => <li key={a}>{a}</li>)}</ul>
             </div>
           </section>
@@ -276,7 +277,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
 
         {r.policyState && r.policyState.approvers.length > 1 ? (
           <section className="mt-4" aria-label={t("review.approversTitle")}>
-            <h2 className="font-medium">{t("review.approversTitle")}</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.approversTitle")}</h2>
             <p className="mt-1 text-sm text-slate-600">{t(POLICY_LABEL[r.policy?.mode ?? "ANY"])}</p>
             <ul className="mt-2 space-y-1 text-sm">
               {r.policyState.approvers.map((a) => (
@@ -301,7 +302,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
         ) : null}
       </Card>
       <Card className="mt-4">
-        <h2 className="mb-1 font-medium">{t("review.nextTitle")}</h2>
+        <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("review.nextTitle")}</h2>
         {pkg.acceptance ? (
           <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li><strong>{t("review.decideApprove")}</strong> {t("review.nextAcceptApprove")}</li>
@@ -324,7 +325,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
       </Card>
       {(r.status === "SENT" || r.status === "DECIDED" || r.status === "DEEMED") ? (
         <p className="mt-4 text-center text-sm">
-          <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${token}/pdf`} download>
+          <a className="font-medium text-link underline" href={`/api/v1/approval-requests/${token}/pdf`} download>
             {t("review.downloadPdf", { doc: pkg.acceptance ? t("review.acceptanceRecord") : t("review.changeOrder") })}
           </a>
         </p>
@@ -332,6 +333,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
       <p className="mt-4 text-center text-xs text-slate-600">
         {t("review.decidingFooter", { checksum: `${r.checksum.slice(0, 12)}…` })}
       </p>
+    </div>
     </div>
   );
 }
@@ -362,7 +364,7 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
   if (policyState?.yourDecision) {
     return (
       <div className="mt-6 border-t border-slate-200 pt-4">
-        <h2 className="font-medium">{t("review.yourDecision")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.yourDecision")}</h2>
         <p className="mt-2 rounded-md bg-slate-100 p-3 text-sm">
           {t("review.youDecidedPrefix")} <strong>{policyState.yourDecision}</strong>. {policyState.outcome.state === "PENDING" ? t("review.waitingOthers") : ""}
         </p>
@@ -373,7 +375,7 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
     const current = policyState.approvers.find((a) => a.turn);
     return (
       <div className="mt-6 border-t border-slate-200 pt-4">
-        <h2 className="font-medium">{t("review.yourDecision")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.yourDecision")}</h2>
         <p className="mt-2 rounded-md bg-slate-100 p-3 text-sm">
           {t("review.sequentialWait", { extra: current?.email ? t("review.sequentialWaitExtra", { email: current.email }) : "" })}
         </p>
@@ -417,13 +419,13 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
 
   return (
     <form onSubmit={(e) => void submit(e)} className="mt-6 border-t border-slate-200 pt-4">
-      <h2 className="font-medium">{t("review.yourDecision")}</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.yourDecision")}</h2>
       <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t("review.decisionGroupLabel")}>
         {(["APPROVED", "REJECTED", "CHANGES_REQUESTED"] as const).map((d) => (
           <label
             key={d}
             className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
-              decision === d ? "border-teal-700 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-700 hover:border-slate-300"
+              decision === d ? "border-teal-700 bg-teal-50 text-link-strong" : "border-slate-200 text-slate-700 hover:border-slate-300"
             }`}
           >
             <input type="radio" name="decision" value={d} checked={decision === d} onChange={() => setDecision(d)} className="accent-teal-700" />
@@ -439,7 +441,7 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
               <label
                 key={o.optionId}
                 className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
-                  optionId === o.optionId ? "border-teal-700 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-700 hover:border-slate-300"
+                  optionId === o.optionId ? "border-teal-700 bg-teal-50 text-link-strong" : "border-slate-200 text-slate-700 hover:border-slate-300"
                 }`}
               >
                 <input

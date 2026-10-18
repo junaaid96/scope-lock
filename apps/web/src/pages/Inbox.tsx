@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { Approval } from "../lib/types.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Empty, ErrorBanner, PageTitle, Spinner, Tabs, formatDate, statusTone } from "../components/ui.js";
+import { Badge, Button, Empty, ErrorBanner, PageTitle, Tabs, formatDate, statusTone, SkeletonCards } from "../components/ui.js";
 
 interface InboxItem extends Approval {
   projectName: string | null;
@@ -44,14 +44,14 @@ export function InboxPage(): JSX.Element {
       />
 
       {tab === "decisions" ? (
-        inbox.isLoading ? <Spinner /> : inbox.isError ? (
+        inbox.isLoading ? <SkeletonCards count={2} /> : inbox.isError ? (
           <ErrorBanner message={errorMessage(inbox.error)} />
         ) : decisions.length === 0 ? (
           <Empty title={t("inbox.emptyDecisionsTitle")} hint={t("inbox.emptyDecisionsHint")} />
         ) : (
           <ul className="space-y-3">
             {decisions.map((a) => (
-              <li key={a.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <li key={a.id} className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{a.title ?? t("inbox.defaultTitle")}</span>
                   <Badge tone={statusTone(a.status)}>{a.status}</Badge>
@@ -93,7 +93,7 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
     }
   };
 
-  if (loading) return <Spinner />;
+  if (loading) return <SkeletonCards count={2} />;
   if (failed) return <ErrorBanner message={errorMessage(failure)} />;
   if (notes.length === 0) return <Empty title={t("inbox.emptyNotesTitle")} hint={t("inbox.emptyNotesHint")} />;
   const unread = notes.filter((n) => !n.readAt).length;
@@ -110,7 +110,7 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
         {notes.map((n) => (
           <li
             key={n.id}
-            className={`rounded-lg border bg-white p-4 shadow-sm ${n.readAt ? "border-slate-200" : "border-teal-600"}`}
+            className={`rounded-lg border bg-surface p-4 shadow-card ${n.readAt ? "border-slate-200" : "border-teal-600"}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
@@ -125,7 +125,7 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
               ) : null}
             </div>
             {n.link && n.link.startsWith("/") ? (
-              <Link to={n.link} onClick={() => { if (!n.readAt) markRead.mutate(n.id); }} className="mt-2 inline-block text-sm font-medium text-teal-800 underline">
+              <Link to={n.link} onClick={() => { if (!n.readAt) markRead.mutate(n.id); }} className="mt-2 inline-block text-sm font-medium text-link underline">
                 {t("inbox.openLink")}
               </Link>
             ) : null}
@@ -171,7 +171,7 @@ function DecideButtons({ approvalId }: { approvalId: string }): JSX.Element {
   return (
     <p className="mt-2 text-sm text-slate-600">
       {t("inbox.decidePrefix")}
-      <Link className="font-medium text-teal-800 underline" to={`/review/${approvalId}`}>
+      <Link className="font-medium text-link underline" to={`/review/${approvalId}`}>
         {t("inbox.decideHere")}
       </Link>
       .

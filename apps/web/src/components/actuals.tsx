@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { Impact } from "../lib/types.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner, Textarea } from "./ui.js";
+import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner, Textarea, PageSkeleton } from "./ui.js";
 
 interface Comparable {
   changeId: string;
@@ -37,7 +37,7 @@ export function PriceSuggestions({ changeId }: { changeId: string }): JSX.Elemen
 
   return (
     <Card>
-      <h2 className="font-medium">{t("actuals.similarTitle")}</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("actuals.similarTitle")}</h2>
       <p className="mt-1 text-sm text-slate-600">{t("actuals.similarHint")}</p>
       {suggestions.isLoading ? (
         <Spinner />
@@ -123,7 +123,7 @@ export function ActualsCard({
 
   return (
     <Card>
-      <h2 className="font-medium">{t("actuals.title")}</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("actuals.title")}</h2>
       {hasActuals ? (
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
           <dt className="text-slate-500">{t("actuals.priceLabel")}</dt>
@@ -188,7 +188,7 @@ export function EstimateVsActual({ projectId }: { projectId: string }): JSX.Elem
     queryFn: () => api.get<ReportResponse>(`/projects/${projectId}/estimate-vs-actual`),
   });
 
-  if (report.isLoading) return <Spinner />;
+  if (report.isLoading) return <PageSkeleton />;
   if (report.isError) return <ErrorBanner message={errorMessage(report.error)} />;
   const rows = report.data?.data ?? [];
   if (rows.length === 0) {

@@ -39,7 +39,7 @@ export function RateCardsCard({ organizationId, canManage }: { organizationId: s
   return (
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("pricing.rateCards")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("pricing.rateCards")}</h2>
         {canManage ? <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>{t("pricing.newCard")}</Button> : null}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("pricing.rateCardsHint")}</p>
@@ -174,7 +174,7 @@ export function TemplatesCard({ organizationId, canManage }: { organizationId: s
   return (
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="font-medium">{t("pricing.templates")}</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("pricing.templates")}</h2>
         {canManage ? <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>{t("pricing.newTemplate")}</Button> : null}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("pricing.templatesHint")}</p>

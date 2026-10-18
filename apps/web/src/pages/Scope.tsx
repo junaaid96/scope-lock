@@ -7,7 +7,7 @@ import { api, errorMessage, fetchAll, ApiError } from "../lib/api.js";
 import type { AttachmentRow, EvidenceRow, ProjectDetail, RequirementRow, Revision, ScopeVersion } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { CsvImportDialog, TemplateDialog } from "../components/templates.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatDate, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatDate, statusTone, PageSkeleton } from "../components/ui.js";
 
 interface Diff {
   added: Array<{ stableKey: string; title: string }>;
@@ -75,7 +75,7 @@ export function ScopePage(): JSX.Element {
     enabled: Boolean(selected && compareId && compareId !== selected.id),
   });
 
-  if (versions.isLoading) return <Spinner />;
+  if (versions.isLoading) return <PageSkeleton />;
   if (versions.isError) return <ErrorBanner message={errorMessage(versions.error)} />;
   const list = versions.data ?? [];
   const draft = list.find((v) => v.status === "DRAFT") ?? null;
@@ -96,7 +96,7 @@ export function ScopePage(): JSX.Element {
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
       <div className="grid gap-5 md:grid-cols-3">
         <Card className="md:col-span-1">
-          <h2 className="mb-2 font-medium">{t("scope.versions")}</h2>
+          <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("scope.versions")}</h2>
           {list.length === 0 ? <Empty title={t("scope.noVersions")} /> : (
             <ul className="space-y-2">
               {list.map((v) => (
@@ -405,7 +405,7 @@ function DiffCard({ diff }: { diff: Diff }): JSX.Element {
   const { t } = useLocale();
   return (
     <Card>
-      <h2 className="mb-2 font-medium">{t("scope.agreementDiff")}</h2>
+      <h2 className="mb-2 text-[15px] font-semibold tracking-tight text-slate-900">{t("scope.agreementDiff")}</h2>
       {diff.added.length === 0 && diff.removed.length === 0 && diff.modified.length === 0 && !diff.assumptionsChanged && !diff.exclusionsChanged ? (
         <p className="text-sm text-slate-600">{t("scope.noDifferences")}</p>
       ) : (
@@ -520,7 +520,7 @@ function EvidencePanel({ projectId, requirementId }: { projectId: string; requir
       ) : (
         <ul className="mt-2 space-y-1 text-sm">
           {(evidence.data ?? []).map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2">
+            <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-surface p-2">
               <span>
                 <Badge>{e.type}</Badge> {e.title}
                 {e.url ? <> · <a className="underline" href={e.url} target="_blank" rel="noreferrer">{t("scope.openLink")}</a></> : null}
