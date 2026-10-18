@@ -8,6 +8,8 @@ import type { AppContext } from "../src/app-context.js";
 import { getEnv, resetEnvCache } from "../src/env.js";
 import { createEmailDriver } from "../src/lib/email.js";
 import { createRealtimeDriver } from "../src/lib/realtime.js";
+import { createSlackDriver } from "../src/lib/slack.js";
+import { createSmsDriver, createWhatsappDriver } from "../src/lib/sms.js";
 import { createStorageDriver } from "../src/lib/storage.js";
 import { MemoryStore } from "../src/store/memory.js";
 
@@ -35,6 +37,9 @@ export function createTestApp(): TestApp {
     email: createEmailDriver(env),
     storage: createStorageDriver(env),
     realtime: createRealtimeDriver(env),
+    slack: createSlackDriver(env),
+    sms: createSmsDriver(env),
+    whatsapp: createWhatsappDriver(env),
   };
   return { app: createApp(ctx), ctx, store, uploadDir };
 }

@@ -24,6 +24,8 @@ import type { AppContext } from "../apps/api/src/app-context.js";
 import { getEnv } from "../apps/api/src/env.js";
 import { createEmailDriver } from "../apps/api/src/lib/email.js";
 import { createRealtimeDriver } from "../apps/api/src/lib/realtime.js";
+import { createSlackDriver } from "../apps/api/src/lib/slack.js";
+import { createSmsDriver, createWhatsappDriver } from "../apps/api/src/lib/sms.js";
 import { createStorageDriver } from "../apps/api/src/lib/storage.js";
 import { drainOnce } from "../apps/api/src/lib/worker.js";
 import { createStore, nowIso } from "../apps/api/src/store/index.js";
@@ -176,6 +178,9 @@ async function main(): Promise<void> {
     email: createEmailDriver(env),
     storage: createStorageDriver(env),
     realtime: createRealtimeDriver(env),
+    slack: createSlackDriver(env),
+    sms: createSmsDriver(env),
+    whatsapp: createWhatsappDriver(env),
   };
   const app: Express = createApp(ctx);
 
@@ -1059,7 +1064,7 @@ async function main(): Promise<void> {
         [201],
       );
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
       const deemed = (await store.listProjectApprovals(projectId)).find((a) =>
         a.acceptanceRequirementIds.includes(candidates[1]?.id as string),
       );
@@ -1100,7 +1105,7 @@ async function main(): Promise<void> {
         [201],
       )) as { approval: { id: string } };
       await store.updateApproval(sent.approval.id, { sentAt: new Date(Date.now() - 25 * 3_600_000).toISOString() });
-      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
       const escalated = await store.findApprovalById(sent.approval.id);
       if (!escalated?.escalatedAt) throw new Error("seed escalation sweep did not fire");
       await sweepOutbox(store);

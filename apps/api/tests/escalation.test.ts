@@ -58,7 +58,7 @@ describe("approval escalation", () => {
       expiresAt: EXPIRY(),
     });
     await store.updateApproval(sent.id, { sentAt: HOURS_AGO(25) });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
 
     const approval = await store.findApprovalById(sent.id);
     expect(approval?.status).toBe("SENT");
@@ -72,7 +72,7 @@ describe("approval escalation", () => {
 
     // A second drain does not re-escalate.
     const first = approval?.escalatedAt;
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(sent.id))?.escalatedAt).toBe(first);
     expect((await store.listNotifications(fx.owner.user.id, { limit: 50 })).items.filter((n) => n.type === "APPROVAL_ESCALATED")).toHaveLength(1);
   });
@@ -96,7 +96,7 @@ describe("approval escalation", () => {
     });
     expect(vote.status).toBe(201);
     await store.updateApproval(sent.id, { sentAt: HOURS_AGO(25) });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
 
     expect((await store.findApprovalById(sent.id))?.escalatedAt).not.toBe(null);
     const clientNotes = await store.listNotifications(fx.clientUserId, { limit: 50 });
@@ -117,13 +117,13 @@ describe("approval escalation", () => {
     });
     const freshId = await sendableChange(fx.owner.agent, fx.projectId);
     const fresh = await sendForApproval(fx.owner.agent, freshId, { approverUserIds: [fx.clientUserId], expiresAt: EXPIRY() });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(fresh.id))?.escalatedAt).toBe(null);
 
     // Disabled on the project: even an aged package stays quiet.
     await fx.owner.agent.patch(`/api/v1/projects/${fx.projectId}`).send({ settings: { escalation: { afterHours: null } } });
     await store.updateApproval(fresh.id, { sentAt: HOURS_AGO(100) });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(fresh.id))?.escalatedAt).toBe(null);
 
     // Decided packages never escalate.
@@ -133,7 +133,7 @@ describe("approval escalation", () => {
     await request(app).post(`/api/v1/approval-requests/${token}/decisions`).send({ decision: "APPROVED", confirm: true });
     await fx.owner.agent.patch(`/api/v1/projects/${fx.projectId}`).send({ settings: { escalation: { afterHours: 1 } } });
     await store.updateApproval(decided.id, { sentAt: HOURS_AGO(100) });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(decided.id))?.escalatedAt).toBe(null);
   });
 

@@ -120,13 +120,13 @@ describe("files, health, worker, idempotency", () => {
     });
     const attachmentId = (intent.body as { attachmentId: string }).attachmentId;
     // A fresh intent survives the drain even with a short TTL.
-    await drainOnce({ store: ctx.store, env: { ...ctx.env, PENDING_UPLOAD_TTL_HOURS: 1 }, email: ctx.email, realtime: ctx.realtime, storage: ctx.storage });
+    await drainOnce({ store: ctx.store, env: { ...ctx.env, PENDING_UPLOAD_TTL_HOURS: 1 }, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp, storage: ctx.storage });
     const before = await ctx.store.findAttachmentById(attachmentId);
     expect(before?.status).toBe("PENDING");
     // Backdate the intent past the 24h TTL, then drain again.
     const withOld = before as unknown as { createdAt: string };
     withOld.createdAt = new Date(Date.now() - 25 * 3_600_000).toISOString();
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, storage: ctx.storage });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp, storage: ctx.storage });
     const after = await ctx.store.findAttachmentById(attachmentId);
     expect(after?.status).toBe("DELETED");
     const events = await ctx.store.listAuditEvents({ projectId: fx.projectId, limit: 50 });
@@ -262,7 +262,7 @@ describe("files, health, worker, idempotency", () => {
     const approvalId = (send.body.approval as { id: string }).id;
 
     // Reminder pass: expiry within 48h triggers the first reminder.
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     const afterReminder = await ctx.store.findApprovalById(approvalId);
     expect(afterReminder?.remindersSent).toContain(48);
     const clientNotifs = await ctx.store.listNotifications(fx.clientUserId, {});
@@ -271,9 +271,9 @@ describe("files, health, worker, idempotency", () => {
     // Force expiry, then drain again (expiry notices enqueue during the deadline
     // pass, so one final drain delivers them — same as the next worker tick).
     await ctx.store.updateApproval(approvalId, { expiresAt: new Date(Date.now() - 1000).toISOString() });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await ctx.store.findApprovalById(approvalId))?.status).toBe("EXPIRED");
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     const outbox = await ctx.store.claimOutboxBatch(100, new Date(Date.now() + 3600_000).toISOString());
     // Everything due was delivered; nothing remains claimable.
     expect(outbox).toHaveLength(0);

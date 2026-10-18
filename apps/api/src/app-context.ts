@@ -1,6 +1,8 @@
 import type { Env } from "./env.js";
 import type { EmailDriver } from "./lib/email.js";
 import type { RealtimeDriver } from "./lib/realtime.js";
+import type { SlackDriver } from "./lib/slack.js";
+import type { SmsDriver } from "./lib/sms.js";
 import type { StorageDriver } from "./lib/storage.js";
 import type { Store } from "./store/index.js";
 
@@ -11,6 +13,9 @@ export interface AppContext {
   email: EmailDriver;
   storage: StorageDriver;
   realtime: RealtimeDriver;
+  slack: SlackDriver;
+  sms: SmsDriver;
+  whatsapp: SmsDriver;
 }
 
 export function publicUser(user: {

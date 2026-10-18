@@ -270,7 +270,7 @@ describe("outgoing webhooks", () => {
       expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     });
     expect(sent.status).toBe(201);
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
 
     expect(received).toHaveLength(1);
     const first = received[0] as Received;
@@ -304,7 +304,7 @@ describe("outgoing webhooks", () => {
       approverUserIds: [fx.clientUserId],
       expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(1);
 
     const failed = await fx.owner.agent.get(`/api/v1/organizations/${fx.organizationId}/webhooks/${hookId}/deliveries`);
@@ -312,7 +312,7 @@ describe("outgoing webhooks", () => {
     expect(row).toMatchObject({ status: "FAILED", attempts: 1, responseStatus: 500 });
 
     // A drain before the backoff elapses does not redeliver.
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(1);
 
     // Once the receiver recovers and the backoff elapses, delivery succeeds.
@@ -320,13 +320,13 @@ describe("outgoing webhooks", () => {
     const delivery = await store.findWebhookDeliveryById(row.id);
     if (!delivery?.outboxEventId) throw new Error("expected a linked outbox row");
     await store.updateOutbox(delivery.outboxEventId, { nextRunAt: new Date(Date.now() - 1000).toISOString() });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(2);
 
     // Manual replay reuses the event id so receivers can dedupe.
     const replay = await fx.owner.agent.post(`/api/v1/organizations/${fx.organizationId}/webhooks/${hookId}/deliveries/${row.id}/replay`).send();
     expect(replay.status).toBe(202);
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(3);
     const ids = received.map((r) => (JSON.parse(r.body) as { id: string }).id);
     expect(new Set(ids).size).toBe(1);
@@ -346,13 +346,13 @@ describe("outgoing webhooks", () => {
       approverUserIds: [fx.clientUserId],
       expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(0);
 
     const token = ((sent.body as { reviewUrls: string[] }).reviewUrls[0] as string).split("/review/")[1] as string;
     const decide = await request(app).post(`/api/v1/approval-requests/${token}/decisions`).send({ decision: "APPROVED", confirm: true });
     expect(decide.status).toBe(201);
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(1);
     expect((received[0] as Received).headers["x-scopelock-event"]).toBe("approval.decided");
 
@@ -362,7 +362,7 @@ describe("outgoing webhooks", () => {
       approverUserIds: [fx.clientUserId],
       expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect(received).toHaveLength(1);
   });
 });

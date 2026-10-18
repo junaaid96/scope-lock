@@ -13,10 +13,14 @@ import {
 import type { Env } from "../env.js";
 import type { RealtimeDriver } from "./realtime.js";
 import type { EmailDriver } from "./email.js";
+import type { SlackDriver } from "./slack.js";
+import type { SmsDriver } from "./sms.js";
 import type { StorageDriver } from "./storage.js";
-import type { Store } from "../store/index.js";
+import type { OutboxEvent, Store } from "../store/index.js";
 import { currentPeriod, nowIso } from "../store/index.js";
 import { logger } from "../logger.js";
+import { unsealSecret } from "./mfa.js";
+import { notifyChannels } from "./notify.js";
 import { approvalKindOf, deliverWebhookEvent, emitWebhookEvent } from "./webhooks.js";
 
 const MAX_ATTEMPTS = 8;
@@ -31,12 +35,15 @@ export interface WorkerDeps {
   env: Env;
   email: EmailDriver;
   realtime: RealtimeDriver;
+  slack: SlackDriver;
+  sms: SmsDriver;
+  whatsapp: SmsDriver;
   /** When present, retention GC purges stale upload bytes. */
   storage?: StorageDriver;
 }
 
 async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; failed: number }> {
-  const { store, email, realtime } = deps;
+  const { store, email, realtime, sms, whatsapp } = deps;
   const batch = await store.claimOutboxBatch(BATCH, nowIso());
   let delivered = 0;
   let failed = 0;
@@ -50,6 +57,10 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
         }
       } else if (event.type === "WEBHOOK") {
         await deliverWebhookEvent(deps, event);
+      } else if (event.type === "SLACK") {
+        await deliverSlack(deps, event);
+      } else if (event.type === "SMS" || event.type === "WHATSAPP") {
+        await deliverSms(event.type === "SMS" ? sms : whatsapp, store, event);
       } else {
         const p = event.payload as { channel: string; event: string; title?: string; link?: string | null };
         await realtime.publish(p.channel, p.event, { title: p.title ?? "", link: p.link ?? null });
@@ -76,6 +87,35 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
     }
   }
   return { delivered, failed };
+}
+
+/**
+ * Deliver one SLACK row. A removed webhook is a quiet drop (config changed
+ * after enqueue, not a provider failure); an unsealable secret throws so the
+ * row visibly dies in the DLQ instead of vanishing silently.
+ */
+async function deliverSlack(deps: WorkerDeps, event: OutboxEvent): Promise<void> {
+  const p = event.payload as { organizationId: string; title: string; body: string; link?: string | null };
+  const org = await deps.store.findOrganizationById(p.organizationId);
+  if (!org || !org.slackWebhookUrlSealed) {
+    logger.info("Slack row dropped: webhook no longer configured", { outboxId: event.id });
+    return;
+  }
+  const url = unsealSecret(deps.env.AUTH_SECRET, org.slackWebhookUrlSealed);
+  if (!url) throw new Error("Slack webhook secret cannot be unsealed; rotate the org Slack connection");
+  const text = p.link ? `*${p.title}*\n${p.body}\n${deps.env.WEB_URL}${p.link}` : `*${p.title}*\n${p.body}`;
+  await deps.slack.post(url, { text });
+}
+
+/** Deliver one SMS/WHATSAPP row. A removed phone is a quiet drop. */
+async function deliverSms(driver: SmsDriver, store: Store, event: OutboxEvent): Promise<void> {
+  const p = event.payload as { userId: string; body: string };
+  const user = await store.findUserById(p.userId);
+  if (!user || !user.phoneE164) {
+    logger.info("SMS row dropped: phone no longer set", { outboxId: event.id });
+    return;
+  }
+  await driver.send({ to: user.phoneE164, body: p.body, kind: event.type === "WHATSAPP" ? "WHATSAPP" : "SMS" });
 }
 
 /** Expire overdue SENT approvals, deem overdue acceptance, escalate stalled packages, and queue reminders per project settings. */
@@ -145,17 +185,29 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
             body: `“${fresh.title ?? "Review package"}” expired without a decision. Resend or withdraw it.`,
             link: fresh.changeRequestId ? `/projects/${fresh.projectId}/changes/${fresh.changeRequestId}` : null,
           });
-          await tx.enqueueOutbox({
-            type: "EMAIL",
-            payload: {
-              to: user.email,
-              subject: "An approval request expired",
-              text: `The review package for project ${project.name} expired without a decision.`,
-              organizationId: project.organizationId,
-              projectId: fresh.projectId,
-              notificationType: "APPROVAL_EXPIRED",
-            },
-            idempotencyKey: `expired:${fresh.id}:${m.userId}`,
+          if (user.notifyEmail) {
+            await tx.enqueueOutbox({
+              type: "EMAIL",
+              payload: {
+                to: user.email,
+                subject: "An approval request expired",
+                text: `The review package for project ${project.name} expired without a decision.`,
+                organizationId: project.organizationId,
+                projectId: fresh.projectId,
+                notificationType: "APPROVAL_EXPIRED",
+              },
+              idempotencyKey: `expired:${fresh.id}:${m.userId}`,
+            });
+          }
+          await notifyChannels(tx, {
+            userId: m.userId,
+            organizationId: project.organizationId,
+            type: "APPROVAL_EXPIRED",
+            title: "An approval request expired",
+            body: `“${fresh.title ?? "Review package"}” expired without a decision. Resend or withdraw it.`,
+            link: fresh.changeRequestId ? `/projects/${fresh.projectId}/changes/${fresh.changeRequestId}` : null,
+            slackKey: `expired:${fresh.id}`,
+            userKey: `expired:${fresh.id}:${m.userId}`,
           });
         }
       }
@@ -198,7 +250,7 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
             link: `/inbox`,
           });
         }
-        if (email) {
+        if (email && recipient?.notifyEmail !== false) {
           await tx.enqueueOutbox({
             type: "EMAIL",
             payload: {
@@ -212,6 +264,18 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
               notificationType: "APPROVAL_REMINDER",
             },
             idempotencyKey: `reminder:${fresh.id}:${due.join("+")}:${email}`,
+          });
+        }
+        if (email) {
+          await notifyChannels(tx, {
+            userId: recipient?.id ?? null,
+            organizationId: project.organizationId,
+            type: "APPROVAL_REMINDER",
+            title,
+            body,
+            link: "/inbox",
+            slackKey: `reminder:${fresh.id}:${due.join("+")}`,
+            userKey: recipient ? `reminder:${fresh.id}:${due.join("+")}:${email}` : null,
           });
         }
       }
@@ -279,17 +343,29 @@ async function escalateApproval(deps: WorkerDeps, approvalId: string, now: strin
           body,
           link: fresh.changeRequestId ? `/projects/${fresh.projectId}/changes/${fresh.changeRequestId}` : `/projects/${fresh.projectId}`,
         });
-        await tx.enqueueOutbox({
-          type: "EMAIL",
-          payload: {
-            to: user.email,
-            subject: "Stalled approval escalated to you",
-            text: body,
-            organizationId: project.organizationId,
-            projectId: fresh.projectId,
-            notificationType: "APPROVAL_ESCALATED",
-          },
-          idempotencyKey: `escalated:${fresh.id}:${user.id}`,
+        if (user.notifyEmail) {
+          await tx.enqueueOutbox({
+            type: "EMAIL",
+            payload: {
+              to: user.email,
+              subject: "Stalled approval escalated to you",
+              text: body,
+              organizationId: project.organizationId,
+              projectId: fresh.projectId,
+              notificationType: "APPROVAL_ESCALATED",
+            },
+            idempotencyKey: `escalated:${fresh.id}:${user.id}`,
+          });
+        }
+        await notifyChannels(tx, {
+          userId: user.id,
+          organizationId: project.organizationId,
+          type: "APPROVAL_ESCALATED",
+          title: "Stalled approval escalated to you",
+          body,
+          link: fresh.changeRequestId ? `/projects/${fresh.projectId}/changes/${fresh.changeRequestId}` : `/projects/${fresh.projectId}`,
+          slackKey: `escalated:${fresh.id}`,
+          userKey: `escalated:${fresh.id}:${user.id}`,
         });
         notified.push(user.email);
       }
@@ -312,7 +388,7 @@ async function escalateApproval(deps: WorkerDeps, approvalId: string, now: strin
             link: "/inbox",
           });
         }
-        if (email) {
+        if (email && recipient?.notifyEmail !== false) {
           await tx.enqueueOutbox({
             type: "EMAIL",
             payload: {
@@ -324,6 +400,18 @@ async function escalateApproval(deps: WorkerDeps, approvalId: string, now: strin
               notificationType: "APPROVAL_ESCALATED",
             },
             idempotencyKey: `escalated:${fresh.id}:${key}`,
+          });
+        }
+        if (email) {
+          await notifyChannels(tx, {
+            userId: recipient?.id ?? null,
+            organizationId: project.organizationId,
+            type: "APPROVAL_ESCALATED",
+            title: "Escalated: your decision is overdue",
+            body,
+            link: "/inbox",
+            slackKey: `escalated:${fresh.id}`,
+            userKey: recipient ? `escalated:${fresh.id}:${key}` : null,
           });
         }
         notified.push(email ?? key);
@@ -437,17 +525,29 @@ async function deemAcceptance(deps: WorkerDeps, approvalId: string, now: string)
         body,
         link: `/projects/${fresh.projectId}/scope`,
       });
-      await tx.enqueueOutbox({
-        type: "EMAIL",
-        payload: {
-          to: user.email,
-          subject: "Deliverables deemed accepted",
-          text: body,
-          organizationId: project.organizationId,
-          projectId: fresh.projectId,
-          notificationType: "ACCEPTANCE_DEEMED",
-        },
-        idempotencyKey: `deemed:${fresh.id}:${m.userId}`,
+      if (user.notifyEmail) {
+        await tx.enqueueOutbox({
+          type: "EMAIL",
+          payload: {
+            to: user.email,
+            subject: "Deliverables deemed accepted",
+            text: body,
+            organizationId: project.organizationId,
+            projectId: fresh.projectId,
+            notificationType: "ACCEPTANCE_DEEMED",
+          },
+          idempotencyKey: `deemed:${fresh.id}:${m.userId}`,
+        });
+      }
+      await notifyChannels(tx, {
+        userId: m.userId,
+        organizationId: project.organizationId,
+        type: "ACCEPTANCE_DEEMED",
+        title: "Deliverables deemed accepted",
+        body,
+        link: `/projects/${fresh.projectId}/scope`,
+        slackKey: `deemed:${fresh.id}`,
+        userKey: `deemed:${fresh.id}:${m.userId}`,
       });
     }
     return true;

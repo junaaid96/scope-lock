@@ -4,6 +4,8 @@ import type { AppContext } from "./app-context.js";
 import { getEnv } from "./env.js";
 import { createEmailDriver } from "./lib/email.js";
 import { createRealtimeDriver } from "./lib/realtime.js";
+import { createSlackDriver } from "./lib/slack.js";
+import { createSmsDriver, createWhatsappDriver } from "./lib/sms.js";
 import { createStorageDriver } from "./lib/storage.js";
 import { startWorker, drainOnce } from "./lib/worker.js";
 import { logger } from "./logger.js";
@@ -39,11 +41,15 @@ async function main(): Promise<void> {
     email: createEmailDriver(env),
     storage: createStorageDriver(env),
     realtime: createRealtimeDriver(env),
+    slack: createSlackDriver(env),
+    sms: createSmsDriver(env),
+    whatsapp: createWhatsappDriver(env),
   };
-  const stopWorker = startWorker({ store, env, email: ctx.email, realtime: ctx.realtime, storage: ctx.storage });
+  const workerDeps = { store, env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp, storage: ctx.storage };
+  const stopWorker = startWorker(workerDeps);
   // One immediate drain so invitations/approvals created while idle still send.
   if (env.OUTBOX_AUTODRAIN && env.NODE_ENV !== "test") {
-    drainOnce({ store, env, email: ctx.email, realtime: ctx.realtime, storage: ctx.storage }).catch(() => undefined);
+    drainOnce(workerDeps).catch(() => undefined);
   }
   const app = createApp(ctx);
   const server = app.listen(env.PORT, () => {

@@ -48,7 +48,7 @@ import { paginateList } from "../http/pagination.js";
 import type { ApiRequest } from "../http/types.js";
 import { getContext } from "../context.js";
 import { audit } from "../lib/audit.js";
-import { notify, notifyProjectMembers } from "../lib/notify.js";
+import { notify, notifyChannels, notifyProjectMembers } from "../lib/notify.js";
 import { approvalKindOf, emitWebhookEvent } from "../lib/webhooks.js";
 import type {
   ApprovalDecision,
@@ -1220,6 +1220,17 @@ export async function notifyApprovalRequested(
           notificationType: "APPROVAL_REQUESTED",
         },
         idempotencyKey: `send:${args.approvalId}:${approver.email}`,
+      });
+      // Email-only approvers have no prefs/phone; the org channel still posts.
+      await notifyChannels(ctx.store, {
+        userId: null,
+        organizationId: args.orgId,
+        type: "APPROVAL_REQUESTED",
+        title: `Decision needed: ${args.title}`,
+        body,
+        link: "/inbox",
+        slackKey: `send:${args.approvalId}`,
+        userKey: null,
       });
     }
   }

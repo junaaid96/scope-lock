@@ -1,3 +1,4 @@
+import { isChannelEligible } from "@scopelock/domain";
 import type { Env } from "../env.js";
 import type { Store } from "../store/index.js";
 import { currentPeriod, nowIso } from "../store/index.js";
@@ -28,7 +29,8 @@ export async function notify(store: Store, input: NotifyInput): Promise<void> {
     body: input.body,
     link: input.link ?? null,
   });
-  if (input.email && input.organizationId) {
+  const user = await store.findUserById(input.userId);
+  if (input.email && input.organizationId && user?.notifyEmail !== false) {
     await store.enqueueOutbox({
       type: "EMAIL",
       payload: {
@@ -54,6 +56,76 @@ export async function notify(store: Store, input: NotifyInput): Promise<void> {
     },
     idempotencyKey: null,
   });
+  // Slack/SMS/WhatsApp fan-out for eligible types. The Slack key is shared
+  // across the per-user fan-out so the org channel gets exactly one post.
+  await notifyChannels(store, {
+    userId: input.userId,
+    organizationId: input.organizationId ?? null,
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    link: input.link ?? null,
+    slackKey: input.organizationId ? `${input.organizationId}:${input.type}:${input.projectId ?? "-"}:${input.title}` : null,
+    userKey: null,
+  });
+}
+
+export interface ChannelFanout {
+  userId?: string | null;
+  organizationId?: string | null;
+  type: string;
+  title: string;
+  body: string;
+  link?: string | null;
+  /** Stable per-event key -> one Slack post per event. Null skips dedupe. */
+  slackKey?: string | null;
+  /** Stable per-recipient key. Null skips dedupe. */
+  userKey?: string | null;
+}
+
+/**
+ * Enqueue Slack/SMS/WhatsApp outbox rows for channel-eligible types.
+ * Slack posts to the org's shared channel when configured; SMS/WhatsApp
+ * deliver per user, gated on preferences and a stored phone number.
+ */
+export async function notifyChannels(store: Store, args: ChannelFanout): Promise<void> {
+  if (!isChannelEligible(args.type)) return;
+  if (args.organizationId) {
+    const org = await store.findOrganizationById(args.organizationId);
+    if (org?.slackWebhookUrlSealed) {
+      await store.enqueueOutbox({
+        type: "SLACK",
+        payload: {
+          organizationId: args.organizationId,
+          title: args.title,
+          body: args.body,
+          link: args.link ?? null,
+          notificationType: args.type,
+        },
+        idempotencyKey: args.slackKey ? `slack:${args.slackKey}` : null,
+      });
+    }
+  }
+  if (args.userId) {
+    const user = await store.findUserById(args.userId);
+    if (user?.phoneE164) {
+      const body = `${args.title}\n${args.body}`;
+      if (user.notifySms) {
+        await store.enqueueOutbox({
+          type: "SMS",
+          payload: { userId: user.id, body, notificationType: args.type },
+          idempotencyKey: args.userKey ? `sms:${args.userKey}` : null,
+        });
+      }
+      if (user.notifyWhatsapp) {
+        await store.enqueueOutbox({
+          type: "WHATSAPP",
+          payload: { userId: user.id, body, notificationType: args.type },
+          idempotencyKey: args.userKey ? `wa:${args.userKey}` : null,
+        });
+      }
+    }
+  }
 }
 
 /** Fan out to every member of a project (used for workflow events). */

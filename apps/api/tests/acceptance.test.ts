@@ -125,7 +125,7 @@ describe("delivery acceptance", () => {
     expect(expiresInDays).toBeLessThan(7.1);
     // Force the deadline into the past, then drain the worker.
     await store.updateApproval(sent.body.approval.id, { expiresAt: new Date(Date.now() - 1000).toISOString() });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
 
     const approval = await store.findApprovalById(sent.body.approval.id);
     expect(approval?.status).toBe("DEEMED");
@@ -151,7 +151,7 @@ describe("delivery acceptance", () => {
     });
     expect(sent.status).toBe(201);
     await store.updateApproval(sent.body.approval.id, { expiresAt: new Date(Date.now() - 1000).toISOString() });
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(sent.body.approval.id))?.status).toBe("EXPIRED");
     expect((await store.findRequirementById(req.id))?.status).toBe("DELIVERED");
   });
@@ -167,7 +167,7 @@ describe("delivery acceptance", () => {
       expiresAt: EXPIRY(12 * 3_600_000),
     });
     expect(sent.status).toBe(201);
-    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+    await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime, slack: ctx.slack, sms: ctx.sms, whatsapp: ctx.whatsapp });
     expect((await store.findApprovalById(sent.body.approval.id))?.remindersSent).toContain(48);
     const notifications = await store.listNotifications(fx.clientUserId, { limit: 50 });
     const reminder = notifications.items.find((n) => n.type === "APPROVAL_REMINDER");
