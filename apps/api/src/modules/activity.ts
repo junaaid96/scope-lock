@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { CreateDecisionNoteSchema, ListQuerySchema, UpdateDecisionNoteSchema } from "@scopelock/contracts";
-import { DomainError, computeScopeHealth } from "@scopelock/domain";
+import { CreateDecisionNoteSchema, InvoiceExportQuerySchema, ListQuerySchema, UpdateDecisionNoteSchema } from "@scopelock/contracts";
+import { DomainError, buildInvoiceLines, computeScopeHealth, invoiceLinesToCsv, invoiceTotals } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
 import { authenticate, requireAuth } from "../http/auth.js";
@@ -240,6 +240,70 @@ export function activityRoutes(ctx: AppContext): Router {
         attachments: attachments
           .filter((a) => a.linkedType === "CHANGE" && a.linkedId === change.id)
           .map((a) => ({ fileName: a.fileName, contentType: a.contentType, sizeBytes: a.sizeBytes, checksum: a.checksum })),
+      });
+    }),
+  );
+
+  // ----- Invoice-ready export: approved changes as line items per period -----
+  router.get(
+    "/projects/:id/export/invoice-ready",
+    requireAuth,
+    validateParams(z.object({ id: z.string().min(1) })),
+    validateQuery(InvoiceExportQuerySchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const q = (req as ApiRequest).validatedQuery as { from: string; to: string; format: "json" | "csv" };
+      const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
+      requireAction(access.access, "export.read");
+      const changes = await ctx.store.listChanges(access.project.id);
+      const inputs = await Promise.all(
+        changes.map(async (c) => {
+          const [impact, drawDown] = await Promise.all([
+            ctx.store.findLatestImpact(c.id),
+            ctx.store.findDrawDownByChange(c.id),
+          ]);
+          const pool = drawDown ? await ctx.store.findAllowancePoolById(drawDown.poolId) : null;
+          const pricing = impact?.pricing as { mode?: string } | null | undefined;
+          return {
+            number: c.number,
+            title: c.title,
+            status: c.status,
+            decidedAt: c.decidedAt,
+            priceMinor: impact?.priceMinor ?? null,
+            currency: impact?.currency ?? access.project.currency,
+            pricingMode: pricing?.mode ?? (impact ? "MANUAL" : null),
+            overrideReason: impact?.overrideReason ?? null,
+            allowancePoolName: pool?.name ?? null,
+            drawStatus: drawDown?.status ?? null,
+          };
+        }),
+      );
+      const lines = buildInvoiceLines(inputs, { from: q.from, to: q.to });
+      const totals = invoiceTotals(lines);
+      await audit(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "invoice.exported",
+        targetType: "PROJECT",
+        targetId: access.project.id,
+        after: { from: q.from, to: q.to, format: q.format, lines: lines.length },
+      });
+      if (q.format === "csv") {
+        const stamp = `${q.from.slice(0, 10)}_to_${q.to.slice(0, 10)}`;
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="invoice-${access.project.id}-${stamp}.csv"`);
+        res.send(invoiceLinesToCsv(lines));
+        return;
+      }
+      res.json({
+        exportedAt: nowIso(),
+        project: { id: access.project.id, name: access.project.name, currency: access.project.currency },
+        period: { from: q.from, to: q.to },
+        lines,
+        totals,
       });
     }),
   );
