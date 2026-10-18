@@ -1121,6 +1121,44 @@ async function main(): Promise<void> {
     }
   }
 
+  // Default scope template for the portfolio org (resumable): website starter
+  // with standard assumptions/exclusions so draft-from-template is demoable.
+  {
+    const existing = (await expectOk(
+      await owner.agent.get(`/api/v1/organizations/${orgId}/scope-templates`),
+      "list scope templates",
+    )) as { data: unknown[] };
+    if (existing.data.length === 0) {
+      await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/scope-templates`).send({
+          name: "Website starter",
+          projectType: "Website",
+          description: "Standard marketing website: pages, copy, and launch checklist.",
+          assumptions: ["Client provides final copy and brand assets within 2 weeks", "Content in English only"],
+          exclusions: ["Native mobile apps", "Data migration from legacy CMS"],
+          items: [
+            {
+              title: "Homepage",
+              description: "Marketing landing page with hero, services, and contact form.",
+              acceptanceCriteria: ["Loads in under 2s on 4G", "Contact form delivers to the client inbox"],
+              category: "Pages",
+              priority: "HIGH",
+            },
+            {
+              title: "Launch checklist",
+              description: "DNS, analytics, backups, and handover walkthrough.",
+              acceptanceCriteria: ["Staging sign-off recorded"],
+              category: "Delivery",
+            },
+          ],
+        }),
+        "seed scope template",
+        [201],
+      );
+      console.log("showcase: website starter scope template");
+    }
+  }
+
   // Default rate card + estimate templates for the portfolio org (resumable).
   {
     const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {

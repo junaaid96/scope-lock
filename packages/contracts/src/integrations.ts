@@ -46,6 +46,8 @@ export const ApiKeyScopeSchema = z.enum([
   "external.manage",
   "ratecard.view",
   "ratecard.manage",
+  "template.view",
+  "template.manage",
   "allowance.manage",
   "allowance.object",
   "intake.manage",
@@ -55,7 +57,7 @@ export const ApiKeyScopeSchema = z.enum([
 
 export const CreateApiKeySchema = z.object({
   name: z.string().min(1).max(80),
-  scopes: z.array(ApiKeyScopeSchema).min(1).max(43),
+  scopes: z.array(ApiKeyScopeSchema).min(1).max(45),
   /** Omit for a never-expiring key; prefer short-lived keys. */
   expiresAt: IsoDateSchema.nullable().optional(),
 });

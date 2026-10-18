@@ -153,6 +153,15 @@ project `settings.aiEnabled=false`.
 - Migration `0021_impact_actuals` adds three nullable columns — safe to
   apply online, no backfill.
 
+### Scope templates and CSV import
+
+- Templates are org content (staff-only writes); deleting one never touches
+  drafts already created from it. No configuration or background jobs.
+- CSV import caps: 512 KB, 500 rows, 200-char titles. Imports are atomic
+  (all rows or none) into a DRAFT version only; the dry-run preview shows
+  per-row errors before anything is written.
+- Migration `0022_scope_templates` adds the `ScopeTemplate` table.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,

@@ -32,7 +32,7 @@ test("templates: library template starts a draft, CSV imports with per-row error
   // Create a template through the settings UI.
   await page.goto(`/orgs/${orgId}/settings`);
   const scopeCard = page.locator("section").filter({ hasText: "Scope templates" });
-  await scopeCard.getByRole("button", { name: "New template" }).click();
+  await scopeCard.getByRole("button", { name: "New scope template" }).click();
   await page.getByLabel("Name", { exact: true }).fill("Website starter");
   await page.getByLabel("Project type").fill("Website");
   await page.getByLabel("Assumptions (one per line)").fill("Client provides copy");

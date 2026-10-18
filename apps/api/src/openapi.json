@@ -2304,6 +2304,8 @@
                 "external.manage",
                 "ratecard.view",
                 "ratecard.manage",
+                "template.view",
+                "template.manage",
                 "allowance.manage",
                 "allowance.object",
                 "intake.manage",
@@ -2312,7 +2314,7 @@
               ]
             },
             "minItems": 1,
-            "maxItems": 43
+            "maxItems": 45
           },
           "expiresAt": {
             "type": "string",

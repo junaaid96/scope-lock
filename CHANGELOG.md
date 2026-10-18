@@ -144,6 +144,13 @@ All notable changes to ScopeLock are documented here. Format follows
   on implemented changes with an audit event, feeding a project
   estimate-vs-actual report with variances and comparable-set totals.
   Change-page panels plus an Actuals project tab; migration 0021.
+- Scope templates + CSV import: org-level requirement library (standard
+  assumptions, exclusions, and items per project type; staff-only) that
+  instantiates into a new draft scope version with minted stable keys, all
+  in one transaction with an audit event. CSV import parses offline with a
+  dependency-free parser, previews via dry run with per-row errors, and
+  imports atomically (all rows or none; failures ride the error envelope).
+  Settings UI, scope-page dialogs, and migration 0022.
 
 ## [0.1.0] - 2026-10-16
 

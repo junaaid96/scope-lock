@@ -71,7 +71,7 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
     <Card>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="font-medium">Scope templates</h2>
-        {canManage ? <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>New template</Button> : null}
+        {canManage ? <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>New scope template</Button> : null}
       </div>
       <p className="text-sm text-slate-600">
         Standard assumptions, exclusions, and requirements per project type. Applying one starts a new draft scope.

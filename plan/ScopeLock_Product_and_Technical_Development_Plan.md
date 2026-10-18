@@ -789,11 +789,11 @@ One `feat/<slug>` branch per feature, small conventional commits, Definition-of-
 | 20 | Decision memory search | Done (`feat/decision-search`) | Lexical ranking everywhere; pgvector semantic only when Postgres + `OPENAI_API_KEY` configured, else silent lexical fallback; access filtered before ranking; verbatim excerpts + links, no generated conclusions; dashboard panel, OpenAPI path, worker embedding sweep, migration 0020 |
 | 21 | Price suggestions + actuals | Done (`feat/price-suggestions`) | Deterministic comparable ranking (same currency, real approved prices, no generated number); actuals on implemented changes + audit; estimate-vs-actual report; change panels + Actuals tab; migration 0021 |
 
-### Phase 6 — Platform (pending; #24 Partial)
+### Phase 6 — Platform (#22 done; #23–#24 pending)
 
 | # | Feature | Status | Notes |
 | --- | --- | --- | --- |
-| 22 | Scope templates + CSV import | Missing | Requirement library per project type; dry-run preview with per-row errors |
+| 22 | Scope templates + CSV import | Done (`feat/scope-templates`) | Org library (assumptions/exclusions/items per project type, staff-only) instantiating into a draft in one tx + audit; dependency-free CSV parser, dry-run preview with per-row errors, atomic import via error envelope; settings UI + scope dialogs; `template.*` policy actions + key scopes; migration 0022 |
 | 23 | OAuth + passkeys | Missing | Google/GitHub code+PKCE (verified-email link only), WebAuthn via maintained libs; MFA policy still enforced |
 | 24 | i18n | Partial | Infra shipped (catalog, `useLocale()`, CI check); remaining: full string extraction, Bangla (`bn`), per-user language, review-link org/project default |
 | — | `SECURITY.md` | Missing | Contact confirmed (`codejborg@junaidul.pro.bd`); to be written with the Phase 6 close-out + final report |
