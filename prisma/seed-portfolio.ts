@@ -768,6 +768,59 @@ async function main(): Promise<void> {
     console.log("showcase: green-biotech no-charge change approved -> implemented (absorbed)");
   }
 
+  // Default rate card + estimate templates for the portfolio org (resumable).
+  {
+    const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {
+      data: unknown[];
+    };
+    if (existing.data.length === 0) {
+      await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/rate-cards`).send({
+          name: "CodeJBorg Standard 2026",
+          currency: "BDT",
+          isDefault: true,
+          rates: [
+            { role: "Project Manager", hourlyRateMinor: 500000 },
+            { role: "Senior Engineer", hourlyRateMinor: 800000 },
+            { role: "Engineer", hourlyRateMinor: 550000 },
+            { role: "Designer", hourlyRateMinor: 450000 },
+            { role: "QA Engineer", hourlyRateMinor: 350000 },
+          ],
+        }),
+        "seed rate card",
+        [201],
+      );
+      await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/estimate-templates`).send({
+          name: "Standard feature",
+          items: [
+            { label: "Design", role: "Designer", hours: 8 },
+            { label: "Build", role: "Senior Engineer", hours: 24 },
+            { label: "QA", role: "QA Engineer", hours: 8 },
+          ],
+          contingencyPct: 10,
+          taxPct: null,
+        }),
+        "seed feature template",
+        [201],
+      );
+      await expectOk(
+        await owner.agent.post(`/api/v1/organizations/${orgId}/estimate-templates`).send({
+          name: "Small fix",
+          items: [
+            { label: "Fix", role: "Engineer", hours: 4 },
+            { label: "QA", role: "QA Engineer", hours: 2 },
+          ],
+          contingencyPct: 0,
+          taxPct: null,
+        }),
+        "seed fix template",
+        [201],
+      );
+      console.log("seed: default BDT rate card + 2 estimate templates");
+    }
+  }
+
   await sweepOutbox(store);
 
   console.log("\nPortfolio seed complete.");

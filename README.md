@@ -304,7 +304,8 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   and decisions in chronological order, with milestone strip and kind filters.
 - **Inbox** — pending decisions plus project notifications in one place with
   mark-read; the header/sidebar badge always equals what the page shows.
-- **Change page** — workflow stepper from draft to implemented, impact,
+- **Change page** — workflow stepper from draft to implemented, impact
+  (manual or computed from org rate cards and estimate templates),
   clarifications, evidence, and exports.
 - **Contract tab** (project → Contract) — derived contract value: baseline
   budget + approved change deltas = current value, plus pending exposure,
