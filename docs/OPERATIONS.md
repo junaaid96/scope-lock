@@ -153,7 +153,9 @@ to disable):
   markers for expired intents are safe; never auto-expire `READY` keys).
 - Verify backups monthly: restore to scratch, boot the API with
   `DATABASE_URL`/`DATA_FILE` pointed at the copy, and confirm `/readyz` plus
-  one login.
+  one login. After the restore, recompute one project's audit chain
+  (`npm run audit:verify -- --project <id>`); exit 0 with `VALID` proves the
+  restored history is intact.
 
 ## 8. Migrations
 

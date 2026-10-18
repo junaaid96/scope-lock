@@ -337,6 +337,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   packages) — deterministic PDF with the package checksum and a QR/URL to
   a public verify page (`/verify/:approvalId`) that recomputes the
   checksum and shows match/mismatch from the package contents only.
+- **Audit integrity** (project → Activity) — every audit event links to
+  its predecessor by SHA-256. Recompute the chain in one click (or
+  `npm run audit:verify -- --project <id>`) to prove history was not
+  edited, deleted, or reordered.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

@@ -83,6 +83,12 @@ All notable changes to ScopeLock are documented here. Format follows
   the public verify page) plus `/verify/:approvalId`, which recomputes
   the checksum server-side and shows match/mismatch from the package
   contents only.
+- Tamper-evident audit: per-project hash chain (prevHash + SHA-256 over
+  canonical JSON, per-chain sequence) written in the same transaction as
+  each event, with the chain head serialized by row lock on Postgres.
+  `GET /projects/:id/audit/verify`, an Activity-tab integrity card, and
+  `npm run audit:verify` recompute the chain; pre-chain events verify as
+  explicit legacy rows.
 
 ## [0.1.0] - 2026-10-16
 

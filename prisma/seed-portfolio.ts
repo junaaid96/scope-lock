@@ -1077,6 +1077,10 @@ async function main(): Promise<void> {
 
   await sweepOutbox(store);
 
+  // The hash chain needs no dedicated showcase rows: every audited write above
+  // is already chained. Point at the verify surface instead.
+  console.log("showcase: audit hash chain live on every project (Activity tab → Verify chain)");
+
   console.log("\nPortfolio seed complete.");
   console.log("  Agency : demo@codejborg.studio / password1234");
   console.log("  Clients: nazmul@greenbiotech.test, tanvir@haat.test, sakib@quickfood.test,");
