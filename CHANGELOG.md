@@ -58,6 +58,13 @@ All notable changes to ScopeLock are documented here. Format follows
   with exact source excerpts; a human accepts or edits each into a real
   change request. Data-only prompt framing with injection fixtures; new
   `IMPORT` usage-log kind with review dispositions.
+- Approval policies: ANY / ALL / SEQUENTIAL multi-approver decision rules
+  with per-project amount thresholds (project Policy tab, staff only) and
+  an optional per-send override. Votes aggregate in `packages/domain`;
+  partial outcomes keep the package open (sequential runs nudge whoever is
+  up next), side effects apply exactly once at the terminal outcome, and
+  the checksum still binds every vote. Review pages show each approver's
+  state and lock the form out of turn.
 
 ## [0.1.0] - 2026-10-16
 

@@ -318,7 +318,13 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   the client grants by decision; approved changes draw from them with client
   notification and an objection window. Off by default, always visible.
 - **Review links** — login-free client decisions with immutable packages,
-  selectable verdict cards, and binding-confirmation copy.
+  selectable verdict cards, and per-approver vote tracking. Multi-approver
+  packages stay open until the decision rule resolves; recorded votes are
+  final and the checksum still binds every one of them.
+- **Policy tab** (project → Policy, staff only) — amount thresholds that
+  pick the decision rule per package (any approver decides, all must
+  approve, or approvers vote in order), with an optional per-send override
+  in every send dialog.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

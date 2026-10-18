@@ -849,6 +849,64 @@ async function main(): Promise<void> {
     console.log("showcase: haat allowance pool granted -> drawn -> objected -> upheld");
   }
 
+  // Approval-policy showcase on Haat: amount thresholds on the project, and a
+  // two-approver package with one vote recorded — still PENDING for the demo.
+  {
+    const slug = "haat-marketplace";
+    const projectId = projectIds[slug] as string;
+    const haat = clientLogins.haat as { userId: string };
+    const changes = (await expectOk(
+      await owner.agent.get(`/api/v1/projects/${projectId}/change-requests?limit=100`),
+      "list haat changes",
+    )) as { data: Array<{ title: string }> };
+    if (!changes.data.some((c) => c.title === "Seller wallet ledger")) {
+      await expectOk(
+        await owner.agent.patch(`/api/v1/projects/${projectId}`).send({
+          settings: {
+            approvalPolicies: [
+              { uptoMinor: 1000000, mode: "ANY" },
+              { uptoMinor: null, mode: "ALL" },
+            ],
+          },
+        }),
+        "seed policy thresholds",
+      );
+      const ch = await createChange(slug, {
+        title: "Seller wallet ledger",
+        description: "Every seller gets a wallet ledger: credits from settled orders, debits from refunds, and a running balance with export.",
+      });
+      let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+      v = await transition(ch.id, slug, "TRIAGING", v);
+      v = await transition(ch.id, slug, "ESTIMATING", v);
+      await recordImpact(ch.id, slug, { effortDays: 6, priceMinor: 8000000, timelineDays: 8, confidence: "MEDIUM" });
+      await linkRequirement(ch.id, slug);
+      const body = (await expectOk(
+        await owner.agent.post(`/api/v1/change-requests/${ch.id}/approval-requests`).send({
+          approverUserIds: [haat.userId],
+          approverEmails: ["founder@haat.test"],
+          expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          title: "Seller wallet ledger — ৳80,000 (needs both approvers)",
+        }),
+        "seed policy send",
+        [201],
+      )) as { approval: { policy: { mode: string } }; reviewUrls: string[] };
+      if (body.approval.policy.mode !== "ALL") throw new Error("seed policy thresholds did not resolve to ALL");
+      const firstToken = (body.reviewUrls[0] as string).split("/review/")[1] as string;
+      const vote = (await expectOk(
+        await request(app).post(`/api/v1/approval-requests/${firstToken}/decisions`).send({
+          decision: "APPROVED",
+          comment: "Looks right to me — waiting on the founder's sign-off too.",
+          confirm: true,
+        }),
+        "seed policy first vote",
+        [201],
+      )) as { outcome: { state: string } };
+      if (vote.outcome.state !== "PENDING") throw new Error("seed policy first vote should leave the package PENDING");
+      await sweepOutbox(store);
+      console.log(`showcase: haat two-approver package PENDING second vote ${(body.reviewUrls[1] as string).replace(/^https?:\/\/[^/]+/, "")}`);
+    }
+  }
+
   // Default rate card + estimate templates for the portfolio org (resumable).
   {
     const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {
