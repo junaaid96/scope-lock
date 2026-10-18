@@ -19,6 +19,7 @@ import type { StorageDriver } from "./storage.js";
 import type { OutboxEvent, Store } from "../store/index.js";
 import { currentPeriod, nowIso } from "../store/index.js";
 import { logger } from "../logger.js";
+import { EMBEDDING_MODEL, OpenAiEmbeddings } from "./embeddings.js";
 import { unsealSecret } from "./mfa.js";
 import { notifyChannels } from "./notify.js";
 import { approvalKindOf, deliverWebhookEvent, emitWebhookEvent } from "./webhooks.js";
@@ -592,13 +593,46 @@ async function gcAttachments(deps: WorkerDeps): Promise<{ purged: number }> {
   return { purged };
 }
 
+/**
+ * Embed decided approvals missing embeddings (bounded per drain). Skips
+ * silently without an embeddings provider; provider errors fail this sweep
+ * only — search falls back to lexical ranking.
+ */
+async function embedMissingDecisions(deps: WorkerDeps): Promise<{ embedded: number }> {
+  if (!OpenAiEmbeddings.isConfigured(deps.env)) return { embedded: 0 };
+  const ids = await deps.store.listApprovalsWithoutEmbeddings(20);
+  if (ids.length === 0) return { embedded: 0 };
+  const rows = [];
+  for (const id of ids) {
+    const row = await deps.store.findPastDecision(id);
+    if (row) rows.push(row);
+  }
+  if (rows.length === 0) return { embedded: 0 };
+  try {
+    const vectors = await OpenAiEmbeddings.embed(
+      deps.env,
+      rows.map((r) => `${r.title}\n${r.text}`.slice(0, 8000)),
+    );
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i] as { approvalId: string };
+      const vector = vectors[i] as number[];
+      await deps.store.saveDecisionEmbedding(row.approvalId, vector, EMBEDDING_MODEL);
+    }
+    return { embedded: rows.length };
+  } catch (err) {
+    logger.warn("Decision embedding sweep failed; search stays lexical", { error: err instanceof Error ? err.message : String(err) });
+    return { embedded: 0 };
+  }
+}
+
 /** Single drain pass: outbox delivery + approval deadlines + retention GC. Safe to call on an interval. */
 export async function drainOnce(deps: WorkerDeps): Promise<void> {
   const outbox = await deliverOutbox(deps);
   const deadlines = await processApprovalDeadlines(deps);
   const gc = await gcAttachments(deps);
-  if (outbox.delivered + outbox.failed + deadlines.expired + deadlines.reminders + gc.purged > 0) {
-    logger.info("Worker drain completed", { ...outbox, ...deadlines, ...gc });
+  const embedded = await embedMissingDecisions(deps);
+  if (outbox.delivered + outbox.failed + deadlines.expired + deadlines.reminders + gc.purged + embedded.embedded > 0) {
+    logger.info("Worker drain completed", { ...outbox, ...deadlines, ...gc, ...embedded });
   }
 }
 
