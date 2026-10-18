@@ -246,18 +246,50 @@ Notes:
 File-backed and in-memory modes implement the same `Store` interface as
 PostgreSQL, including transactions with rollback.
 
-### Production-like run with Postgres
+### Self-host in 5 minutes
+
+The compose stack runs Postgres, the API, and the web client with healthchecks:
 
 ```bash
-createdb scopelock
-DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma migrate deploy
-DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -hex 32) \
-  WEB_URL=https://app.example.com API_URL=https://api.example.com \
-  NODE_ENV=production npm run dev:api
+cp .env.example .env   # then set DB_PASSWORD plus the three URLs below
+docker compose up --build -d
 ```
 
+In `.env`, set `DB_PASSWORD` to a long random string and point all three URLs
+at the compose web tier (same-origin: the web tier proxies `/api/*` to the API):
+
+```dotenv
+WEB_URL=http://localhost:8080
+API_URL=http://localhost:8080
+AUTH_URL=http://localhost:8080
+```
+
+Open http://localhost:8080 and register — the first account owns the workspace.
+Going public needs a few more changes in `.env`:
+
+- `NODE_ENV=production`
+- `AUTH_SECRET=` — at least 32 random chars (`openssl rand -hex 32`)
+- `WEB_URL=`, `API_URL=`, `AUTH_URL=` — your public `https://` origin (same
+  value three times)
+- Terminate TLS in front of the `web` service (reverse proxy or load
+  balancer); the compose stack itself serves plain HTTP
+- Optionally `R2_*`, `ABLY_API_KEY`, `EMAIL_API_KEY` + `EMAIL_FROM` for real
+  uploads, realtime, and email
+
 Production refuses to boot without a ≥32-char `AUTH_SECRET`, a `DATABASE_URL`,
-and non-localhost `WEB_URL`/`API_URL`/`AUTH_URL`.
+and non-localhost `WEB_URL`/`API_URL`/`AUTH_URL`. Back up the `pgdata` and
+`uploads` volumes together (see [docs/OPERATIONS.md](docs/OPERATIONS.md) §7);
+upgrade with `git pull && docker compose up --build -d` (migrations run
+automatically on API start).
+
+Bare-metal production (no Docker) is the same idea without containers:
+
+```bash
+npm run build
+DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -hex 32) \
+  WEB_URL=https://app.example.com API_URL=https://app.example.com AUTH_URL=https://app.example.com \
+  UPLOAD_DIR=/var/lib/scopelock/uploads NODE_ENV=production npm start
+```
 
 ## Tour the app
 

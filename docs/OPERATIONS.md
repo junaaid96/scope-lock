@@ -59,8 +59,10 @@ project `settings.aiEnabled=false`.
 
 ## 3. Email
 
-- Set `EMAIL_API_KEY` + `EMAIL_FROM` for the HTTP driver; otherwise the log
-  driver records what would have been sent (safe for dev/test).
+- Set `EMAIL_API_KEY` + `EMAIL_FROM` (+ `EMAIL_HTTP_ENDPOINT`,
+  `https://api.resend.com/emails` by default in `.env.example`) for the HTTP
+  driver; otherwise the log driver records what would have been sent (safe
+  for dev/test).
 - All email goes through the outbox: `EMAIL` rows are written inside the
   domain transaction and delivered by the worker with backoff (8 attempts,
   then dead-lettered). `Idempotency-Key`-style `idempotencyKey` values on
@@ -119,6 +121,11 @@ to disable):
 - **File mode:** back up `DATA_FILE` and `UPLOAD_DIR` together (they are only
   consistent as a pair). The file store writes atomically; restore by stopping
   the API, replacing both, restarting.
+- **Compose self-host:** back up the `pgdata` and `uploads` volumes together
+  (`docker run --rm -v scopelock_pgdata:/pg -v scopelock_uploads:/up -v
+  $(pwd):/out alpine tar czf /out/scopelock-backup.tgz /pg /up`). Restore by
+  stopping the stack (`docker compose down`), restoring both volumes, and
+  starting again.
 - **R2:** enable bucket versioning; lifecycle rules should mirror §6 (delete
   markers for expired intents are safe; never auto-expire `READY` keys).
 - Verify backups monthly: restore to scratch, boot the API with
