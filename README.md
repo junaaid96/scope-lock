@@ -208,7 +208,7 @@ What's inside:
   realistic owners plus a CodeJBorg Labs client for internal products.
 - **Published scope baselines on all 16** — 102 requirements total, each with
   acceptance criteria, assumptions, and exclusions.
-- **Six showcase lifecycles** covering every state:
+- **Seven showcase lifecycles** covering every state:
   - Green Biotech ERP — change approved by the client → amended into scope v2
     (check the v1/v2 diff) → implemented, with delivery evidence and a
     decision note
@@ -218,6 +218,8 @@ What's inside:
   - Nibash — rejected with a reason
   - HealthOps — two changes bundled into one approval, approved in-app
   - InterEd — fresh request awaiting triage
+  - Green Biotech (corporate site) — no-charge change approved and
+    implemented (absorbed work in the contract ledger)
 
 Suggested click path: log in as the agency → open Green Biotech ERP → scope
 (v1 vs v2) → change CHG-001 (full audit trail) → activity. Then open the Haat
@@ -304,6 +306,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   mark-read; the header/sidebar badge always equals what the page shows.
 - **Change page** — workflow stepper from draft to implemented, impact,
   clarifications, evidence, and exports.
+- **Contract tab** (project → Contract) — derived contract value: baseline
+  budget + approved change deltas = current value, plus pending exposure,
+  absorbed (no-charge) work, and value by scope version. The dashboard shows
+  the org rollup per currency (amounts are never converted).
 - **Review links** — login-free client decisions with immutable packages,
   selectable verdict cards, and binding-confirmation copy.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).

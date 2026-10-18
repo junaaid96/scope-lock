@@ -4,7 +4,8 @@
  * published scope baselines — plus showcase change/approval lifecycles:
  * approved + amended + implemented (ERP), pending (Haat), estimating with
  * answered clarification (QuickFood), rejected (Nibash), bundled approval
- * (HealthOps), and submitted awaiting triage (InterEd).
+ * (HealthOps), submitted awaiting triage (InterEd), and a no-charge
+ * approved + implemented change (Green Biotech, absorbed work).
  *
  * Drives the real HTTP API in-process (supertest) against DATA_FILE or
  * DATABASE_URL from .env. Outbox side effects created while seeding are
@@ -725,6 +726,46 @@ async function main(): Promise<void> {
     });
     await transition(ch.id, slug, "SUBMITTED", ch.version);
     console.log("showcase: intered_hub submitted (awaiting triage)");
+  }
+
+  // 7) Green Biotech (corporate site) — no-charge change, approved and
+  // implemented: the contract ledger's absorbed-work demo.
+  if (!(await hasChanges("green-biotech"))) {
+    const slug = "green-biotech";
+    const ch = await createChange(slug, {
+      title: "Footer compliance links",
+      description:
+        "Add privacy policy, terms of use, and company registration links to the site footer. Small goodwill fix, done at no charge.",
+      source: "AGENCY",
+    });
+    let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+    v = await transition(ch.id, slug, "TRIAGING", v);
+    v = await transition(ch.id, slug, "ESTIMATING", v);
+    await recordImpact(ch.id, slug, {
+      effortDays: 1,
+      priceMinor: 0,
+      timelineDays: 1,
+      notes: "Goodwill gesture: explicitly no charge",
+      confidence: "HIGH",
+    });
+    await linkRequirement(ch.id, slug);
+    const sent = await sendApproval(ch.id, slug, "greenbiotech", "Footer compliance links — no charge");
+    await expectOk(
+      await request(app).post(`/api/v1/approval-requests/${sent.token}/decisions`).send({
+        decision: "APPROVED",
+        comment: "Thank you — much appreciated.",
+        confirm: true,
+      }),
+      "decide green-biotech",
+      [201],
+    );
+    await sweepOutbox(store);
+    const detail = (await expectOk(await owner.agent.get(`/api/v1/change-requests/${ch.id}`), "read green-biotech change")) as { version: number };
+    await expectOk(
+      await owner.agent.post(`/api/v1/change-requests/${ch.id}/implement`).send({ expectedVersion: detail.version }),
+      "implement green-biotech",
+    );
+    console.log("showcase: green-biotech no-charge change approved -> implemented (absorbed)");
   }
 
   await sweepOutbox(store);

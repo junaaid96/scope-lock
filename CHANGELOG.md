@@ -20,6 +20,10 @@ All notable changes to ScopeLock are documented here. Format follows
 - i18n infrastructure: English message catalog + `useLocale()` (`t()`,
   Intl money/date/number), with a CI missing-key check. Bangla,
   per-user language, and full string extraction follow in Phase 6.
+- Contract value ledger: derived baseline + approved deltas = current value,
+  pending exposure, absorbed (no-charge) work, value by scope version, and a
+  per-currency org rollup, with a project Contract tab, dashboard strip, and
+  a reconciliation test proving the endpoint equals a recomputation.
 
 ## [0.1.0] - 2026-10-16
 
