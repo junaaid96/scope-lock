@@ -10,6 +10,7 @@ import { ContractTab } from "../components/contract.js";
 import { AllowanceTab } from "../components/allowance.js";
 import { IntakeTab } from "../components/intake.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
+import { ImportDialog } from "../components/import.js";
 
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
@@ -22,6 +23,7 @@ export function ProjectPage(): JSX.Element {
     queryFn: () => fetchAll<ChangeListItem>(`/projects/${id}/change-requests`),
   });
   const [showChange, setShowChange] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "members" | "bundles" | "notes">("changes");
 
@@ -38,6 +40,7 @@ export function ProjectPage(): JSX.Element {
         actions={
           <>
             {canManage ? <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>Edit project</Button> : null}
+            <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>Import from text…</Button>
             <Button size="sm" onClick={() => setShowChange(true)}>New change request</Button>
           </>
         }
@@ -99,6 +102,7 @@ export function ProjectPage(): JSX.Element {
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}
       {showChange ? <ChangeDialog projectId={p.id} onClose={() => setShowChange(false)} /> : null}
+      {showImport ? <ImportDialog projectId={p.id} onClose={() => setShowImport(false)} /> : null}
       {showEdit ? <ProjectEditDialog project={p} onClose={() => setShowEdit(false)} /> : null}
     </div>
   );
