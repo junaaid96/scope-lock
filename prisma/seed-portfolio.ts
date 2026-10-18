@@ -1313,6 +1313,34 @@ async function main(): Promise<void> {
     console.log(`  Demo GitHub: codejborg/demo connected to ${slug} (1 linked + 1 unlinked merged PR)`);
     break;
   }
+
+  // Demo notification channels (resumable): owner phone + prefs, org Slack
+  // webhook (loopback; dev/test only). Later demo activity then fans out to
+  // SLACK/SMS/WHATSAPP rows through the normal outbox drain.
+  {
+    const prefs = (await expectOk(
+      await owner.agent.get("/api/v1/auth/me/preferences"),
+      "get demo prefs",
+    )) as unknown as { phoneE164: string | null };
+    if (!prefs.phoneE164) {
+      await expectOk(
+        await owner.agent.patch("/api/v1/auth/me/preferences").send({ phoneE164: "+8801712345678" }),
+        "seed demo prefs",
+      );
+      console.log("  Demo channels: owner phone +8801712345678 (SMS/WhatsApp on)");
+    }
+    const org = (await expectOk(
+      await owner.agent.get(`/api/v1/organizations/${orgId}`),
+      "get demo org slack",
+    )) as unknown as { slackConfigured: boolean };
+    if (!org.slackConfigured) {
+      await expectOk(
+        await owner.agent.patch(`/api/v1/organizations/${orgId}/slack`).send({ slackWebhookUrl: "http://127.0.0.1:9/scopelock" }),
+        "seed demo slack",
+      );
+      console.log("  Demo Slack: loopback webhook connected (log driver delivers)");
+    }
+  }
 }
 
 void main().catch((err: unknown) => {
