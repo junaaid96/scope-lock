@@ -119,7 +119,8 @@
     "deemedLabel": "Deemed-acceptance window (days)",
     "deemedPlaceholder": "e.g. 7 — blank disables",
     "deemedSaved": "Deemed-acceptance window saved.",
-    "deemedError": "Enter 1–90 days, or leave blank to disable."
+    "deemedError": "Enter 1–90 days, or leave blank to disable.",
+    "saveDeemed": "Save deemed window"
   },
   "options": {
     "title": "Proposal options",

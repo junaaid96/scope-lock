@@ -266,7 +266,7 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
           </div>
           <div className="mt-3">
             <Button type="button" disabled={saveDeemed.isPending} onClick={() => saveDeemed.mutate()}>
-              {t("policy.savePolicy")}
+              {t("policy.saveDeemed")}
             </Button>
           </div>
         </fieldset>

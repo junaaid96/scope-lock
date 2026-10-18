@@ -34,7 +34,7 @@ test("delivery acceptance: request on scope, decide on review link", async ({ pa
   await page.goto(`/projects/${projectId}`);
   await page.getByRole("tab", { name: "Policy" }).click();
   await page.locator("#policy-deemed-days").fill("7");
-  await page.getByRole("button", { name: "Save policy" }).nth(1).click();
+  await page.getByRole("button", { name: "Save deemed window" }).click();
   await expect(page.getByText("Thresholds saved.")).toBeVisible();
 
   // Publish a baseline, deliver one requirement, attach evidence.
