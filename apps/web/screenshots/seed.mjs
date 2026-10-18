@@ -1,3 +1,4 @@
+/* global process, console */
 // Screenshot seed step (`prescreenshots` hook): wipe + reseed the portfolio
 // workspace into screenshots-data/ BEFORE Playwright boots its web servers.
 // (Playwright starts webServer before globalSetup, so file-based seeding must
