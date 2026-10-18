@@ -41,6 +41,10 @@ All notable changes to ScopeLock are documented here. Format follows
 - AI provider seam: `AiProvider` interface with Groq and OpenAI adapters,
   ordered failover (`AI_PROVIDER` primary), and the serving provider
   recorded in the AI usage log. Deterministic fallbacks unchanged.
+- Public intake forms: revocable per-project token links with an embeddable
+  page, rate limits, honeypot, and size caps. Submissions create SUBMITTED
+  `INTAKE_FORM` changes flagged “unverified submitter” and notify the
+  project team; staff manage links from the project Intake tab.
 
 ## [0.1.0] - 2026-10-16
 

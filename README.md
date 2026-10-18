@@ -319,6 +319,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   notification and an objection window. Off by default, always visible.
 - **Review links** — login-free client decisions with immutable packages,
   selectable verdict cards, and binding-confirmation copy.
+- **Intake forms** (project → Intake, staff only) — revocable public links
+  (embeddable via iframe) that accept requests without an account.
+  Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified
+  submitter”; honeypot + rate limits blunt bots.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
 ### Screenshots

@@ -902,6 +902,23 @@ async function main(): Promise<void> {
     }
   }
 
+  // Public intake link for the labs project (resumable): submit without an
+  // account, then watch it land as an unverified SUBMITTED change.
+  let intakeUrl = "";
+  {
+    const labsId = projectIds.forgeline as string;
+    const links = await store.listIntakeLinks(labsId);
+    if (links.length === 0) {
+      const body = (await expectOk(
+        await owner.agent.post(`/api/v1/projects/${labsId}/intake-links`).send({ name: "Website request form" }),
+        "seed intake link",
+        [201],
+      )) as { url: string };
+      intakeUrl = body.url.startsWith("http") ? body.url : `${env.WEB_URL}${body.url}`;
+      console.log("seed: public intake link for Forgeline");
+    }
+  }
+
   await sweepOutbox(store);
 
   console.log("\nPortfolio seed complete.");
@@ -913,6 +930,9 @@ async function main(): Promise<void> {
     console.log(`  Pending review link (Haat, decide as the client): ${absolute}`);
   } else {
     console.log("  Pending review link (Haat): log in as tanvir@haat.test and open the inbox.");
+  }
+  if (intakeUrl) {
+    console.log(`  Public intake form (Forgeline, no login needed): ${intakeUrl}`);
   }
 }
 

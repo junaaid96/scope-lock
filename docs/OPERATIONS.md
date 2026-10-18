@@ -168,13 +168,15 @@ to disable):
 | --- | --- | --- |
 | `default` | 600/min/IP | API + signed byte endpoints |
 | `auth` | 30/min/IP | login, register, MFA, invitations |
-| `token` | 60/min/IP | public review links |
+| `token` | 60/min/IP | public review links + intake forms |
 | `ai` | 30/min/IP | AI endpoints (also plan-quota'd) |
 
 429s are logged with method/path/group only (no tokens). Review-link probing
-returns 404/410 without disclosing package existence. The in-memory limiter is
-single-process — put a shared store or edge limiter in front for multi-instance
-deployments.
+returns 404/410 without disclosing package existence. Intake forms add a
+honeypot field (fills are silently dropped and counted as `intake.honeypot`)
+and land as SUBMITTED changes flagged “unverified submitter” — never trust the
+self-declared contact. The in-memory limiter is single-process — put a shared
+store or edge limiter in front for multi-instance deployments.
 
 ## 11. Monitoring
 
