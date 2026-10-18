@@ -38,6 +38,7 @@ What is sent per capability (minimum authorized text only):
 | Proposal draft | change text + recorded impact fields (price, effort, dates, risks) |
 | Decision memory | question + last 20 decision summaries of that project |
 | Agreement comparison | the two versions' requirement texts |
+| Change import | pasted transcript/thread + source label (data-only framing; drafts need human accept) |
 
 Controls:
 

@@ -330,6 +330,9 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 - **Inbound email** (project → Intake) — unguessable per-project aliases;
   forwarded mail lands as unverified `INBOUND_EMAIL` changes with quoted
   history stripped and attachments scanned. Signed webhook + dev simulator.
+- **Import from text** (project header) — paste a call transcript or email
+  thread; AI proposes one draft change per implicit ask with source excerpts.
+  A human accepts or edits each draft; nothing is created automatically.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
 ### Screenshots

@@ -54,6 +54,10 @@ All notable changes to ScopeLock are documented here. Format follows
   Auto-replies/loops dropped, quoted history stripped, attachments scanned
   before linking; survivors land as unverified `INBOUND_EMAIL` changes.
   Dev simulator route + Intake tab UI included.
+- Transcript/thread import: AI proposes one draft change per implicit ask
+  with exact source excerpts; a human accepts or edits each into a real
+  change request. Data-only prompt framing with injection fixtures; new
+  `IMPORT` usage-log kind with review dispositions.
 
 ## [0.1.0] - 2026-10-16
 
