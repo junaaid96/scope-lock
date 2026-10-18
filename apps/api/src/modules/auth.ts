@@ -51,7 +51,12 @@ function sessionExpiry(envHours: number): Date {
   return new Date(Date.now() + envHours * 3_600_000);
 }
 
-async function startSession(ctx: AppContext, req: ApiRequest, userId: string): Promise<{ token: string; expiresAt: Date }> {
+/** Start a session for OAuth/passkey logins too (shared with password login). */
+export async function startSession(
+  ctx: AppContext,
+  req: ApiRequest,
+  userId: string,
+): Promise<{ token: string; expiresAt: Date }> {
   const token = newToken();
   const expiresAt = sessionExpiry(ctx.env.SESSION_TTL_HOURS);
   await ctx.store.createSession({

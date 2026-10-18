@@ -13,6 +13,33 @@ export interface AuditInput {
   after?: unknown;
 }
 
+/**
+ * User-level audit write (login methods, MFA): filed under the user's first
+ * org, skipped for org-less users (same convention as mfa.enabled).
+ */
+export async function auditUser(
+  store: Store,
+  userId: string,
+  actorEmail: string,
+  action: string,
+  before?: unknown,
+  after?: unknown,
+): Promise<void> {
+  const orgId = (await store.listOrganizationsForUser(userId))[0]?.id;
+  if (!orgId) return;
+  await audit(store, {
+    organizationId: orgId,
+    projectId: null,
+    actorId: userId,
+    actorEmail,
+    action,
+    targetType: "USER",
+    targetId: userId,
+    before,
+    after,
+  });
+}
+
 /** Append-only audit write. Every state transition records actor/time/before/after. */
 export async function audit(store: Store, input: AuditInput): Promise<void> {
   const ctx = getContext();

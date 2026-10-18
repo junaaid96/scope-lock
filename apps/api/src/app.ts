@@ -40,6 +40,8 @@ import { githubRoutes } from "./modules/github.js";
 import { memoryRoutes } from "./modules/memory.js";
 import { actualsRoutes } from "./modules/actuals.js";
 import { templateRoutes } from "./modules/templates.js";
+import { oauthRoutes } from "./modules/oauth.js";
+import { passkeyRoutes } from "./modules/passkeys.js";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
@@ -123,6 +125,8 @@ export function createApp(ctx: AppContext): Express {
   v1.use(memoryRoutes(ctx));
   v1.use(actualsRoutes(ctx));
   v1.use(templateRoutes(ctx));
+  v1.use(oauthRoutes(ctx));
+  v1.use(passkeyRoutes(ctx));
   app.use("/api/v1", v1);
 
   app.use((_req, res) => sendError(res, 404, "NOT_FOUND", "Not found"));
