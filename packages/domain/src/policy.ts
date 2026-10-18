@@ -39,6 +39,8 @@ export type Action =
   | "external.manage"
   | "ratecard.view"
   | "ratecard.manage"
+  | "allowance.manage"
+  | "allowance.object"
   | "notifications.view";
 
 export interface AccessContext {
@@ -87,6 +89,12 @@ export function can(ctx: AccessContext, action: Action): boolean {
     case "ratecard.view":
       // Org commercial data: agency staff only, never client org roles.
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN" || ctx.orgRole === "MEMBER";
+    case "allowance.manage":
+      // Per-project commercial control: agency leads (operators included).
+      return isOrgOperator(ctx) || ctx.projectRole === "LEAD";
+    case "allowance.object":
+      // The client's check on draw-downs: client approvers only.
+      return ctx.projectRole === "CLIENT_ADMIN" || ctx.projectRole === "CLIENT_APPROVER";
     case "project.view":
     case "scope.view":
     case "activity.view":

@@ -4,3 +4,4 @@ export * from "./scope-changes.js";
 export * from "./workflows.js";
 export * from "./ledger.js";
 export * from "./pricing.js";
+export * from "./allowance.js";

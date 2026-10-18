@@ -140,6 +140,8 @@ export const SendApprovalSchema = z.object({
   approverEmails: z.array(z.string().email()).max(10).default([]),
   expiresAt: IsoDateSchema,
   title: z.string().max(200).optional(),
+  /** Allowance pool this change draws from when approved. Absent keeps the current link. */
+  allowancePoolId: IdSchema.nullable().optional(),
 });
 export const DecideApprovalSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED", "CHANGES_REQUESTED"]),

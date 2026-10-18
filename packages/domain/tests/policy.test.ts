@@ -4,6 +4,7 @@ import { can, type AccessContext } from "../src/policy.js";
 const lead: AccessContext = { orgRole: "MEMBER", projectRole: "LEAD" };
 const admin: AccessContext = { orgRole: "ADMIN", projectRole: null };
 const clientApprover: AccessContext = { orgRole: "CLIENT", projectRole: "CLIENT_APPROVER" };
+const clientAdmin: AccessContext = { orgRole: "CLIENT", projectRole: "CLIENT_ADMIN" };
 const clientViewer: AccessContext = { orgRole: "CLIENT", projectRole: "CLIENT_VIEWER" };
 const outsider: AccessContext = { orgRole: "MEMBER", projectRole: null };
 
@@ -43,6 +44,18 @@ describe("policy", () => {
 
   it("denies everything without an org role", () => {
     expect(can({ orgRole: null, projectRole: "LEAD" }, "project.view")).toBe(false);
+  });
+
+  it("lets agency leads manage allowances and client approvers object", () => {
+    expect(can({ orgRole: "MEMBER", projectRole: "LEAD" }, "allowance.manage")).toBe(true);
+    expect(can({ orgRole: "OWNER", projectRole: null }, "allowance.manage")).toBe(true);
+    expect(can({ orgRole: "MEMBER", projectRole: "MEMBER" }, "allowance.manage")).toBe(false);
+    expect(can(clientApprover, "allowance.manage")).toBe(false);
+    expect(can(clientApprover, "allowance.object")).toBe(true);
+    expect(can(clientAdmin, "allowance.object")).toBe(true);
+    expect(can(clientViewer, "allowance.object")).toBe(false);
+    expect(can({ orgRole: "MEMBER", projectRole: "LEAD" }, "allowance.object")).toBe(false);
+    expect(can({ orgRole: "OWNER", projectRole: null }, "allowance.object")).toBe(false);
   });
 
   it("keeps rate cards with agency staff and management with admins", () => {
