@@ -40,6 +40,8 @@ export const ACTIONS = [
   "external.manage",
   "ratecard.view",
   "ratecard.manage",
+  "template.view",
+  "template.manage",
   "allowance.manage",
   "allowance.object",
   "intake.manage",
@@ -90,8 +92,10 @@ export function can(ctx: AccessContext, action: Action): boolean {
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN" || ctx.orgRole === "MEMBER";
     case "org.usage.view":
     case "ratecard.manage":
+    case "template.manage":
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN";
     case "ratecard.view":
+    case "template.view":
       // Org commercial data: agency staff only, never client org roles.
       return ctx.orgRole === "OWNER" || ctx.orgRole === "ADMIN" || ctx.orgRole === "MEMBER";
     case "allowance.manage":

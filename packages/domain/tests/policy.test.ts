@@ -79,6 +79,10 @@ describe("policy", () => {
     expect(can({ orgRole: "MEMBER", projectRole: null }, "ratecard.manage")).toBe(false);
     expect(can({ orgRole: "MEMBER", projectRole: null }, "ratecard.view")).toBe(true);
     expect(can(clientApprover, "ratecard.view")).toBe(false);
+    expect(can({ orgRole: "OWNER", projectRole: null }, "template.manage")).toBe(true);
+    expect(can({ orgRole: "MEMBER", projectRole: null }, "template.manage")).toBe(false);
+    expect(can({ orgRole: "MEMBER", projectRole: null }, "template.view")).toBe(true);
+    expect(can(clientApprover, "template.view")).toBe(false);
     expect(can(clientViewer, "ratecard.manage")).toBe(false);
     expect(can({ orgRole: null, projectRole: null }, "ratecard.view")).toBe(false);
   });
