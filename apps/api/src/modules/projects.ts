@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { AddProjectMemberSchema, CreateProjectSchema, ListQuerySchema, UpdateProjectMemberSchema, UpdateProjectSchema } from "@scopelock/contracts";
-import { DomainError, ProjectTransitions, assertTransition } from "@scopelock/domain";
+import { DomainError, ProjectTransitions, assertTransition, resolvePolicyMode } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { publicUser } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
@@ -64,6 +64,9 @@ export function projectRoutes(ctx: AppContext): Router {
       const client = await ctx.store.findClientById(input.clientId);
       if (!client || client.deletedAt || client.organizationId !== org.id) throw DomainError.notFound("Client not found");
       await assertProjectQuota(ctx.store, org.id, org.plan);
+      if (input.settings?.approvalPolicies) {
+        resolvePolicyMode(input.settings.approvalPolicies, null);
+      }
       const project = await ctx.store.transaction(async (tx) => {
         const created = await tx.createProject({
           organizationId: org.id,
@@ -76,6 +79,7 @@ export function projectRoutes(ctx: AppContext): Router {
           settings: {
             aiEnabled: input.settings?.aiEnabled ?? true,
             reminderHoursBeforeExpiry: input.settings?.reminderHoursBeforeExpiry ?? [48, 24],
+            approvalPolicies: input.settings?.approvalPolicies ?? [],
           },
         });
         await tx.upsertProjectMember(created.id, auth.user.id, "LEAD");
@@ -138,6 +142,10 @@ export function projectRoutes(ctx: AppContext): Router {
       if (input.status && input.status !== access.project.status) {
         assertTransition(ProjectTransitions, access.project.status, input.status, "project");
       }
+      if (input.settings?.approvalPolicies) {
+        // Validates ascending ceilings (throws 422); price resolves at send time.
+        resolvePolicyMode(input.settings.approvalPolicies, null);
+      }
       const updated = await ctx.store.updateProject(access.project.id, {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
@@ -152,6 +160,8 @@ export function projectRoutes(ctx: AppContext): Router {
                 aiEnabled: input.settings.aiEnabled ?? access.project.settings.aiEnabled,
                 reminderHoursBeforeExpiry:
                   input.settings.reminderHoursBeforeExpiry ?? access.project.settings.reminderHoursBeforeExpiry,
+                approvalPolicies:
+                  input.settings.approvalPolicies ?? access.project.settings.approvalPolicies ?? [],
               },
             }
           : {}),

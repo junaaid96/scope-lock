@@ -26,7 +26,7 @@ import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import { notify } from "../lib/notify.js";
 import { nowIso, type AllowanceDrawDown, type AllowancePool, type ReviewPackageSnapshot, type Store } from "../store/index.js";
-import { notifyApprovalRequested, resolveApprovers } from "./approvals.js";
+import { notifyApprovalRequested, resolveApprovers, resolveSendPolicy } from "./approvals.js";
 
 interface PoolView extends AllowancePool {
   balance: ReturnType<typeof poolBalance>;
@@ -230,6 +230,14 @@ export function allowanceRoutes(ctx: AppContext): Router {
       if (input.title) pkg.title = input.title;
       const checksum = checksumOf(pkg);
       const tokens = approvers.map(() => newToken());
+      const grantProject = await ctx.store.findProjectById(pool.projectId);
+      if (!grantProject) throw DomainError.notFound("Project not found");
+      const grantPolicy = resolveSendPolicy({
+        settings: grantProject.settings,
+        priceMinor: pool.kind === "AMOUNT" ? (pool.totalMinor ?? null) : null,
+        overrideMode: input.policyMode,
+        approvers,
+      });
       const approval = await ctx.store.transaction(async (tx) => {
         const created = await tx.createApproval({
           projectId: pool.projectId,
@@ -241,6 +249,7 @@ export function allowanceRoutes(ctx: AppContext): Router {
           checksum,
           status: "SENT",
           approverUserIds: approvers.filter((a) => a.userId).map((a) => a.userId as string),
+          policy: grantPolicy,
           expiresAt: input.expiresAt,
           sentAt: nowIso(),
           sentBy: auth.user.id,
@@ -276,7 +285,7 @@ export function allowanceRoutes(ctx: AppContext): Router {
         action: "approval.sent",
         targetType: "APPROVAL",
         targetId: approval.id,
-        after: { allowancePoolId: pool.id, checksum },
+        after: { allowancePoolId: pool.id, checksum, policy: grantPolicy.mode },
       });
       await notifyApprovalRequested(ctx, {
         orgId: access.org.id,

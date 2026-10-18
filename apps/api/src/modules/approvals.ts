@@ -6,13 +6,20 @@ import {
   BundleTransitions,
   ChangeTransitions,
   DomainError,
+  aggregatePolicy,
   assertTransition,
   checksumOf,
+  currentTurn,
   drawAmountFor,
   drawBlocker,
   newToken,
   objectionDeadline,
+  resolvePolicyMode,
   sha256Hex,
+  type ApprovalPolicy,
+  type PolicyMode,
+  type PolicyOutcome,
+  type PolicyVote,
 } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
@@ -27,9 +34,12 @@ import { getContext } from "../context.js";
 import { audit } from "../lib/audit.js";
 import { notify } from "../lib/notify.js";
 import type {
+  ApprovalDecision,
   ApprovalRequest,
+  ApprovalToken,
   Bundle,
   ChangeRequest,
+  ProjectSettings,
   ReviewPackageSnapshot,
   Store,
 } from "../store/index.js";
@@ -158,6 +168,72 @@ async function buildBundlePackage(store: Store, bundle: Bundle): Promise<ReviewP
   };
 }
 
+/** Canonical approver identity: user id when known, else lowercased email. */
+export function approverKey(userId: string | null, email: string | null): string {
+  return userId ?? (email ?? "").toLowerCase();
+}
+
+export function decisionVote(d: ApprovalDecision): PolicyVote {
+  return { tokenId: d.tokenId, approverKey: approverKey(d.approverUserId, d.approverEmail), decision: d.decision };
+}
+
+/**
+ * Legacy file-store rows predate the policy column (the Prisma migration
+ * backfills ANY at the DB). Defaulting to ANY here preserves their
+ * first-decision-wins behavior instead of crashing on decide/review.
+ */
+export function policyOf(approval: Pick<ApprovalRequest, "policy">): ApprovalPolicy {
+  return approval.policy ?? { mode: "ANY", approverOrder: [] };
+}
+
+export interface PolicyStateView {
+  outcome: PolicyOutcome;
+  yourTurn: boolean;
+  yourDecision: PolicyVote["decision"] | null;
+  approvers: Array<{ approverKey: string; email: string | null; decision: PolicyVote["decision"] | null; turn: boolean }>;
+}
+
+/** Per-approver read model for the review page: who has voted, whose turn, yours. */
+export function policyStateFor(
+  approval: Pick<ApprovalRequest, "policy">,
+  tokens: Array<Pick<ApprovalToken, "approverUserId" | "approverEmail">>,
+  decisions: ApprovalDecision[],
+  viewerKey: string,
+): PolicyStateView {
+  const keys = tokens.map((t) => approverKey(t.approverUserId, t.approverEmail ?? ""));
+  const votes = decisions.map(decisionVote);
+  const policy = policyOf(approval);
+  const outcome = aggregatePolicy(policy, keys, votes);
+  const turn = currentTurn(policy, keys, votes);
+  const voted = new Map(votes.map((v) => [v.approverKey, v.decision]));
+  return {
+    outcome,
+    yourTurn: turn === null || turn === viewerKey,
+    yourDecision: voted.get(viewerKey) ?? null,
+    approvers: tokens.map((t) => {
+      const key = approverKey(t.approverUserId, t.approverEmail ?? "");
+      return { approverKey: key, email: t.approverEmail, decision: voted.get(key) ?? null, turn: turn === key };
+    }),
+  };
+}
+
+/**
+ * Policy attached at send time: explicit override wins, else the project's
+ * amount thresholds against the priced impact, else ANY (first-decision-wins,
+ * preserving historical behavior for single-approver packages).
+ */
+export function resolveSendPolicy(args: {
+  settings: ProjectSettings;
+  priceMinor: number | null;
+  overrideMode?: PolicyMode;
+  approvers: Array<{ userId: string | null; email: string }>;
+}): { mode: PolicyMode; approverOrder: string[] } {
+  const rules = args.settings.approvalPolicies ?? [];
+  const mode = args.overrideMode ?? (rules.length > 0 ? resolvePolicyMode(rules, args.priceMinor) : "ANY");
+  const keys = args.approvers.map((a) => approverKey(a.userId, a.email));
+  return { mode, approverOrder: mode === "SEQUENTIAL" ? keys : [] };
+}
+
 export async function resolveApprovers(
   store: Store,
   projectId: string,
@@ -230,6 +306,15 @@ export function approvalRoutes(ctx: AppContext): Router {
     pkg.title = input.title ?? `${change.number}: ${change.title}`;
     const checksum = checksumOf(pkg);
     const tokens = approvers.map(() => newToken());
+    const project = await ctx.store.findProjectById(change.projectId);
+    if (!project) throw DomainError.notFound("Project not found");
+    const sendImpact = await ctx.store.findLatestImpact(change.id);
+    const policy = resolveSendPolicy({
+      settings: project.settings,
+      priceMinor: sendImpact?.priceMinor ?? null,
+      overrideMode: input.policyMode,
+      approvers,
+    });
     const approval = await ctx.store.transaction(async (tx) => {
       const created = await tx.createApproval({
         projectId: change.projectId,
@@ -241,6 +326,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         checksum,
         status: "SENT",
         approverUserIds: approvers.filter((a) => a.userId).map((a) => a.userId as string),
+        policy,
         expiresAt: input.expiresAt,
         sentAt: nowIso(),
         sentBy: auth.user.id,
@@ -282,7 +368,7 @@ export function approvalRoutes(ctx: AppContext): Router {
       action: "approval.sent",
       targetType: "APPROVAL",
       targetId: approval.id,
-      after: { changeId: change.id, checksum, approvers: approvers.map((a) => a.email) },
+      after: { changeId: change.id, checksum, approvers: approvers.map((a) => a.email), policy: policy.mode },
     });
     await ctx.store.recordMetric({
       organizationId: access.org.id,
@@ -344,6 +430,17 @@ export function approvalRoutes(ctx: AppContext): Router {
       pkg.title = input.title ?? `Bundle: ${bundle.name}`;
       const checksum = checksumOf(pkg);
       const tokens = approvers.map(() => newToken());
+      const bundleProject = await ctx.store.findProjectById(bundle.projectId);
+      if (!bundleProject) throw DomainError.notFound("Project not found");
+      const bundleMembers = await ctx.store.listChanges(bundle.projectId, { bundleId: bundle.id });
+      const bundlePrices = await Promise.all(bundleMembers.map((m) => ctx.store.findLatestImpact(m.id)));
+      const priced = bundlePrices.map((i) => i?.priceMinor ?? null).filter((p): p is number => p !== null);
+      const bundlePolicy = resolveSendPolicy({
+        settings: bundleProject.settings,
+        priceMinor: priced.length > 0 ? priced.reduce((a, b) => a + b, 0) : null,
+        overrideMode: input.policyMode,
+        approvers,
+      });
       const approval = await ctx.store.transaction(async (tx) => {
         const created = await tx.createApproval({
           projectId: bundle.projectId,
@@ -355,6 +452,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           checksum,
           status: "SENT",
           approverUserIds: approvers.filter((a) => a.userId).map((a) => a.userId as string),
+          policy: bundlePolicy,
           expiresAt: input.expiresAt,
           sentAt: nowIso(),
           sentBy: auth.user.id,
@@ -391,7 +489,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         action: "approval.sent",
         targetType: "APPROVAL",
         targetId: approval.id,
-        after: { bundleId: bundle.id, checksum },
+        after: { bundleId: bundle.id, checksum, policy: bundlePolicy.mode },
       });
       res.status(201).json({
         approval,
@@ -520,6 +618,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           res.json({
             ...byId,
             decisions,
+            policyState: policyStateFor(byId, tokens, decisions, approverKey(auth.user.id, auth.user.email)),
             tokens: tokens.map((t) => ({
               id: t.id,
               approverEmail: t.approverEmail,
@@ -551,12 +650,15 @@ export function approvalRoutes(ctx: AppContext): Router {
         correlationId: ctxInfo?.correlationId ?? "no-correlation",
         ip: ctxInfo?.ip ?? req.ip ?? null,
       });
+      const tokens = await ctx.store.listApprovalTokens(approval.id);
       res.json({
         status: approval.status,
         title: approval.title,
         package: approval.package,
         checksum: approval.checksum,
         expiresAt: approval.expiresAt,
+        policy: policyOf(approval),
+        policyState: policyStateFor(approval, tokens, decisions, approverKey(token.approverUserId, token.approverEmail ?? "")),
         decisions: decisions.map((d) => ({
           decision: d.decision,
           comment: d.comment,
@@ -683,9 +785,28 @@ export async function notifyApprovalRequested(
   }
 }
 
+/** Pre-decision guards, checked before and inside the transaction (races re-verify). */
+function assertDecideAllowed(
+  approval: ApprovalRequest,
+  approverKeys: string[],
+  prior: ApprovalDecision[],
+  key: string,
+): void {
+  if (!approverKeys.includes(key)) {
+    throw DomainError.forbidden("You are not an approver of this package");
+  }
+  if (prior.some((d) => decisionVote(d).approverKey === key)) {
+    throw DomainError.conflict("You have already decided on this package");
+  }
+  const turn = currentTurn(policyOf(approval), approverKeys, prior.map(decisionVote));
+  if (turn !== null && turn !== key) {
+    throw DomainError.conflict("It is not your turn yet — approvers decide in order");
+  }
+}
+
 async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: DecideInput): Promise<unknown> {
   if (approval.status !== "SENT") {
-    throw DomainError.conflict(`This package is ${approval.status}; first decision already recorded`, {
+    throw DomainError.conflict(`This package is ${approval.status} and can no longer be decided`, {
       status: approval.status,
     });
   }
@@ -698,8 +819,12 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
   const ctxInfo = getContext();
   const project = await ctx.store.findProjectById(approval.projectId);
   if (!project) throw DomainError.notFound("Project not found");
+  const key = approverKey(args.approverUserId, args.approverEmail);
+  const tokens = await ctx.store.listApprovalTokens(approval.id);
+  const approverKeys = tokens.map((t) => approverKey(t.approverUserId, t.approverEmail ?? ""));
+  assertDecideAllowed(approval, approverKeys, await ctx.store.listDecisions(approval.id), key);
 
-  const decision = await ctx.store.transaction(async (tx) => {
+  const result = await ctx.store.transaction(async (tx) => {
     const fresh = await tx.findApprovalById(approval.id);
     if (!fresh || fresh.status !== "SENT") {
       throw DomainError.conflict("This package was just decided or withdrawn. Refresh to see its status.");
@@ -708,6 +833,8 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     if (checksumOf(fresh.package) !== fresh.checksum) {
       throw DomainError.conflict("This package changed after it was sent and must be re-sent before deciding");
     }
+    const prior = await tx.listDecisions(fresh.id);
+    assertDecideAllowed(fresh, approverKeys, prior, key);
     const created = await tx.createDecision({
       approvalRequestId: fresh.id,
       approverUserId: args.approverUserId,
@@ -719,6 +846,29 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       ip: ctxInfo?.ip ?? args.req.ip ?? null,
       userAgent: args.req.headers["user-agent"]?.slice(0, 300) ?? null,
     });
+    const outcome: PolicyOutcome = aggregatePolicy(policyOf(fresh), approverKeys, [...prior.map(decisionVote), decisionVote(created)]);
+    await tx.appendAuditEvent({
+      organizationId: project.organizationId,
+      projectId: project.id,
+      actorId: args.approverUserId,
+      actorEmail: args.approverEmail,
+      action: "approval.decided",
+      targetType: "APPROVAL",
+      targetId: fresh.id,
+      before: { status: "SENT" },
+      after: {
+        status: outcome.state === "PENDING" ? "SENT" : "DECIDED",
+        decision: args.input.decision,
+        outcome: outcome.state,
+        checksum: fresh.checksum,
+      },
+      correlationId: ctxInfo?.correlationId ?? "no-correlation",
+      ip: ctxInfo?.ip ?? args.req.ip ?? null,
+    });
+    // Partial outcomes record the vote and stop: side effects apply exactly
+    // once, when the policy reaches a terminal state.
+    if (outcome.state === "PENDING") return { created, outcome };
+    const terminal = outcome.state;
     assertTransition(ApprovalTransitions, fresh.status, "DECIDED", "approval");
     await tx.updateApproval(fresh.id, { status: "DECIDED", version: fresh.version + 1 });
     const now = nowIso();
@@ -732,10 +882,10 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       const members = await tx.listChanges(fresh.projectId, { bundleId: fresh.bundleId });
       targetChanges.push(...members);
       if (bundle) {
-        if (args.input.decision === "APPROVED") {
+        if (terminal === "APPROVED") {
           assertTransition(BundleTransitions, bundle.status, "APPROVED", "bundle");
           await tx.updateBundle(bundle.id, { status: "APPROVED" });
-        } else if (args.input.decision === "REJECTED") {
+        } else if (terminal === "REJECTED") {
           assertTransition(BundleTransitions, bundle.status, "REJECTED", "bundle");
           await tx.updateBundle(bundle.id, { status: "REJECTED" });
         } else {
@@ -745,7 +895,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     }
     // A blocked request cannot be marked approved: re-verify DEPENDS_ON
     // prerequisites at decision time (they may have regressed since send).
-    if (args.input.decision === "APPROVED") {
+    if (terminal === "APPROVED") {
       for (const change of targetChanges) {
         const depBlockers = await getDependencyBlockers(tx, change);
         if (depBlockers.length > 0) {
@@ -756,7 +906,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         }
       }
     }
-    const nextStatus = args.input.decision === "APPROVED" ? "APPROVED" : args.input.decision === "REJECTED" ? "REJECTED" : "NEEDS_CLARIFICATION";
+    const nextStatus = terminal === "APPROVED" ? "APPROVED" : terminal === "REJECTED" ? "REJECTED" : "NEEDS_CLARIFICATION";
     for (const change of targetChanges) {
       assertTransition(ChangeTransitions, change.status, nextStatus, "change");
       await tx.updateChange(change.id, {
@@ -768,29 +918,16 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         organizationId: project.organizationId,
         projectId: project.id,
         name: "change.decided",
-        properties: { number: change.number, decision: args.input.decision },
+        properties: { number: change.number, decision: terminal },
         actorId: args.approverUserId,
       });
     }
-    await tx.appendAuditEvent({
-      organizationId: project.organizationId,
-      projectId: project.id,
-      actorId: args.approverUserId,
-      actorEmail: args.approverEmail,
-      action: "approval.decided",
-      targetType: "APPROVAL",
-      targetId: fresh.id,
-      before: { status: "SENT" },
-      after: { status: "DECIDED", decision: args.input.decision, checksum: fresh.checksum },
-      correlationId: ctxInfo?.correlationId ?? "no-correlation",
-      ip: ctxInfo?.ip ?? args.req.ip ?? null,
-    });
     // Allowance grant decisions activate the pool itself — the grant IS the
     // client-approved decision, so draw-downs never become auto-approval.
     if (fresh.allowancePoolId) {
       const pool = await tx.findAllowancePoolById(fresh.allowancePoolId);
       if (!pool || pool.projectId !== approval.projectId) throw DomainError.notFound("Allowance pool not found");
-      if (args.input.decision === "APPROVED") {
+      if (terminal === "APPROVED") {
         if (pool.status !== "PROPOSED") throw DomainError.conflict("This allowance pool is no longer awaiting a grant decision");
         await tx.updateAllowancePool(pool.id, { status: "ACTIVE", grantDecisionId: created.id });
         await tx.appendAuditEvent({
@@ -811,7 +948,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     // Approved changes with a linked pool draw down in the same transaction.
     // Direct change approvals only: bundle approvals ignore draw links. The
     // touch serializes concurrent decisions so two approvals cannot overdraw.
-    if (args.input.decision === "APPROVED" && fresh.changeRequestId) {
+    if (terminal === "APPROVED" && fresh.changeRequestId) {
       const change = targetChanges.find((c) => c.id === fresh.changeRequestId);
       if (change?.drawAllowancePoolId) {
         const pool = await tx.findAllowancePoolById(change.drawAllowancePoolId);
@@ -871,10 +1008,29 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         }
       }
     }
-    return created;
+    return { created, outcome };
   });
 
-  // Notify the agency team of the decision.
+  if (result.outcome.state === "PENDING") {
+    // Sequential runs nudge whoever is up next; other partial votes stay
+    // quiet until the policy resolves, so approvers are not spammed.
+    const next = currentTurn(policyOf(approval), approverKeys, [...(await ctx.store.listDecisions(approval.id)).map(decisionVote)]);
+    const nextToken = next ? tokens.find((t) => approverKey(t.approverUserId, t.approverEmail ?? "") === next) : undefined;
+    if (nextToken) {
+      await notifyApprovalRequested(ctx, {
+        orgId: project.organizationId,
+        projectId: project.id,
+        approvalId: approval.id,
+        title: approval.title ?? "review package",
+        expiresAt: approval.expiresAt ?? nowIso(),
+        approvers: [{ userId: nextToken.approverUserId, email: nextToken.approverEmail ?? "" }],
+      });
+    }
+    return { ...result.created, outcome: result.outcome };
+  }
+
+  // Notify the agency team of the terminal decision.
+  const terminalState = result.outcome.state;
   const members = await ctx.store.listProjectMembers(project.id);
   for (const m of members) {
     if (m.userId === args.approverUserId) continue;
@@ -886,15 +1042,15 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       projectId: project.id,
       organizationId: project.organizationId,
       type: "APPROVAL_DECIDED",
-      title: `Decision on ${approval.title ?? "review package"}: ${args.input.decision}`,
-      body: args.input.comment ?? `The client decided: ${args.input.decision}.`,
+      title: `Decision on ${approval.title ?? "review package"}: ${terminalState}`,
+      body: args.input.comment ?? `The client decided: ${terminalState}.`,
       link: approval.changeRequestId ? `/projects/${project.id}/changes/${approval.changeRequestId}` : `/projects/${project.id}`,
       email: {
         to: user.email,
-        subject: `Decision: ${args.input.decision} — ${approval.title ?? ""}`,
-        text: `Decision: ${args.input.decision}${args.input.comment ? `\n\nComment: ${args.input.comment}` : ""}`,
+        subject: `Decision: ${terminalState} — ${approval.title ?? ""}`,
+        text: `Decision: ${terminalState}${args.input.comment ? `\n\nComment: ${args.input.comment}` : ""}`,
       },
     });
   }
-  return decision;
+  return { ...result.created, outcome: result.outcome };
 }
