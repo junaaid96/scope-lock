@@ -33,7 +33,7 @@ export const UpdateDraftVersionSchema = z.object({
 export const PublishVersionSchema = z.object({ expectedVersion: z.number().int().min(0) });
 
 // ---------- Requirements ----------
-const RequirementContentSchema = z.object({
+export const RequirementContentSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(8000),
   acceptanceCriteria: z.array(z.string().min(1).max(1000)).max(50).default([]),

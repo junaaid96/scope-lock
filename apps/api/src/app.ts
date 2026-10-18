@@ -39,6 +39,7 @@ import { externalRoutes } from "./modules/external.js";
 import { githubRoutes } from "./modules/github.js";
 import { memoryRoutes } from "./modules/memory.js";
 import { actualsRoutes } from "./modules/actuals.js";
+import { templateRoutes } from "./modules/templates.js";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
@@ -121,6 +122,7 @@ export function createApp(ctx: AppContext): Express {
   v1.use(githubRoutes(ctx));
   v1.use(memoryRoutes(ctx));
   v1.use(actualsRoutes(ctx));
+  v1.use(templateRoutes(ctx));
   app.use("/api/v1", v1);
 
   app.use((_req, res) => sendError(res, 404, "NOT_FOUND", "Not found"));
