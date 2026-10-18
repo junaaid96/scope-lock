@@ -264,6 +264,13 @@ export function ReviewPage(): JSX.Element {
           </ul>
         )}
       </Card>
+      {(r.status === "SENT" || r.status === "DECIDED") ? (
+        <p className="mt-4 text-center text-sm">
+          <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${token}/pdf`} download>
+            Download change order (PDF)
+          </a>
+        </p>
+      ) : null}
       <p className="mt-4 text-center text-xs text-slate-600">
         You are deciding on exactly the package above (checksum {r.checksum.slice(0, 12)}…). Recorded decisions are final.
       </p>

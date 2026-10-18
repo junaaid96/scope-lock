@@ -233,6 +233,13 @@ export function ChangePage(): JSX.Element {
                   <span className="text-xs text-slate-500">expires {formatDate(a.expiresAt)}</span>
                   {a.invalidatedReason ? <p className="text-xs text-red-700">Invalidated: {a.invalidatedReason}</p> : null}
                   {a.chosenOptionId ? <p className="text-xs text-teal-800">Chose option “{(a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?"}”</p> : null}
+                  {(a.status === "SENT" || a.status === "DECIDED") ? (
+                    <p className="text-xs">
+                      <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${a.id}/pdf`} download>
+                        Change order (PDF)
+                      </a>
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>
