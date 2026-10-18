@@ -9,3 +9,4 @@ export * from "./invoice.js";
 export * from "./intake.js";
 export * from "./inbound.js";
 export * from "./audit.js";
+export * from "./integrations.js";

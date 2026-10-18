@@ -1,49 +1,52 @@
 import type { OrgRole, ProjectRole } from "./enums.js";
 
 /** All protected actions in the system. Every API mutation checks one of these. */
-export type Action =
-  | "org.view"
-  | "org.manage"
-  | "org.invite"
-  | "org.members.manage"
-  | "org.usage.view"
-  | "org.branding.manage"
-  | "client.manage"
-  | "project.create"
-  | "project.view"
-  | "project.manage"
-  | "project.members.manage"
-  | "scope.view"
-  | "scope.draft"
-  | "scope.publish"
-  | "requirement.status"
-  | "change.submit"
-  | "acceptance.send"
-  | "change.triage"
-  | "change.estimate"
-  | "change.send"
-  | "change.implement"
-  | "change.convert"
-  | "approval.view"
-  | "approval.decide"
-  | "bundle.manage"
-  | "note.create"
-  | "evidence.attach"
-  | "evidence.verify"
-  | "file.upload"
-  | "file.download"
-  | "ai.use"
-  | "ai.review"
-  | "activity.view"
-  | "health.view"
-  | "export.read"
-  | "external.manage"
-  | "ratecard.view"
-  | "ratecard.manage"
-  | "allowance.manage"
-  | "allowance.object"
-  | "intake.manage"
-  | "notifications.view";
+export const ACTIONS = [
+  "org.view",
+  "org.manage",
+  "org.invite",
+  "org.members.manage",
+  "org.usage.view",
+  "org.branding.manage",
+  "client.manage",
+  "project.create",
+  "project.view",
+  "project.manage",
+  "project.members.manage",
+  "scope.view",
+  "scope.draft",
+  "scope.publish",
+  "requirement.status",
+  "change.submit",
+  "acceptance.send",
+  "change.triage",
+  "change.estimate",
+  "change.send",
+  "change.implement",
+  "change.convert",
+  "approval.view",
+  "approval.decide",
+  "bundle.manage",
+  "note.create",
+  "evidence.attach",
+  "evidence.verify",
+  "file.upload",
+  "file.download",
+  "ai.use",
+  "ai.review",
+  "activity.view",
+  "health.view",
+  "export.read",
+  "external.manage",
+  "ratecard.view",
+  "ratecard.manage",
+  "allowance.manage",
+  "allowance.object",
+  "intake.manage",
+  "notifications.view",
+] as const;
+
+export type Action = (typeof ACTIONS)[number];
 
 export interface AccessContext {
   orgRole: OrgRole | null;
