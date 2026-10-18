@@ -19,6 +19,7 @@ import type {
   EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
+  IntakeLink,
   Invitation,
   ListQuery,
   Membership,
@@ -214,6 +215,13 @@ export interface Store {
   updateApprovalToken(id: string, patch: Partial<ApprovalToken>): Promise<ApprovalToken>;
   createDecision(data: Omit<ApprovalDecision, "id" | "createdAt">): Promise<ApprovalDecision>;
   listDecisions(approvalRequestId: string): Promise<ApprovalDecision[]>;
+
+  // ----- Intake links -----
+  createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink>;
+  findIntakeLinkByHash(tokenHash: string): Promise<IntakeLink | null>;
+  findIntakeLinkById(id: string): Promise<IntakeLink | null>;
+  listIntakeLinks(projectId: string): Promise<IntakeLink[]>;
+  updateIntakeLink(id: string, patch: Partial<IntakeLink>): Promise<IntakeLink>;
 
   // ----- Files / evidence -----
   createAttachment(data: Omit<Attachment, "id" | "createdAt" | "completedAt">): Promise<Attachment>;

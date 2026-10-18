@@ -182,6 +182,7 @@ model User {
   notifications    Notification[]
   approvalDecisions ApprovalDecision[]
   aiAnalyses       AIAnalysis[]
+  intakeLinks      IntakeLink[]
   attachments      Attachment[]
   evidenceAuthored DeliveryEvidence[] @relation("EvidenceAuthor")
   evidenceVerified DeliveryEvidence[] @relation("EvidenceVerifier")
@@ -317,6 +318,7 @@ model Project {
   externalLinks  ExternalLink[]
   metricEvents   MetricEvent[]
   allowancePools AllowancePool[]
+  intakeLinks    IntakeLink[]
   changeCounter  Int @default(0)
   requirementCounter Int @default(0)
 
@@ -423,7 +425,10 @@ model ChangeRequest {
   status                  ChangeStatus          @default(DRAFT)
   classification          ChangeClassification?
   classificationRationale String?
-  submitterId             String
+  submitterId             String?
+  submitterName           String?
+  submitterEmail          String?
+  unverifiedSubmitter     Boolean               @default(false)
   bundleId                String?
   drawAllowancePoolId     String?
   version                 Int                   @default(0)
@@ -675,6 +680,24 @@ model ApprovalToken {
   createdAt         DateTime @default(now())
 
   approval ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+}
+
+model IntakeLink {
+  id          String    @id
+  projectId   String
+  name        String
+  tokenHash   String    @unique
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  submissions Int       @default(0)
+  createdBy   String
+  createdAt   DateTime  @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
 }
 
 model ApprovalDecision {

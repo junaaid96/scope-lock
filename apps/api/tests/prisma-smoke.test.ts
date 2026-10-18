@@ -58,6 +58,9 @@ describe("prisma postgres smoke", () => {
         classification: null,
         classificationRationale: null,
         submitterId: user.id,
+        submitterName: null,
+        submitterEmail: null,
+        unverifiedSubmitter: false,
         bundleId: null,
         amendmentVersionId: null,
         drawAllowancePoolId: null,
@@ -193,6 +196,19 @@ describe("prisma postgres smoke", () => {
         createdBy: user.id,
       });
       expect((await store.findAIAnalysisById(analysis.id))?.provider).toBe("openai");
+      // Intake links from migration 0007.
+      const intake = await store.createIntakeLink({
+        projectId: project.id,
+        name: "Smoke form",
+        tokenHash: "hash-smoke-intake",
+        expiresAt: null,
+        createdBy: user.id,
+      });
+      expect((await store.findIntakeLinkByHash("hash-smoke-intake"))?.id).toBe(intake.id);
+      expect(await store.listIntakeLinks(project.id)).toHaveLength(1);
+      const revoked = await store.updateIntakeLink(intake.id, { revokedAt: new Date().toISOString(), submissions: 3 });
+      expect(revoked.submissions).toBe(3);
+      expect(revoked.revokedAt).not.toBeNull();
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {

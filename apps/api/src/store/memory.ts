@@ -21,6 +21,7 @@ import type {
   EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
+  IntakeLink,
   Invitation,
   ListQuery,
   Membership,
@@ -70,6 +71,7 @@ type Tables = {
   approvals: Map<string, ApprovalRequest>;
   approvalTokens: Map<string, ApprovalToken>;
   decisions: Map<string, ApprovalDecision>;
+  intakeLinks: Map<string, IntakeLink>;
   attachments: Map<string, Attachment>;
   evidence: Map<string, DeliveryEvidence>;
   decisionNotes: Map<string, DecisionNote>;
@@ -110,6 +112,7 @@ function emptyTables(): Tables {
     approvals: new Map(),
     approvalTokens: new Map(),
     decisions: new Map(),
+    intakeLinks: new Map(),
     attachments: new Map(),
     evidence: new Map(),
     decisionNotes: new Map(),
@@ -1018,6 +1021,35 @@ export class MemoryStore implements Store {
     if (!existing) throw new Error(`Approval token not found: ${id}`);
     const updated = { ...existing, ...patch, id };
     this.tables.approvalTokens.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink> {
+    const row: IntakeLink = { id: newId("ink"), createdAt: nowIso(), lastUsedAt: null, revokedAt: null, submissions: 0, ...data };
+    this.tables.intakeLinks.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findIntakeLinkByHash(tokenHash: string): Promise<IntakeLink | null> {
+    for (const l of this.tables.intakeLinks.values()) if (l.tokenHash === tokenHash) return l;
+    return null;
+  }
+
+  async findIntakeLinkById(id: string): Promise<IntakeLink | null> {
+    return this.tables.intakeLinks.get(id) ?? null;
+  }
+
+  async listIntakeLinks(projectId: string): Promise<IntakeLink[]> {
+    return sortDesc([...this.tables.intakeLinks.values()].filter((l) => l.projectId === projectId));
+  }
+
+  async updateIntakeLink(id: string, patch: Partial<IntakeLink>): Promise<IntakeLink> {
+    const existing = this.tables.intakeLinks.get(id);
+    if (!existing) throw new Error(`Intake link not found: ${id}`);
+    const updated = { ...existing, ...patch, id };
+    this.tables.intakeLinks.set(id, updated);
     this.afterCommit();
     return updated;
   }

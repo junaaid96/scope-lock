@@ -228,7 +228,13 @@ export interface ChangeRequest {
   status: ChangeStatus;
   classification: ChangeClassification | null;
   classificationRationale: string | null;
-  submitterId: string;
+  /** Null for anonymous public-intake submissions (see unverifiedSubmitter). */
+  submitterId: string | null;
+  /** Self-declared contact on intake submissions; never treated as verified. */
+  submitterName: string | null;
+  submitterEmail: string | null;
+  /** True when the submitter never authenticated (public intake). */
+  unverifiedSubmitter: boolean;
   bundleId: string | null;
   /** Allowance pool this change draws from when its approval is decided. */
   drawAllowancePoolId: string | null;
@@ -491,6 +497,20 @@ export interface ApprovalToken {
   expiresAt: string;
   revokedAt: string | null;
   lastUsedAt: string | null;
+  createdAt: string;
+}
+
+/** Revocable public intake link for a project. The raw token is shown once. */
+export interface IntakeLink {
+  id: string;
+  projectId: string;
+  name: string;
+  tokenHash: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  submissions: number;
+  createdBy: string;
   createdAt: string;
 }
 

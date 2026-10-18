@@ -23,6 +23,7 @@ import type {
   ExternalLink,
   IdempotencyRecord,
   ImpactPricing,
+  IntakeLink,
   Invitation,
   ListQuery,
   Membership,
@@ -256,6 +257,15 @@ function mapToken(r: Prisma.ApprovalTokenGetPayload<Prisma.ApprovalTokenDefaultA
 }
 function mapDecision(r: Prisma.ApprovalDecisionGetPayload<Prisma.ApprovalDecisionDefaultArgs>): ApprovalDecision {
   return { ...r, createdAt: iso(r.createdAt) };
+}
+function mapIntakeLink(r: Prisma.IntakeLinkGetPayload<Prisma.IntakeLinkDefaultArgs>): IntakeLink {
+  return {
+    ...r,
+    expiresAt: r.expiresAt ? iso(r.expiresAt) : null,
+    revokedAt: r.revokedAt ? iso(r.revokedAt) : null,
+    lastUsedAt: r.lastUsedAt ? iso(r.lastUsedAt) : null,
+    createdAt: iso(r.createdAt),
+  };
 }
 function mapAttachment(r: Prisma.AttachmentGetPayload<Prisma.AttachmentDefaultArgs>): Attachment {
   return { ...r, createdAt: iso(r.createdAt), completedAt: r.completedAt ? iso(r.completedAt) : null };
@@ -832,6 +842,9 @@ export class PrismaStore implements Store {
           classification: data.classification,
           classificationRationale: data.classificationRationale,
           submitterId: data.submitterId,
+          submitterName: data.submitterName,
+          submitterEmail: data.submitterEmail,
+          unverifiedSubmitter: data.unverifiedSubmitter,
           bundleId: data.bundleId,
           amendmentVersionId: data.amendmentVersionId,
           drawAllowancePoolId: data.drawAllowancePoolId,
@@ -1320,6 +1333,50 @@ export class PrismaStore implements Store {
           ...(patch.revokedAt !== undefined ? { revokedAt: patch.revokedAt ? asDate(patch.revokedAt) : null } : {}),
           ...(patch.lastUsedAt !== undefined ? { lastUsedAt: patch.lastUsedAt ? asDate(patch.lastUsedAt) : null } : {}),
           ...(patch.expiresAt !== undefined ? { expiresAt: asDate(patch.expiresAt) } : {}),
+        },
+      }),
+    );
+  }
+
+  async createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink> {
+    return mapIntakeLink(
+      await this.db.intakeLink.create({
+        data: {
+          id: newId("ink"),
+          projectId: data.projectId,
+          name: data.name,
+          tokenHash: data.tokenHash,
+          expiresAt: data.expiresAt ? asDate(data.expiresAt) : null,
+          createdBy: data.createdBy,
+        },
+      }),
+    );
+  }
+
+  async findIntakeLinkByHash(tokenHash: string): Promise<IntakeLink | null> {
+    const r = await this.db.intakeLink.findUnique({ where: { tokenHash } });
+    return r ? mapIntakeLink(r) : null;
+  }
+
+  async findIntakeLinkById(id: string): Promise<IntakeLink | null> {
+    const r = await this.db.intakeLink.findUnique({ where: { id } });
+    return r ? mapIntakeLink(r) : null;
+  }
+
+  async listIntakeLinks(projectId: string): Promise<IntakeLink[]> {
+    return (await this.db.intakeLink.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } })).map(mapIntakeLink);
+  }
+
+  async updateIntakeLink(id: string, patch: Partial<IntakeLink>): Promise<IntakeLink> {
+    return mapIntakeLink(
+      await this.db.intakeLink.update({
+        where: { id },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.expiresAt !== undefined ? { expiresAt: patch.expiresAt ? asDate(patch.expiresAt) : null } : {}),
+          ...(patch.revokedAt !== undefined ? { revokedAt: patch.revokedAt ? asDate(patch.revokedAt) : null } : {}),
+          ...(patch.lastUsedAt !== undefined ? { lastUsedAt: patch.lastUsedAt ? asDate(patch.lastUsedAt) : null } : {}),
+          ...(patch.submissions !== undefined ? { submissions: patch.submissions } : {}),
         },
       }),
     );
