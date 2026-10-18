@@ -145,6 +145,14 @@ project `settings.aiEnabled=false`.
   (`CREATE EXTENSION IF NOT EXISTS "vector"`); on managed Postgres
   without extension rights, apply it as a superuser first or stay lexical.
 
+### Estimate-vs-actual
+
+- Purely derived: estimates come from the latest impact, actuals from the
+  optional post-implementation record (`change.actuals_recorded` audit
+  event). Nothing to configure; report totals cover rows with both sides.
+- Migration `0021_impact_actuals` adds three nullable columns — safe to
+  apply online, no backfill.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,

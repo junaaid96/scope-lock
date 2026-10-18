@@ -781,13 +781,13 @@ One `feat/<slug>` branch per feature, small conventional commits, Definition-of-
 | 17 | GitHub linking | `feat/github-linking` | Done | Opt-in connections, signed receiver, `CHG/REQ-###` parsing (titles/bodies/branches/commits), idempotent auto-linking, unlinked-work health signal; Linear/Jira behind `ExternalProvider` later; external events never change scope state |
 | 18 | Notification channels | `feat/notification-channels` | Done | Slack (org webhook) for approvers/leads; SMS/WhatsApp provider interface + log driver; per-user prefs (email/SMS/WhatsApp + E.164 phone); all through outbox. Shipped: domain/contracts, migration 0019, stores, drivers, routes, worker fan-out, UI, specs, seed, docs, gates |
 
-### Phase 5 — Intelligence (#19–#20 done; #21 in progress)
+### Phase 5 — Intelligence (done)
 
 | # | Feature | Status | Notes |
 | --- | --- | --- | --- |
 | 19 | AI provider abstraction | Done (`feat/decision-search`) | AiProvider + Groq primary / OpenAI failover + deterministic fallbacks + extended usage log; failover integration tests closed out the remaining scope |
 | 20 | Decision memory search | Done (`feat/decision-search`) | Lexical ranking everywhere; pgvector semantic only when Postgres + `OPENAI_API_KEY` configured, else silent lexical fallback; access filtered before ranking; verbatim excerpts + links, no generated conclusions; dashboard panel, OpenAPI path, worker embedding sweep, migration 0020 |
-| 21 | Price suggestions + actuals | In progress | Comparables with real approved prices; optional actual-effort field; estimate-vs-actual report |
+| 21 | Price suggestions + actuals | Done (`feat/price-suggestions`) | Deterministic comparable ranking (same currency, real approved prices, no generated number); actuals on implemented changes + audit; estimate-vs-actual report; change panels + Actuals tab; migration 0021 |
 
 ### Phase 6 — Platform (pending; #24 Partial)
 

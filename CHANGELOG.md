@@ -137,6 +137,13 @@ All notable changes to ScopeLock are documented here. Format follows
   excerpts and links to the original records, never generated conclusions.
   A dashboard panel, OpenAPI path, and a worker sweep that embeds newly
   decided approvals are included. No new env vars.
+- Price suggestions + actuals: deterministic comparable ranking over
+  approved changes in the same currency (never converted) with their real
+  approved prices and matched terms — the list is the suggestion, with no
+  generated single number. Optional actuals (effort, price, notes) record
+  on implemented changes with an audit event, feeding a project
+  estimate-vs-actual report with variances and comparable-set totals.
+  Change-page panels plus an Actuals project tab; migration 0021.
 
 ## [0.1.0] - 2026-10-16
 

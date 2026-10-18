@@ -542,6 +542,14 @@ async function main(): Promise<void> {
       "implement erp",
     );
     await expectOk(
+      await owner.agent.patch(`/api/v1/change-requests/${ch.id}/impact/actuals`).send({
+        actualEffortDays: 10,
+        actualPriceMinor: 10200000,
+        actualNotes: "Low-end device testing added two days; extra QA pass on the collection view.",
+      }),
+      "actuals erp",
+    );
+    await expectOk(
       await owner.agent.post(`/api/v1/requirements/${firstRequirementIds[slug]}/evidence`).send({
         type: "URL",
         title: "ERP sales dashboard walkthrough",
