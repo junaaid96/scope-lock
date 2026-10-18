@@ -110,11 +110,23 @@ export function organizationRoutes(ctx: AppContext): Router {
         throw DomainError.forbidden("Only owners can change the plan");
       }
       const before = { name: org.name, plan: org.plan, aiEnabled: org.aiEnabled, branding: org.branding };
+      const prevStepUp = (org.settings?.stepUp ?? {}) as { otp?: boolean | null; typedName?: boolean | null };
       const updated = await ctx.store.updateOrganization(org.id, {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.plan !== undefined ? { plan: input.plan } : {}),
         ...(input.aiEnabled !== undefined ? { aiEnabled: input.aiEnabled } : {}),
         ...(input.branding !== undefined ? { branding: input.branding } : {}),
+        ...(input.stepUp !== undefined
+          ? {
+              settings: {
+                ...(org.settings ?? {}),
+                stepUp: {
+                  otp: "otp" in input.stepUp ? (input.stepUp.otp ?? null) : (prevStepUp.otp ?? null),
+                  typedName: "typedName" in input.stepUp ? (input.stepUp.typedName ?? null) : (prevStepUp.typedName ?? null),
+                },
+              },
+            }
+          : {}),
       });
       await audit(ctx.store, {
         organizationId: org.id,

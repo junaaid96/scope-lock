@@ -13,9 +13,17 @@ import {
   assertValidChoice,
   checksumOf,
   currentTurn,
+  STEP_UP_MAX_ATTEMPTS,
+  STEP_UP_TTL_MINUTES,
+  assertChallengeUsable,
+  assertMayRequest,
   drawAmountFor,
   drawBlocker,
+  effectiveStepUp,
+  generateStepUpCode,
+  hashStepUpCode,
   newToken,
+  normalizeTypedName,
   objectionDeadline,
   resolvePolicyMode,
   sha256Hex,
@@ -190,6 +198,13 @@ async function buildBundlePackage(store: Store, bundle: Bundle): Promise<ReviewP
 /** Canonical approver identity: user id when known, else lowercased email. */
 export function approverKey(userId: string | null, email: string | null): string {
   return userId ?? (email ?? "").toLowerCase();
+}
+
+/** Effective step-up for a review: project pins win, else the org default, else off. */
+export function resolveStepUp(org: { settings?: unknown } | null, project: { settings?: unknown }): { otp: boolean; typedName: boolean } {
+  const orgSettings = (org?.settings ?? {}) as Record<string, unknown>;
+  const projectSettings = (project.settings ?? {}) as Record<string, unknown>;
+  return effectiveStepUp(orgSettings.stepUp, projectSettings.stepUp);
 }
 
 export function decisionVote(d: ApprovalDecision): PolicyVote {
@@ -644,6 +659,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           res.json({
             ...byId,
             decisions,
+            stepUp: resolveStepUp(access.org, access.project),
             policyState: policyStateFor(byId, tokens, decisions, approverKey(auth.user.id, auth.user.email)),
             tokens: tokens.map((t) => ({
               id: t.id,
@@ -685,6 +701,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         expiresAt: approval.expiresAt,
         policy: policyOf(approval),
         chosenOptionId: approval.chosenOptionId ?? null,
+        stepUp: resolveStepUp(org, project),
         policyState: policyStateFor(approval, tokens, decisions, approverKey(token.approverUserId, token.approverEmail ?? "")),
         decisions: decisions.map((d) => ({
           decision: d.decision,
@@ -692,6 +709,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           approverEmail: d.approverEmail,
           optionId: d.optionId,
           optionLabel: d.optionId ? (approval.package.options ?? []).find((o) => o.optionId === d.optionId)?.label ?? null : null,
+          typedName: d.typedName,
           createdAt: d.createdAt,
         })),
         invalidatedReason: approval.invalidatedReason,
@@ -699,6 +717,108 @@ export function approvalRoutes(ctx: AppContext): Router {
         organizationName: org?.name ?? "ScopeLock",
         projectName: project.name,
       });
+    }),
+  );
+
+  unified.post(
+    "/approval-requests/:ref/step-up",
+    rateLimit(ctx.env, "token"),
+    validateParams(z.object({ ref: z.string().min(1) })),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      const ref = req.params.ref as string;
+      // Same dual shape as decide: approval id for sessions, token for links.
+      let approval: ApprovalRequest;
+      let tokenId: string | null;
+      let key: string;
+      let email: string | null;
+      if (auth) {
+        const byId = await ctx.store.findApprovalById(ref);
+        if (byId) {
+          const access = await requireProjectAccess(ctx.store, auth.user.id, byId.projectId);
+          requireAction(access.access, "approval.view");
+          approval = byId;
+          tokenId = null;
+          key = approverKey(auth.user.id, auth.user.email);
+          email = auth.user.email;
+        } else {
+          const loaded = await loadTokenPackage(ctx, ref);
+          approval = loaded.approval;
+          tokenId = loaded.token.id;
+          key = approverKey(loaded.token.approverUserId, loaded.token.approverEmail);
+          email = loaded.token.approverEmail;
+        }
+      } else {
+        const loaded = await loadTokenPackage(ctx, ref);
+        approval = loaded.approval;
+        tokenId = loaded.token.id;
+        key = approverKey(loaded.token.approverUserId, loaded.token.approverEmail);
+        email = loaded.token.approverEmail;
+      }
+      if (approval.status !== "SENT") {
+        throw DomainError.conflict(`This package is ${approval.status} and can no longer be decided`, {
+          status: approval.status,
+        });
+      }
+      if (approval.expiresAt && approval.expiresAt <= nowIso()) {
+        throw DomainError.gone("This review package has expired");
+      }
+      const project = await ctx.store.findProjectById(approval.projectId);
+      if (!project) throw DomainError.notFound("Review package not found");
+      const org = await ctx.store.findOrganizationById(project.organizationId);
+      if (!resolveStepUp(org, project).otp) {
+        throw DomainError.unprocessable("This review does not ask for a verification code");
+      }
+      if (!email) throw DomainError.unprocessable("This review link has no email address to send a code to");
+      const now = nowIso();
+      const mine = (await ctx.store.listStepUpChallenges(approval.id))
+        .filter((c) => c.approverKey === key && (c.tokenId ?? null) === (tokenId ?? null))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      assertMayRequest(
+        mine.filter((c) => !c.consumedAt && c.expiresAt > now),
+        Date.now(),
+      );
+      const code = generateStepUpCode();
+      const ctxInfo = getContext();
+      const challenge = await ctx.store.transaction(async (tx) => {
+        const created = await tx.createStepUpChallenge({
+          approvalRequestId: approval.id,
+          tokenId,
+          approverKey: key,
+          codeHash: hashStepUpCode(code),
+          expiresAt: new Date(Date.now() + STEP_UP_TTL_MINUTES * 60_000).toISOString(),
+          maxAttempts: STEP_UP_MAX_ATTEMPTS,
+        });
+        await tx.enqueueOutbox({
+          type: "EMAIL",
+          payload: {
+            to: email,
+            subject: `Your verification code for “${approval.title ?? "the review"}”`,
+            text:
+              `Your ScopeLock verification code is: ${code}\n\n` +
+              `Enter it on the review page within ${STEP_UP_TTL_MINUTES} minutes to record your decision. ` +
+              `If you did not request this, ignore this email — the code expires on its own.`,
+            organizationId: project.organizationId,
+            projectId: project.id,
+            notificationType: "STEP_UP_CODE",
+          },
+          idempotencyKey: `stepup:${created.id}`,
+        });
+        await tx.appendAuditEvent({
+          organizationId: project.organizationId,
+          projectId: project.id,
+          actorId: null,
+          actorEmail: email,
+          action: "approval.step_up_requested",
+          targetType: "APPROVAL",
+          targetId: approval.id,
+          after: { tokenId, expiresAt: created.expiresAt },
+          correlationId: ctxInfo?.correlationId ?? "no-correlation",
+          ip: ctxInfo?.ip ?? req.ip ?? null,
+        });
+        return created;
+      });
+      res.status(202).json({ expiresAt: challenge.expiresAt, email });
     }),
   );
 
@@ -833,6 +953,39 @@ function assertDecideAllowed(
   }
 }
 
+/**
+ * Burns one OTP challenge for this exact approval + token + approver. Wrong
+ * guesses count against the live challenge (attempt-capped); a match consumes
+ * it atomically with the decision so codes are single-use.
+ */
+async function consumeStepUpChallenge(
+  tx: Store,
+  approvalId: string,
+  key: string,
+  tokenId: string | null,
+  otp: string | null,
+  now: string,
+): Promise<void> {
+  if (!otp) throw DomainError.unprocessable("Enter the 6-digit code from the email");
+  const mine = (await tx.listStepUpChallenges(approvalId))
+    .filter((c) => c.approverKey === key && (c.tokenId ?? null) === (tokenId ?? null))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const live = mine.find((c) => !c.consumedAt && c.expiresAt > now);
+  if (!live) {
+    if (mine.some((c) => !c.consumedAt)) throw DomainError.gone("This code has expired — request a fresh one");
+    throw DomainError.unprocessable("No verification code was requested for this review — request one first");
+  }
+  assertChallengeUsable(live, now);
+  if (hashStepUpCode(otp) !== live.codeHash) {
+    // The guess is counted OUTSIDE this transaction (which rolls back on
+    // throw); recordDecision picks up the challenge id from details.
+    throw DomainError.unprocessable("That code doesn't match — check the email and try again", {
+      stepUpChallengeId: live.id,
+    });
+  }
+  await tx.updateStepUpChallenge(live.id, { consumedAt: now, attempts: live.attempts + 1 });
+}
+
 async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: DecideInput): Promise<unknown> {
   if (approval.status !== "SENT") {
     throw DomainError.conflict(`This package is ${approval.status} and can no longer be decided`, {
@@ -864,6 +1017,14 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     }
     const prior = await tx.listDecisions(fresh.id);
     assertDecideAllowed(fresh, approverKeys, prior, key);
+    // Step-up gates the vote itself, whatever the verdict: identity first.
+    const stepUpNow = nowIso();
+    const liveProject = (await tx.findProjectById(approval.projectId)) ?? project;
+    const stepUp = resolveStepUp(await tx.findOrganizationById(liveProject.organizationId), liveProject);
+    const typedName = normalizeTypedName(args.input.typedName, stepUp.typedName);
+    if (stepUp.otp) {
+      await consumeStepUpChallenge(tx, fresh.id, key, args.tokenId, args.input.otp ?? null, stepUpNow);
+    }
     const snapshots = fresh.package.options ?? [];
     const optionId = args.input.optionId ?? null;
     if (snapshots.length > 0) {
@@ -888,6 +1049,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       decision: args.input.decision,
       comment: args.input.comment?.trim() || null,
       optionId: args.input.decision === "APPROVED" ? optionId : null,
+      typedName,
       checksum: fresh.checksum,
       ip: ctxInfo?.ip ?? args.req.ip ?? null,
       userAgent: args.req.headers["user-agent"]?.slice(0, 300) ?? null,
@@ -907,6 +1069,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         decision: args.input.decision,
         outcome: outcome.state,
         optionId: created.optionId,
+        typedName: created.typedName,
         checksum: fresh.checksum,
       },
       correlationId: ctxInfo?.correlationId ?? "no-correlation",
@@ -1080,6 +1243,19 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       }
     }
     return { created, outcome };
+  }).catch(async (err: unknown) => {
+    // A wrong OTP guess rolls the decision tx back, so the attempt is counted
+    // here, outside it. Anything else rethrows untouched.
+    const challengeId =
+      err instanceof DomainError && typeof err.details?.stepUpChallengeId === "string" ? err.details.stepUpChallengeId : null;
+    if (challengeId) {
+      const challenges = await ctx.store.listStepUpChallenges(approval.id);
+      const live = challenges.find((c) => c.id === challengeId);
+      if (live && !live.consumedAt) {
+        await ctx.store.updateStepUpChallenge(live.id, { attempts: live.attempts + 1 });
+      }
+    }
+    throw err;
   });
 
   if (result.outcome.state === "PENDING") {

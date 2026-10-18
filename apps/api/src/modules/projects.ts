@@ -80,6 +80,10 @@ export function projectRoutes(ctx: AppContext): Router {
             aiEnabled: input.settings?.aiEnabled ?? true,
             reminderHoursBeforeExpiry: input.settings?.reminderHoursBeforeExpiry ?? [48, 24],
             approvalPolicies: input.settings?.approvalPolicies ?? [],
+            stepUp: {
+              otp: input.settings?.stepUp?.otp ?? null,
+              typedName: input.settings?.stepUp?.typedName ?? null,
+            },
           },
         });
         await tx.upsertProjectMember(created.id, auth.user.id, "LEAD");
@@ -162,6 +166,18 @@ export function projectRoutes(ctx: AppContext): Router {
                   input.settings.reminderHoursBeforeExpiry ?? access.project.settings.reminderHoursBeforeExpiry,
                 approvalPolicies:
                   input.settings.approvalPolicies ?? access.project.settings.approvalPolicies ?? [],
+                // Tri-state: an explicit null resets to org-inherit, so test
+                // presence, not nullishness.
+                stepUp: {
+                  otp:
+                    input.settings.stepUp && "otp" in input.settings.stepUp
+                      ? (input.settings.stepUp.otp ?? null)
+                      : (access.project.settings.stepUp?.otp ?? null),
+                  typedName:
+                    input.settings.stepUp && "typedName" in input.settings.stepUp
+                      ? (input.settings.stepUp.typedName ?? null)
+                      : (access.project.settings.stepUp?.typedName ?? null),
+                },
               },
             }
           : {}),
