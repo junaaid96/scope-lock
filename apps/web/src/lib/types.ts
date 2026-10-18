@@ -92,6 +92,71 @@ export interface Impact {
   exclusions: string[];
   notes: string | null;
   confidence: string;
+  rateCardId: string | null;
+  templateId: string | null;
+  pricing: ImpactPricing | null;
+  overrideReason: string | null;
+}
+
+export interface ImpactPricingLine {
+  label: string;
+  role: string;
+  hours: number;
+  hourlyRateMinor: number;
+  lineMinor: number;
+}
+
+export interface ImpactPricing {
+  mode: "COMPUTED" | "OVERRIDE";
+  rateCardId: string;
+  rateCardName: string;
+  templateId: string | null;
+  templateName: string | null;
+  currency: string;
+  lines: ImpactPricingLine[];
+  subtotalMinor: number;
+  contingencyPct: number;
+  contingencyMinor: number;
+  taxPct: number | null;
+  taxMinor: number;
+  computedMinor: number;
+}
+
+export interface RateCardEntry {
+  id: string;
+  rateCardId: string;
+  role: string;
+  hourlyRateMinor: number;
+}
+
+export interface RateCard {
+  id: string;
+  organizationId: string;
+  name: string;
+  currency: string;
+  isDefault: boolean;
+  rates: RateCardEntry[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EstimateTemplateItem {
+  label: string;
+  role: string;
+  hours: number;
+}
+
+export interface EstimateTemplate {
+  id: string;
+  organizationId: string;
+  name: string;
+  items: EstimateTemplateItem[];
+  contingencyPct: number;
+  taxPct: number | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChangeDetail extends ChangeListItem {

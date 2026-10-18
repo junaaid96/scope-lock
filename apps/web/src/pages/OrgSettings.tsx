@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
+import { useSession } from "../lib/auth.js";
 import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner } from "../components/ui.js";
+import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
 
 interface Member {
   id: string;
@@ -43,6 +45,9 @@ export function OrgSettingsPage(): JSX.Element {
   const members = useQuery({ queryKey: ["org-members", orgId], queryFn: () => fetchAll<Member>(`/organizations/${orgId}/members`) });
   const invitations = useQuery({ queryKey: ["invites", orgId], queryFn: () => fetchAll<Invitation>(`/organizations/${orgId}/invitations`) });
   const usage = useQuery({ queryKey: ["usage", orgId], queryFn: () => api.get<Usage>(`/organizations/${orgId}/usage`) });
+  const { session } = useSession();
+  const myRole = session?.organizations.find((o) => o.id === orgId)?.role ?? null;
+  const canManage = myRole === "OWNER" || myRole === "ADMIN";
 
   if (org.isLoading) return <Spinner />;
   if (org.isError || !org.data) return <ErrorBanner message={errorMessage(org.error)} />;
@@ -99,6 +104,8 @@ export function OrgSettingsPage(): JSX.Element {
           <BrandingForm org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
+        <RateCardsCard organizationId={orgId} canManage={canManage} />
+        <TemplatesCard organizationId={orgId} canManage={canManage} />
         <Card>
           <h2 className="mb-2 font-medium">Usage ({usage.data?.period ?? "—"})</h2>
           {usage.isLoading ? <Spinner /> : usage.isError ? (

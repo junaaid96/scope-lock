@@ -3,9 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
-import type { ChangeDetail, RequirementRow } from "../lib/types.js";
+import { useLocale } from "../lib/i18n/index.js";
+import type { ChangeDetail, EstimateTemplate, ProjectDetail, RateCard, RequirementRow } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, formatMoney, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, statusTone } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
 
 const MANUAL_STATUSES = ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "WITHDRAWN"];
@@ -24,6 +25,7 @@ export function ChangePage(): JSX.Element {
   const [showQuestion, setShowQuestion] = useState(false);
   const [showTriage, setShowTriage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { money } = useLocale();
 
   const refresh = (): void => {
     setError(null);
@@ -95,7 +97,7 @@ export function ChangePage(): JSX.Element {
             {!c.impact ? <Empty title="No impact recorded" /> : (
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 <dt className="text-slate-500">Price</dt>
-                <dd className="font-medium">{formatMoney(c.impact.priceMinor, c.impact.currency ?? "USD")}</dd>
+                <dd className="font-medium">{money(c.impact.priceMinor, c.impact.currency ?? "USD")}</dd>
                 <dt className="text-slate-500">Effort</dt>
                 <dd>{c.impact.effortDays ?? "—"} days</dd>
                 <dt className="text-slate-500">Timeline</dt>
@@ -108,6 +110,7 @@ export function ChangePage(): JSX.Element {
               <div className="mt-2 text-sm"><p className="font-medium">Risks</p><ul className="list-disc pl-5">{c.impact?.risks.map((r) => <li key={r}>{r}</li>)}</ul></div>
             ) : null}
             {c.impact?.notes ? <p className="mt-2 text-sm text-slate-700">{c.impact.notes}</p> : null}
+            {c.impact?.pricing ? <PricingBreakdown impact={c.impact} /> : null}
           </Card>
 
           <Card>
@@ -227,7 +230,7 @@ export function ChangePage(): JSX.Element {
         </div>
       </div>
 
-      {showImpact ? <ImpactDialog change={c} onClose={() => setShowImpact(false)} onDone={refresh} /> : null}
+      {showImpact ? <ImpactDialog change={c} projectId={projectId} onClose={() => setShowImpact(false)} onDone={refresh} /> : null}
       {showLink ? <LinkDialog change={c} projectId={projectId} onClose={() => setShowLink(false)} onDone={refresh} /> : null}
       {showSend ? <SendDialog change={c} projectId={projectId} onClose={() => setShowSend(false)} onDone={refresh} /> : null}
       {showQuestion ? <QuestionDialog changeId={c.id} onClose={() => setShowQuestion(false)} onDone={refresh} /> : null}
@@ -303,7 +306,7 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
                   "whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
                   state === "done" && "bg-teal-100 text-teal-900",
                   state === "current" && "bg-teal-700 text-white",
-                  state === "todo" && "bg-slate-100 text-slate-500",
+                  state === "todo" && "bg-slate-100 text-slate-600",
                 )}
               >
                 {s.label}
@@ -329,12 +332,38 @@ function StatusPicker({ current, onPick }: { current: string; onPick: (s: string
   );
 }
 
-function ImpactDialog({ change, onClose, onDone }: { change: ChangeDetail; onClose: () => void; onDone: () => void }): JSX.Element {
+function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDetail; projectId: string; onClose: () => void; onDone: () => void }): JSX.Element {
+  const { t, money } = useLocale();
   const [error, setError] = useState<string | null>(null);
+  const project = useQuery({ queryKey: ["project", projectId], queryFn: () => api.get<ProjectDetail>(`/projects/${projectId}`) });
+  const orgId = project.data?.organizationId;
+  const cards = useQuery({
+    queryKey: ["rate-cards", orgId],
+    queryFn: () => fetchAll<RateCard>(`/organizations/${orgId}/rate-cards`),
+    enabled: orgId !== undefined,
+  });
+  const templates = useQuery({
+    queryKey: ["templates", orgId],
+    queryFn: () => fetchAll<EstimateTemplate>(`/organizations/${orgId}/estimate-templates`),
+    enabled: orgId !== undefined,
+  });
+  const matching = (cards.data ?? []).filter((c) => c.currency === project.data?.currency);
+  const [mode, setMode] = useState<"manual" | "card">(change.impact?.pricing ? "card" : "manual");
+  const [cardId, setCardId] = useState(change.impact?.rateCardId ?? "");
+  const [templateId, setTemplateId] = useState(change.impact?.templateId ?? "");
+  const [lines, setLines] = useState<Array<{ label: string; role: string; hours: string }>>(
+    change.impact?.pricing ? change.impact.pricing.lines.map((l) => ({ label: l.label, role: l.role, hours: String(l.hours) })) : [{ label: "", role: "", hours: "" }],
+  );
+  const [overrideOn, setOverrideOn] = useState(change.impact?.overrideReason !== null && change.impact?.overrideReason !== undefined);
+  const defaultCard = matching.find((c) => c.isDefault) ?? matching[0] ?? null;
+  const effectiveCardId = cardId !== "" ? cardId : (defaultCard?.id ?? "");
+  const activeCard = matching.find((c) => c.id === effectiveCardId) ?? null;
   const { register, handleSubmit } = useForm({
     defaultValues: {
       effortDays: change.impact?.effortDays ?? "",
-      priceMinor: change.impact?.priceMinor ?? "",
+      priceMinor: change.impact?.pricing ? "" : (change.impact?.priceMinor ?? ""),
+      overridePrice: "",
+      overrideReason: change.impact?.overrideReason ?? "",
       timelineDays: change.impact?.timelineDays ?? "",
       milestoneEffect: change.impact?.milestoneEffect ?? "",
       risks: (change.impact?.risks ?? []).join("\n"),
@@ -342,26 +371,118 @@ function ImpactDialog({ change, onClose, onDone }: { change: ChangeDetail; onClo
       confidence: change.impact?.confidence ?? "MEDIUM",
     },
   });
+  function pickTemplate(id: string): void {
+    setTemplateId(id);
+    const tpl = (templates.data ?? []).find((x) => x.id === id);
+    if (tpl) setLines(tpl.items.map((i) => ({ label: i.label, role: i.role, hours: String(i.hours) })));
+  }
   const save = useMutation({
-    mutationFn: (v: Record<string, string>) =>
-      api.post(`/change-requests/${change.id}/impact`, {
+    mutationFn: (v: Record<string, string>) => {
+      const base = {
         effortDays: v.effortDays === "" ? undefined : Number(v.effortDays),
-        priceMinor: v.priceMinor === "" ? undefined : Math.round(Number(v.priceMinor) * 100),
         timelineDays: v.timelineDays === "" ? undefined : Number(v.timelineDays),
         milestoneEffect: v.milestoneEffect || undefined,
         risks: String(v.risks ?? "").split("\n").map((s) => s.trim()).filter(Boolean),
         notes: v.notes || undefined,
         confidence: v.confidence,
-      }),
+      };
+      if (mode === "manual") {
+        return api.post(`/change-requests/${change.id}/impact`, {
+          ...base,
+          priceMinor: v.priceMinor === "" ? undefined : Math.round(Number(v.priceMinor) * 100),
+        });
+      }
+      return api.post(`/change-requests/${change.id}/impact`, {
+        ...base,
+        pricing: {
+          rateCardId: effectiveCardId,
+          templateId: templateId === "" ? undefined : templateId,
+          lineItems: lines.map((l) => ({ label: l.label.trim(), role: l.role, hours: Number(l.hours) })),
+        },
+        override: overrideOn
+          ? { priceMinor: Math.round(Number(v.overridePrice) * 100), reason: String(v.overrideReason ?? "").trim() }
+          : undefined,
+      });
+    },
     onSuccess: () => { onDone(); onClose(); },
     onError: (err) => setError(errorMessage(err)),
   });
   return (
     <Dialog title="Record impact" onClose={onClose} wide>
       <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v as unknown as Record<string, string>))(e)} className="grid grid-cols-2 gap-4">
-        <Field label="Price (major units, e.g. 1200.00)" htmlFor="imp-price">
-          <Input id="imp-price" inputMode="decimal" {...register("priceMinor")} />
-        </Field>
+        <fieldset className="col-span-2">
+          <legend className="mb-1 text-sm font-medium text-slate-700">Price</legend>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="price-mode" checked={mode === "manual"} onChange={() => setMode("manual")} />
+              {t("pricing.manualPrice")}
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" name="price-mode" checked={mode === "card"} onChange={() => setMode("card")} />
+              {t("pricing.fromRateCard")}
+            </label>
+          </div>
+        </fieldset>
+        {mode === "manual" ? (
+          <Field label="Price (major units, e.g. 1200.00)" htmlFor="imp-price">
+            <Input id="imp-price" inputMode="decimal" {...register("priceMinor")} />
+          </Field>
+        ) : (
+          <div className="col-span-2 space-y-3 rounded-lg border border-slate-200 p-3">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label={t("pricing.rateCard")} htmlFor="imp-card">
+                <Select id="imp-card" value={effectiveCardId} onChange={(e) => setCardId(e.target.value)}>
+                  {matching.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.isDefault ? ` (${t("pricing.defaultCard")})` : ""}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t("pricing.template")} htmlFor="imp-template">
+                <Select id="imp-template" value={templateId} onChange={(e) => pickTemplate(e.target.value)}>
+                  <option value="">{t("pricing.noTemplate")}</option>
+                  {(templates.data ?? []).map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            {matching.length === 0 ? <p className="text-sm text-slate-600">{t("pricing.staffOnly")}</p> : null}
+            <fieldset>
+              <legend className="mb-1 text-sm font-medium text-slate-700">{t("pricing.lineLabel")} / {t("pricing.role")} / {t("pricing.hours")}</legend>
+              <ul className="space-y-2">
+                {lines.map((line, i) => (
+                  <li key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] items-center gap-2">
+                    <Input aria-label={`${t("pricing.lineLabel")} ${i + 1}`} placeholder={t("pricing.lineLabel")} value={line.label} onChange={(e) => setLines(lines.map((row, j) => (j === i ? { ...row, label: e.target.value } : row)))} />
+                    <Select aria-label={`${t("pricing.role")} ${i + 1}`} value={line.role} onChange={(e) => setLines(lines.map((row, j) => (j === i ? { ...row, role: e.target.value } : row)))}>
+                      <option value="">{t("pricing.role")}</option>
+                      {(activeCard?.rates ?? []).map((r) => (
+                        <option key={r.id} value={r.role}>{r.role} ({activeCard ? money(r.hourlyRateMinor, activeCard.currency) : ""}/h)</option>
+                      ))}
+                    </Select>
+                    <Input aria-label={`${t("pricing.hours")} ${i + 1}`} placeholder="8" inputMode="decimal" value={line.hours} onChange={(e) => setLines(lines.map((row, j) => (j === i ? { ...row, hours: e.target.value } : row)))} />
+                    <Button type="button" size="sm" variant="secondary" disabled={lines.length <= 1} onClick={() => setLines(lines.filter((_, j) => j !== i))}>{t("pricing.remove")}</Button>
+                  </li>
+                ))}
+              </ul>
+              <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={() => setLines([...lines, { label: "", role: "", hours: "" }])}>{t("pricing.addLine")}</Button>
+            </fieldset>
+            <p className="text-sm text-slate-600">{t("pricing.totalComputedOnSave")}</p>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={overrideOn} onChange={(e) => setOverrideOn(e.target.checked)} />
+              {t("pricing.overridePrice")}
+            </label>
+            {overrideOn ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Field label={t("pricing.overridePriceLabel")} htmlFor="imp-override-price">
+                  <Input id="imp-override-price" inputMode="decimal" {...register("overridePrice")} />
+                </Field>
+                <Field label={t("pricing.overrideReason")} htmlFor="imp-override-reason">
+                  <Input id="imp-override-reason" {...register("overrideReason")} />
+                </Field>
+              </div>
+            ) : null}
+          </div>
+        )}
         <Field label="Effort (days)" htmlFor="imp-effort">
           <Input id="imp-effort" inputMode="decimal" {...register("effortDays")} />
         </Field>
@@ -394,6 +515,38 @@ function ImpactDialog({ change, onClose, onDone }: { change: ChangeDetail; onClo
         <div className="col-span-2"><Button type="submit" disabled={save.isPending} className="w-full">Save impact</Button></div>
       </form>
     </Dialog>
+  );
+}
+
+function PricingBreakdown({ impact }: { impact: NonNullable<ChangeDetail["impact"]> }): JSX.Element | null {
+  const { t, money, number } = useLocale();
+  const pricing = impact.pricing;
+  if (!pricing) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 p-3 text-sm">
+      <p className="font-medium text-slate-900">{t("pricing.breakdown")}</p>
+      <p className="text-slate-600">
+        {pricing.mode === "OVERRIDE" && impact.overrideReason
+          ? t("pricing.overridden", { reason: impact.overrideReason })
+          : t("pricing.computedVia", { card: pricing.rateCardName })}
+      </p>
+      <ul className="mt-2 space-y-1">
+        {pricing.lines.map((l, i) => (
+          <li key={i} className="flex justify-between gap-2 tabular-nums">
+            <span>{l.label} — {l.role}, {number(l.hours)}h</span>
+            <span>{money(l.lineMinor, pricing.currency)}</span>
+          </li>
+        ))}
+      </ul>
+      <dl className="mt-2 space-y-1 border-t border-slate-100 pt-2 tabular-nums">
+        <div className="flex justify-between gap-2"><dt>{t("pricing.subtotal")}</dt><dd>{money(pricing.subtotalMinor, pricing.currency)}</dd></div>
+        <div className="flex justify-between gap-2"><dt>{t("pricing.contingencyLine", { pct: pricing.contingencyPct })}</dt><dd>{money(pricing.contingencyMinor, pricing.currency)}</dd></div>
+        {pricing.taxPct !== null ? (
+          <div className="flex justify-between gap-2"><dt>{t("pricing.taxLine", { pct: pricing.taxPct })}</dt><dd>{money(pricing.taxMinor, pricing.currency)}</dd></div>
+        ) : null}
+        <div className="flex justify-between gap-2 font-medium"><dt>{t("pricing.total")}</dt><dd>{money(pricing.computedMinor, pricing.currency)}</dd></div>
+      </dl>
+    </div>
   );
 }
 
