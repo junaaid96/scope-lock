@@ -46,6 +46,15 @@ export const MfaChallengeSchema = z.object({
 });
 export const DeleteAccountSchema = z.object({ password: z.string().min(1).max(200) });
 
+/**
+ * Step-up verification on review links. Tri-state: true/false pins the
+ * behavior, null inherits (project falls back to the org default).
+ */
+export const StepUpSettingsSchema = z.object({
+  otp: z.boolean().nullable().optional(),
+  typedName: z.boolean().nullable().optional(),
+});
+
 // ---------- Organizations ----------
 export const CreateOrganizationSchema = z.object({
   name: z.string().min(1).max(120),
@@ -62,6 +71,8 @@ export const UpdateOrganizationSchema = z.object({
     })
     .nullable()
     .optional(),
+  /** Org-wide step-up default; projects inherit unless they pin their own. */
+  stepUp: StepUpSettingsSchema.optional(),
 });
 export const CreateInvitationSchema = z.object({
   email: EmailSchema,
@@ -97,6 +108,7 @@ export const ProjectSettingsSchema = z.object({
   reminderHoursBeforeExpiry: z.array(z.number().int().min(1).max(720)).max(4).default([48, 24]),
   /** Amount thresholds for approval policy; ascending ceilings, evaluated in order. Empty = ANY always. */
   approvalPolicies: z.array(ApprovalThresholdRuleSchema).max(5).default([]),
+  stepUp: StepUpSettingsSchema.default({}),
 });
 export const CreateProjectSchema = z.object({
   organizationId: IdSchema,

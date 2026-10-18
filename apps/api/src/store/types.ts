@@ -143,6 +143,8 @@ export interface ProjectSettings {
   reminderHoursBeforeExpiry: number[];
   /** Amount thresholds for approval policy; empty = ANY always. */
   approvalPolicies: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
+  /** Step-up verification; null inherits the org default. */
+  stepUp: { otp: boolean | null; typedName: boolean | null };
 }
 
 export interface Project {
@@ -544,6 +546,20 @@ export interface ApprovalToken {
   createdAt: string;
 }
 
+/** Email-OTP challenge bound to one approval + token + approver. The code itself is never stored. */
+export interface StepUpChallenge {
+  id: string;
+  approvalRequestId: string;
+  tokenId: string | null;
+  approverKey: string;
+  codeHash: string;
+  expiresAt: string;
+  attempts: number;
+  maxAttempts: number;
+  consumedAt: string | null;
+  createdAt: string;
+}
+
 /** Unguessable per-project inbound-email alias. Address = localPart@INBOUND_EMAIL_DOMAIN. */
 export interface InboundMailbox {
   id: string;
@@ -578,6 +594,8 @@ export interface ApprovalDecision {
   comment: string | null;
   /** Snapshotted option id picked by this APPROVED vote (null when the package has no options). */
   optionId: string | null;
+  /** Typed full name recorded with the decision when step-up requires it. */
+  typedName: string | null;
   checksum: string;
   ip: string | null;
   userAgent: string | null;

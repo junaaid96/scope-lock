@@ -39,6 +39,7 @@ import type {
   ScopeDocument,
   ScopeVersion,
   Session,
+  StepUpChallenge,
   UsageCounter,
   User,
 } from "./types.js";
@@ -220,6 +221,9 @@ export interface Store {
   findApprovalTokenByHash(tokenHash: string): Promise<ApprovalToken | null>;
   listApprovalTokens(approvalRequestId: string): Promise<ApprovalToken[]>;
   updateApprovalToken(id: string, patch: Partial<ApprovalToken>): Promise<ApprovalToken>;
+  createStepUpChallenge(data: Omit<StepUpChallenge, "id" | "attempts" | "consumedAt" | "createdAt">): Promise<StepUpChallenge>;
+  listStepUpChallenges(approvalRequestId: string): Promise<StepUpChallenge[]>;
+  updateStepUpChallenge(id: string, patch: Partial<StepUpChallenge>): Promise<StepUpChallenge>;
   createDecision(data: Omit<ApprovalDecision, "id" | "createdAt">): Promise<ApprovalDecision>;
   listDecisions(approvalRequestId: string): Promise<ApprovalDecision[]>;
 

@@ -695,8 +695,26 @@ model ApprovalRequest {
   bundle  Bundle?        @relation(fields: [bundleId], references: [id], onDelete: Cascade)
   tokens  ApprovalToken[]
   decisions ApprovalDecision[]
+  stepUpChallenges StepUpChallenge[]
 
   @@index([projectId, status])
+}
+
+model StepUpChallenge {
+  id                String    @id
+  approvalRequestId String
+  tokenId           String?
+  approverKey       String
+  codeHash          String
+  expiresAt         DateTime
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(5)
+  consumedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  approval ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+
+  @@index([approvalRequestId])
 }
 
 model ApprovalToken {
@@ -754,6 +772,7 @@ model ApprovalDecision {
   decision          DecisionValue
   comment           String?
   optionId          String?
+  typedName         String?
   checksum          String
   ip                String?
   userAgent         String?

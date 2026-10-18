@@ -177,6 +177,10 @@ export const DecideApprovalSchema = z.object({
   comment: z.string().max(4000).optional(),
   /** Required on APPROVED when the package carries proposal options. */
   optionId: IdSchema.optional(),
+  /** Six-digit email code, required when step-up OTP is enabled. */
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from the email").optional(),
+  /** Typed full name, recorded with the decision when step-up requires it. */
+  typedName: z.string().max(120).optional(),
   /** The client must explicitly confirm the decision. */
   confirm: z.literal(true),
 });

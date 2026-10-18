@@ -44,6 +44,7 @@ import type {
   ScopeDocument,
   ScopeVersion,
   Session,
+  StepUpChallenge,
   UsageCounter,
   User,
 } from "./types.js";
@@ -131,6 +132,7 @@ function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Pro
       aiEnabled: (settings.aiEnabled as boolean | undefined) ?? true,
       reminderHoursBeforeExpiry: (settings.reminderHoursBeforeExpiry as number[] | undefined) ?? [48, 24],
       approvalPolicies: (settings.approvalPolicies as ProjectSettings["approvalPolicies"] | undefined) ?? [],
+      stepUp: (settings.stepUp as ProjectSettings["stepUp"] | undefined) ?? { otp: null, typedName: null },
     },
     externalIntegrationsEnabled: r.externalIntegrationsEnabled,
     changeCounter: r.changeCounter,
@@ -274,6 +276,9 @@ function mapToken(r: Prisma.ApprovalTokenGetPayload<Prisma.ApprovalTokenDefaultA
 }
 function mapDecision(r: Prisma.ApprovalDecisionGetPayload<Prisma.ApprovalDecisionDefaultArgs>): ApprovalDecision {
   return { ...r, createdAt: iso(r.createdAt) };
+}
+function mapStepUpChallenge(r: Prisma.StepUpChallengeGetPayload<Prisma.StepUpChallengeDefaultArgs>): StepUpChallenge {
+  return { ...r, expiresAt: iso(r.expiresAt), consumedAt: r.consumedAt ? iso(r.consumedAt) : null, createdAt: iso(r.createdAt) };
 }
 function mapMailbox(r: Prisma.InboundMailboxGetPayload<Prisma.InboundMailboxDefaultArgs>): InboundMailbox {
   return { ...r, createdAt: iso(r.createdAt) };
@@ -1418,6 +1423,38 @@ export class PrismaStore implements Store {
     );
   }
 
+  async createStepUpChallenge(data: Omit<StepUpChallenge, "id" | "attempts" | "consumedAt" | "createdAt">): Promise<StepUpChallenge> {
+    return mapStepUpChallenge(
+      await this.db.stepUpChallenge.create({
+        data: {
+          id: newId("suc"),
+          approvalRequestId: data.approvalRequestId,
+          tokenId: data.tokenId,
+          approverKey: data.approverKey,
+          codeHash: data.codeHash,
+          expiresAt: asDate(data.expiresAt),
+          maxAttempts: data.maxAttempts,
+        },
+      }),
+    );
+  }
+
+  async listStepUpChallenges(approvalRequestId: string): Promise<StepUpChallenge[]> {
+    return (await this.db.stepUpChallenge.findMany({ where: { approvalRequestId } })).map(mapStepUpChallenge);
+  }
+
+  async updateStepUpChallenge(id: string, patch: Partial<StepUpChallenge>): Promise<StepUpChallenge> {
+    return mapStepUpChallenge(
+      await this.db.stepUpChallenge.update({
+        where: { id },
+        data: {
+          ...(patch.attempts !== undefined ? { attempts: patch.attempts } : {}),
+          ...(patch.consumedAt !== undefined ? { consumedAt: patch.consumedAt ? asDate(patch.consumedAt) : null } : {}),
+        },
+      }),
+    );
+  }
+
   async createInboundMailbox(data: Omit<InboundMailbox, "id" | "createdAt">): Promise<InboundMailbox> {
     return mapMailbox(
       await this.db.inboundMailbox.create({
@@ -1500,6 +1537,7 @@ export class PrismaStore implements Store {
           decision: data.decision,
           comment: data.comment,
           optionId: data.optionId,
+          typedName: data.typedName,
           checksum: data.checksum,
           ip: data.ip,
           userAgent: data.userAgent,

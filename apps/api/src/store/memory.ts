@@ -42,6 +42,7 @@ import type {
   ScopeDocument,
   ScopeVersion,
   Session,
+  StepUpChallenge,
   UsageCounter,
   User,
 } from "./types.js";
@@ -74,6 +75,7 @@ type Tables = {
   approvals: Map<string, ApprovalRequest>;
   approvalTokens: Map<string, ApprovalToken>;
   decisions: Map<string, ApprovalDecision>;
+  stepUpChallenges: Map<string, StepUpChallenge>;
   inboundMailboxes: Map<string, InboundMailbox>;
   intakeLinks: Map<string, IntakeLink>;
   attachments: Map<string, Attachment>;
@@ -117,6 +119,7 @@ function emptyTables(): Tables {
     approvals: new Map(),
     approvalTokens: new Map(),
     decisions: new Map(),
+    stepUpChallenges: new Map(),
     inboundMailboxes: new Map(),
     intakeLinks: new Map(),
     attachments: new Map(),
@@ -1059,6 +1062,26 @@ export class MemoryStore implements Store {
     if (!existing) throw new Error(`Approval token not found: ${id}`);
     const updated = { ...existing, ...patch, id };
     this.tables.approvalTokens.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async createStepUpChallenge(data: Omit<StepUpChallenge, "id" | "attempts" | "consumedAt" | "createdAt">): Promise<StepUpChallenge> {
+    const row: StepUpChallenge = { id: newId("suc"), attempts: 0, consumedAt: null, createdAt: nowIso(), ...data };
+    this.tables.stepUpChallenges.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async listStepUpChallenges(approvalRequestId: string): Promise<StepUpChallenge[]> {
+    return [...this.tables.stepUpChallenges.values()].filter((c) => c.approvalRequestId === approvalRequestId);
+  }
+
+  async updateStepUpChallenge(id: string, patch: Partial<StepUpChallenge>): Promise<StepUpChallenge> {
+    const existing = this.tables.stepUpChallenges.get(id);
+    if (!existing) throw new Error(`Step-up challenge not found: ${id}`);
+    const updated = { ...existing, ...patch, id };
+    this.tables.stepUpChallenges.set(id, updated);
     this.afterCommit();
     return updated;
   }
