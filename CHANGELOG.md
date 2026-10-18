@@ -129,6 +129,14 @@ All notable changes to ScopeLock are documented here. Format follows
   E.164 phone) gate personal delivery, including existing emails; the
   Slack URL is SSRF-screened, sealed at rest, and never returned by the
   API. Org settings UI plus spec coverage.
+- Decision memory search: lexical ranking over decided approvals today,
+  semantic pgvector ranking when Postgres and an embeddings provider
+  (`OPENAI_API_KEY`) are configured, with silent lexical fallback — search
+  never fails for lack of embeddings. Candidates are filtered by the
+  requester's project access before ranking; results carry verbatim
+  excerpts and links to the original records, never generated conclusions.
+  A dashboard panel, OpenAPI path, and a worker sweep that embeds newly
+  decided approvals are included. No new env vars.
 
 ## [0.1.0] - 2026-10-16
 

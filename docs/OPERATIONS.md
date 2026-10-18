@@ -132,6 +132,19 @@ project `settings.aiEnabled=false`.
   after enqueue are dropped as SENT (config change, not provider failure). An unsealable Slack secret
   fails loudly into the DLQ — check dead outbox rows and reconnect.
 
+### Decision memory search
+
+- Lexical ranking works everywhere with zero configuration. Semantic
+  (pgvector) ranking activates only when **both** Postgres hosts the data
+  and `OPENAI_API_KEY` is set (OpenAI-compatible `OPENAI_BASE_URL` allowed);
+  otherwise search silently stays lexical.
+- The worker's drain embeds newly decided approvals (20 per pass,
+  `text-embedding-3-small`, 1536 dims); provider errors fail that sweep
+  only and are logged. No new env vars beyond the AI seam's.
+- Migration `0020_decision_embeddings` enables the `vector` extension
+  (`CREATE EXTENSION IF NOT EXISTS "vector"`); on managed Postgres
+  without extension rights, apply it as a superuser first or stay lexical.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
