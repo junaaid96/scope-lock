@@ -371,6 +371,29 @@ export interface EstimateTemplate {
   updatedAt: string;
 }
 
+export interface ScopeTemplateItem {
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  category: string | null;
+  priority: string | null;
+}
+
+/** Org-level requirement library: standard assumptions/exclusions/items per project type. */
+export interface ScopeTemplate {
+  id: string;
+  organizationId: string;
+  name: string;
+  projectType: string;
+  description: string | null;
+  assumptions: string[];
+  exclusions: string[];
+  items: ScopeTemplateItem[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type AllowanceKind = "HOURS" | "AMOUNT";
 export type AllowancePoolStatus = "PROPOSED" | "ACTIVE" | "CLOSED";
 export type DrawDownStatus = "NOTIFIED" | "OBJECTED" | "FINAL" | "RELEASED";

@@ -22,6 +22,7 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ScopeTemplate,
   DecisionEmbedding,
   ExternalConnection,
   ExternalLink,
@@ -77,6 +78,7 @@ type Tables = {
   clarifications: Map<string, Clarification>;
   rateCards: Map<string, RateCard>;
   estimateTemplates: Map<string, EstimateTemplate>;
+  scopeTemplates: Map<string, ScopeTemplate>;
   allowancePools: Map<string, AllowancePool>;
   drawDowns: Map<string, AllowanceDrawDown>;
   bundles: Map<string, Bundle>;
@@ -128,6 +130,7 @@ function emptyTables(): Tables {
     clarifications: new Map(),
     rateCards: new Map(),
     estimateTemplates: new Map(),
+    scopeTemplates: new Map(),
     allowancePools: new Map(),
     drawDowns: new Map(),
     bundles: new Map(),
@@ -915,6 +918,48 @@ export class MemoryStore implements Store {
 
   async deleteEstimateTemplate(id: string): Promise<void> {
     this.tables.estimateTemplates.delete(id);
+    this.afterCommit();
+  }
+
+  async createScopeTemplate(data: {
+    organizationId: string;
+    name: string;
+    projectType: string;
+    description: string | null;
+    assumptions: string[];
+    exclusions: string[];
+    items: ScopeTemplate["items"];
+    createdBy: string;
+  }): Promise<ScopeTemplate> {
+    const now = nowIso();
+    const row: ScopeTemplate = { id: newId("st"), createdAt: now, updatedAt: now, ...data };
+    this.tables.scopeTemplates.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findScopeTemplateById(id: string): Promise<ScopeTemplate | null> {
+    return this.tables.scopeTemplates.get(id) ?? null;
+  }
+
+  async listScopeTemplates(organizationId: string): Promise<ScopeTemplate[]> {
+    return [...this.tables.scopeTemplates.values()].filter((tpl) => tpl.organizationId === organizationId);
+  }
+
+  async updateScopeTemplate(
+    id: string,
+    patch: Partial<Pick<ScopeTemplate, "name" | "projectType" | "description" | "assumptions" | "exclusions" | "items">>,
+  ): Promise<ScopeTemplate> {
+    const existing = this.tables.scopeTemplates.get(id);
+    if (!existing) throw new Error(`Scope template not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.scopeTemplates.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteScopeTemplate(id: string): Promise<void> {
+    this.tables.scopeTemplates.delete(id);
     this.afterCommit();
   }
 

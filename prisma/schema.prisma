@@ -222,6 +222,7 @@ model Organization {
   usage       UsageCounter[]
   rateCards   RateCard[]
   estimateTemplates EstimateTemplate[]
+  scopeTemplates ScopeTemplate[]
   apiKeys     ApiKey[]
   webhooks    WebhookSubscription[]
 }
@@ -558,6 +559,24 @@ model EstimateTemplate {
   items          Json     @default("[]")
   contingencyPct Float    @default(0)
   taxPct         Float?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model ScopeTemplate {
+  id             String   @id
+  organizationId String
+  name           String
+  projectType    String
+  description    String?
+  assumptions    Json     @default("[]")
+  exclusions     Json     @default("[]")
+  items          Json     @default("[]")
   createdBy      String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

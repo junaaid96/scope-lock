@@ -140,6 +140,22 @@ describe("prisma postgres smoke", () => {
       expect(await store.countImpactsByRateCard(card.id)).toBe(1);
       await store.deleteEstimateTemplate(template.id);
       expect(await store.listEstimateTemplates(org.id)).toHaveLength(0);
+      // Scope templates (migration 0022) round-trip with JSON content.
+      const scopeTpl = await store.createScopeTemplate({
+        organizationId: org.id,
+        name: "Smoke Website",
+        projectType: "Website",
+        description: null,
+        assumptions: ["Client provides copy"],
+        exclusions: ["Native apps"],
+        items: [{ title: "Home", description: "Landing page", acceptanceCriteria: ["Loads fast"], category: null, priority: "HIGH" }],
+        createdBy: user.id,
+      });
+      expect((await store.listScopeTemplates(org.id)).map((t) => t.name)).toEqual(["Smoke Website"]);
+      const renamed = await store.updateScopeTemplate(scopeTpl.id, { name: "Smoke Website v2" });
+      expect(renamed.name).toBe("Smoke Website v2");
+      await store.deleteScopeTemplate(scopeTpl.id);
+      expect(await store.listScopeTemplates(org.id)).toHaveLength(0);
       // Allowance pools + draw-downs from migration 0005.
       const pool = await store.createAllowancePool({
         projectId: project.id,

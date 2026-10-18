@@ -20,6 +20,7 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ScopeTemplate,
   ExternalConnection,
   ExternalLink,
   ExternalWorkItem,
@@ -182,6 +183,23 @@ export interface Store {
   listEstimateTemplates(organizationId: string): Promise<EstimateTemplate[]>;
   updateEstimateTemplate(id: string, patch: Partial<Pick<EstimateTemplate, "name" | "items" | "contingencyPct" | "taxPct">>): Promise<EstimateTemplate>;
   deleteEstimateTemplate(id: string): Promise<void>;
+  createScopeTemplate(data: {
+    organizationId: string;
+    name: string;
+    projectType: string;
+    description: string | null;
+    assumptions: string[];
+    exclusions: string[];
+    items: ScopeTemplate["items"];
+    createdBy: string;
+  }): Promise<ScopeTemplate>;
+  findScopeTemplateById(id: string): Promise<ScopeTemplate | null>;
+  listScopeTemplates(organizationId: string): Promise<ScopeTemplate[]>;
+  updateScopeTemplate(
+    id: string,
+    patch: Partial<Pick<ScopeTemplate, "name" | "projectType" | "description" | "assumptions" | "exclusions" | "items">>,
+  ): Promise<ScopeTemplate>;
+  deleteScopeTemplate(id: string): Promise<void>;
   /** Impacts referencing a card (delete/rate-change guards). */
   countImpactsByRateCard(rateCardId: string): Promise<number>;
 

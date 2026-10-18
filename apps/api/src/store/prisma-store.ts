@@ -23,6 +23,7 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  ScopeTemplate,
   ExternalConnection,
   ExternalLink,
   ExternalWorkItem,
@@ -249,6 +250,16 @@ function mapDrawDown(r: Prisma.AllowanceDrawDownGetPayload<Prisma.AllowanceDrawD
 function mapEstimateTemplate(r: Prisma.EstimateTemplateGetPayload<Prisma.EstimateTemplateDefaultArgs>): EstimateTemplate {
   return {
     ...r,
+    items: json(r.items, []),
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapScopeTemplate(r: Prisma.ScopeTemplateGetPayload<Prisma.ScopeTemplateDefaultArgs>): ScopeTemplate {
+  return {
+    ...r,
+    assumptions: json(r.assumptions, []),
+    exclusions: json(r.exclusions, []),
     items: json(r.items, []),
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
@@ -1297,6 +1308,66 @@ export class PrismaStore implements Store {
 
   async deleteEstimateTemplate(id: string): Promise<void> {
     await this.db.estimateTemplate.delete({ where: { id } });
+  }
+
+  async createScopeTemplate(data: {
+    organizationId: string;
+    name: string;
+    projectType: string;
+    description: string | null;
+    assumptions: string[];
+    exclusions: string[];
+    items: ScopeTemplate["items"];
+    createdBy: string;
+  }): Promise<ScopeTemplate> {
+    return mapScopeTemplate(
+      await this.db.scopeTemplate.create({
+        data: {
+          id: newId("st"),
+          organizationId: data.organizationId,
+          name: data.name,
+          projectType: data.projectType,
+          description: data.description,
+          assumptions: J(data.assumptions),
+          exclusions: J(data.exclusions),
+          items: J(data.items),
+          createdBy: data.createdBy,
+        },
+      }),
+    );
+  }
+
+  async findScopeTemplateById(id: string): Promise<ScopeTemplate | null> {
+    const row = await this.db.scopeTemplate.findUnique({ where: { id } });
+    return row ? mapScopeTemplate(row) : null;
+  }
+
+  async listScopeTemplates(organizationId: string): Promise<ScopeTemplate[]> {
+    const rows = await this.db.scopeTemplate.findMany({ where: { organizationId } });
+    return rows.map(mapScopeTemplate);
+  }
+
+  async updateScopeTemplate(
+    id: string,
+    patch: Partial<Pick<ScopeTemplate, "name" | "projectType" | "description" | "assumptions" | "exclusions" | "items">>,
+  ): Promise<ScopeTemplate> {
+    return mapScopeTemplate(
+      await this.db.scopeTemplate.update({
+        where: { id },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.projectType !== undefined ? { projectType: patch.projectType } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.assumptions !== undefined ? { assumptions: J(patch.assumptions) } : {}),
+          ...(patch.exclusions !== undefined ? { exclusions: J(patch.exclusions) } : {}),
+          ...(patch.items !== undefined ? { items: J(patch.items) } : {}),
+        },
+      }),
+    );
+  }
+
+  async deleteScopeTemplate(id: string): Promise<void> {
+    await this.db.scopeTemplate.delete({ where: { id } });
   }
 
   async countImpactsByRateCard(rateCardId: string): Promise<number> {
