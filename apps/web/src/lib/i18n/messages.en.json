@@ -229,5 +229,27 @@
     "open": "open",
     "noRefs": "no refs",
     "staffOnly": "Connections are managed by project staff."
+  },
+  "channels": {
+    "prefsTitle": "Your notification channels",
+    "prefsHint": "Approval requests, decisions, escalations, and reminders reach you through these channels. SMS and WhatsApp need a phone number.",
+    "phone": "Phone number",
+    "phoneHint": "E.164 format, e.g. +8801712345678. Used for SMS and WhatsApp only.",
+    "email": "Email",
+    "sms": "SMS",
+    "whatsapp": "WhatsApp",
+    "save": "Save preferences",
+    "saved": "Preferences saved.",
+    "slackTitle": "Slack",
+    "slackHint": "Post approval requests, decisions, escalations, and reminders to a shared channel via an incoming webhook.",
+    "slackUrl": "Webhook URL",
+    "slackUrlHint": "From Slack: channel settings > Integrations > Add an incoming webhook.",
+    "connect": "Connect Slack",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect Slack? No further posts will be sent.",
+    "cancel": "Cancel",
+    "staffOnly": "Slack is configured by owners and admins."
   }
 }

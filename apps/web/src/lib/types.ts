@@ -527,3 +527,11 @@ export interface ExternalWorkItemView {
   observedAt: string;
   updatedAt: string;
 }
+
+export interface NotificationPreferences {
+  userId: string;
+  phoneE164: string | null;
+  notifyEmail: boolean;
+  notifySms: boolean;
+  notifyWhatsapp: boolean;
+}

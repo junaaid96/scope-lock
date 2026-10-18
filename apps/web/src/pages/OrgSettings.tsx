@@ -6,6 +6,7 @@ import { useSession } from "../lib/auth.js";
 import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner } from "../components/ui.js";
 import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
 import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
+import { PreferencesCard, SlackCard } from "../components/channels.js";
 
 interface Member {
   id: string;
@@ -37,6 +38,7 @@ interface Org {
   aiEnabled: boolean;
   branding: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
   settings?: { stepUp?: { otp?: boolean | null; typedName?: boolean | null } };
+  slackConfigured: boolean;
 }
 
 export function OrgSettingsPage(): JSX.Element {
@@ -115,6 +117,15 @@ export function OrgSettingsPage(): JSX.Element {
         <TemplatesCard organizationId={orgId} canManage={canManage} />
         <ApiKeysCard organizationId={orgId} canManage={canManage} />
         <WebhooksCard organizationId={orgId} canManage={canManage} />
+        <PreferencesCard />
+        {org.data ? (
+          <SlackCard
+            organizationId={orgId}
+            slackConfigured={org.data.slackConfigured}
+            canManage={canManage}
+            onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })}
+          />
+        ) : null}
         <Card>
           <h2 className="mb-2 font-medium">Usage ({usage.data?.period ?? "—"})</h2>
           {usage.isLoading ? <Spinner /> : usage.isError ? (
