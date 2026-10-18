@@ -152,8 +152,8 @@ describe("prisma postgres smoke", () => {
         createdBy: user.id,
       });
       expect((await store.listScopeTemplates(org.id)).map((t) => t.name)).toEqual(["Smoke Website"]);
-      const renamed = await store.updateScopeTemplate(scopeTpl.id, { name: "Smoke Website v2" });
-      expect(renamed.name).toBe("Smoke Website v2");
+      const renamedTpl = await store.updateScopeTemplate(scopeTpl.id, { name: "Smoke Website v2" });
+      expect(renamedTpl.name).toBe("Smoke Website v2");
       await store.deleteScopeTemplate(scopeTpl.id);
       expect(await store.listScopeTemplates(org.id)).toHaveLength(0);
       // Allowance pools + draw-downs from migration 0005.
