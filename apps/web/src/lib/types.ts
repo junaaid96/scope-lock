@@ -175,6 +175,7 @@ export interface ChangeDetail extends ChangeListItem {
   bundleId: string | null;
   decidedAt: string | null;
   impacts: Impact[];
+  options?: ChangeOptionView[];
   links: Array<{
     id: string;
     targetType: string;
@@ -245,6 +246,7 @@ export interface Approval {
   expiresAt: string | null;
   sentAt: string | null;
   invalidatedReason: string | null;
+  chosenOptionId?: string | null;
   package?: ReviewPackage;
   createdAt: string;
 }
@@ -254,7 +256,30 @@ export interface Decision {
   decision: string;
   comment: string | null;
   approverEmail: string | null;
+  optionId?: string | null;
+  optionLabel?: string | null;
   checksum: string;
+  createdAt: string;
+}
+
+export interface OptionSnapshotView {
+  optionId: string;
+  label: string;
+  description: string | null;
+  effortDays: number | null;
+  priceMinor: number | null;
+  currency: string | null;
+  timelineDays: number | null;
+  milestoneEffect: string | null;
+  risks: string[];
+  exclusions: string[];
+  notes: string | null;
+}
+
+export interface ChangeOptionView extends OptionSnapshotView {
+  id: string;
+  changeRequestId: string;
+  version: number;
   createdAt: string;
 }
 
@@ -265,6 +290,7 @@ export interface ReviewPackage {
   request: { number: string; title: string; description: string; source: string; classification: string | null } | null;
   members: Array<{ changeId: string; number: string; title: string; description: string }>;
   impact: Impact | null;
+  options?: OptionSnapshotView[];
   requirements: Array<{ requirementId: string; stableKey: string; title: string; description: string; acceptanceCriteria: string[]; versionSequence: number }>;
   attachments: Array<{ fileName: string; contentType: string; sizeBytes: number }>;
   assumptions: string[];

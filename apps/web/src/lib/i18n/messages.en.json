@@ -106,5 +106,26 @@
     "saved": "Thresholds saved.",
     "ascendingError": "Ceilings must ascend; the last rule may cover any amount.",
     "amountPlaceholder": "e.g. 5000.00"
+  },
+  "options": {
+    "title": "Proposal options",
+    "blurb": "Priced alternatives the client picks between (2–4, or none). Each option needs its own price and effort; the client's pick becomes the change's effective impact.",
+    "empty": "No options — the client decides the impact assessment above.",
+    "frozen": "Frozen: the client already decided on these options.",
+    "add": "Add option",
+    "edit": "Edit option",
+    "save": "Save option",
+    "remove": "Remove option",
+    "removeConfirm": "Remove this option? The client will no longer see it.",
+    "label": "Label",
+    "labelPlaceholder": "Full / Reduced / Defer",
+    "description": "What this option covers",
+    "price": "Price",
+    "effortDays": "Effort (days)",
+    "timelineDays": "Timeline (days)",
+    "milestoneEffect": "Milestone effect",
+    "notes": "Notes",
+    "chosen": "Chosen by the client",
+    "count": "{count} of 4 options"
   }
 }

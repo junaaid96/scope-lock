@@ -20,8 +20,9 @@ interface ReviewData {
   checksum: string;
   expiresAt: string | null;
   policy?: { mode: "ANY" | "ALL" | "SEQUENTIAL"; approverOrder: string[] } | null;
+  chosenOptionId?: string | null;
   policyState?: PolicyState | null;
-  decisions: Array<{ decision: string; comment: string | null; approverEmail: string | null; createdAt: string }>;
+  decisions: Array<{ decision: string; comment: string | null; approverEmail: string | null; optionId?: string | null; optionLabel?: string | null; createdAt: string }>;
   invalidatedReason: string | null;
   branding?: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
   organizationName?: string;
@@ -83,15 +84,17 @@ export function ReviewPage(): JSX.Element {
           <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm">
             {r.status === "DECIDED" && r.decisions.length > 0 ? (
               <div>
-                <p>Decided: <strong>{r.policyState?.outcome.state ?? r.decisions[0]?.decision}</strong></p>
+                <p>Decided: <strong>{r.policyState?.outcome.state ?? r.decisions[0]?.decision}</strong>
+                  {r.chosenOptionId ? ` — option “${(pkg.options ?? []).find((o) => o.optionId === r.chosenOptionId)?.label ?? "?"}”` : ""}
+                </p>
                 {r.decisions.length > 1 ? (
                   <ul className="mt-1 list-disc pl-5">
                     {r.decisions.map((d, i) => (
-                      <li key={i}>{d.approverEmail ?? "Approver"} — {d.decision}{d.comment ? ` — ${d.comment}` : ""}</li>
+                      <li key={i}>{d.approverEmail ?? "Approver"} — {d.decision}{d.optionLabel ? ` (option “${d.optionLabel}”)` : ""}{d.comment ? ` — ${d.comment}` : ""}</li>
                     ))}
                   </ul>
-                ) : r.decisions[0]?.comment ? (
-                  <p>{r.decisions[0]?.comment}</p>
+                ) : r.decisions[0]?.optionLabel || r.decisions[0]?.comment ? (
+                  <p>{r.decisions[0]?.optionLabel ? `Option “${r.decisions[0]?.optionLabel}”. ` : ""}{r.decisions[0]?.comment ?? ""}</p>
                 ) : null}
               </div>
             ) : r.status === "EXPIRED" ? (
@@ -166,6 +169,27 @@ export function ReviewPage(): JSX.Element {
           </section>
         ) : null}
 
+        {(pkg.options ?? []).length > 0 ? (
+          <section className="mt-4" aria-label="Proposal options">
+            <h2 className="font-medium">Proposal options — approve exactly one</h2>
+            <ul className="mt-2 space-y-2 text-sm">
+              {(pkg.options ?? []).map((o) => (
+                <li key={o.optionId} className="rounded-md border border-slate-200 p-3">
+                  <p className="font-medium">
+                    {o.label} · {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)} · {o.effortDays ?? "—"} days effort · {o.timelineDays ?? "—"} days
+                    {r.chosenOptionId === o.optionId ? " · chosen" : ""}
+                  </p>
+                  {o.description ? <p className="mt-1 text-slate-700">{o.description}</p> : null}
+                  {o.milestoneEffect ? <p className="mt-1 text-slate-700">Milestone effect: {o.milestoneEffect}</p> : null}
+                  {o.risks.length > 0 ? <p className="mt-1 text-slate-700">Risks: {o.risks.join("; ")}</p> : null}
+                  {o.exclusions.length > 0 ? <p className="mt-1 text-slate-700">Excluded: {o.exclusions.join("; ")}</p> : null}
+                  {o.notes ? <p className="mt-1 text-slate-700">{o.notes}</p> : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {pkg.requirements.length > 0 ? (
           <section className="mt-4">
             <h2 className="font-medium">Related agreed scope</h2>
@@ -213,6 +237,7 @@ export function ReviewPage(): JSX.Element {
             refParam={token as string}
             accent={accent}
             policyState={r.policyState ?? null}
+            options={pkg.options ?? []}
             onDecided={() => void client.invalidateQueries({ queryKey: ["review", token] })}
           />
         ) : null}
@@ -227,7 +252,7 @@ export function ReviewPage(): JSX.Element {
           </ul>
         ) : (
           <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-            <li><strong>Approve</strong> — the agency folds this work into the agreed scope and schedules it. You will see it in the next published version.</li>
+            <li><strong>Approve</strong> — {(pkg.options ?? []).length > 0 ? "you pick exactly one option and " : ""}the agency folds this work into the agreed scope and schedules it. You will see it in the next published version.</li>
             <li><strong>Reject</strong> — nothing changes; the current agreement stands. Your comment tells the agency why.</li>
             <li><strong>Request changes</strong> — the proposal goes back for revision and you will receive a fresh package to review.</li>
           </ul>
@@ -240,12 +265,21 @@ export function ReviewPage(): JSX.Element {
   );
 }
 
-function DecisionForm({ refParam, accent, policyState, onDecided }: { refParam: string; accent: string; policyState: PolicyState | null; onDecided: () => void }): JSX.Element {
+function DecisionForm({ refParam, accent, policyState, options, onDecided }: {
+  refParam: string;
+  accent: string;
+  policyState: PolicyState | null;
+  options: ReviewPackage["options"];
+  onDecided: () => void;
+}): JSX.Element {
   const [decision, setDecision] = useState("APPROVED");
+  const [optionId, setOptionId] = useState("");
   const [comment, setComment] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const optionList = options ?? [];
+  const needsPick = decision === "APPROVED" && optionList.length > 0;
 
   if (policyState?.yourDecision) {
     return (
@@ -274,7 +308,12 @@ function DecisionForm({ refParam, accent, policyState, onDecided }: { refParam: 
     setError(null);
     setSaving(true);
     try {
-      await api.post(`/approval-requests/${refParam}/decisions`, { decision, comment: comment || undefined, confirm: true });
+      await api.post(`/approval-requests/${refParam}/decisions`, {
+        decision,
+        comment: comment || undefined,
+        ...(needsPick ? { optionId } : {}),
+        confirm: true,
+      });
       onDecided();
     } catch (err) {
       setError({ message: errorMessage(err), correlationId: err instanceof ApiError ? err.correlationId : undefined });
@@ -299,6 +338,32 @@ function DecisionForm({ refParam, accent, policyState, onDecided }: { refParam: 
           </label>
         ))}
       </div>
+      {needsPick ? (
+        <fieldset className="mt-3">
+          <legend className="text-sm font-medium text-slate-900">Pick exactly one option to approve</legend>
+          <div className="mt-2 grid gap-2" role="radiogroup" aria-label="Proposal option">
+            {optionList.map((o) => (
+              <label
+                key={o.optionId}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
+                  optionId === o.optionId ? "border-teal-700 bg-teal-50 text-teal-900" : "border-slate-200 text-slate-700 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="option"
+                  value={o.optionId}
+                  checked={optionId === o.optionId}
+                  onChange={() => setOptionId(o.optionId)}
+                  required
+                  className="accent-teal-700"
+                />
+                {o.label} · {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
       <div className="mt-3">
         <Field label={decision === "APPROVED" ? "Comment (optional)" : "Comment (required)"} htmlFor="decision-comment">
           <Textarea id="decision-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} required={decision !== "APPROVED"} />
@@ -309,7 +374,7 @@ function DecisionForm({ refParam, accent, policyState, onDecided }: { refParam: 
         I confirm this decision on the exact package above. I understand recorded decisions are final.
       </label>
       {error ? <div className="mt-3"><ErrorBanner message={error.message} correlationId={error.correlationId} /></div> : null}
-      <Button type="submit" disabled={saving || !confirm} className="mt-3 w-full" style={{ backgroundColor: accent }}>
+      <Button type="submit" disabled={saving || !confirm || (needsPick && !optionId)} className="mt-3 w-full" style={{ backgroundColor: accent }}>
         {saving ? "Recording…" : "Record decision"}
       </Button>
     </form>

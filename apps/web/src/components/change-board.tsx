@@ -25,19 +25,21 @@ const COLUMNS: Column[] = [
   { id: "pending", title: "Pending approval", hint: "via Send for approval", statuses: ["PENDING_APPROVAL"], dropTo: null },
   { id: "approved", title: "Approved", hint: "via client decision", statuses: ["APPROVED"], dropTo: null },
   { id: "implemented", title: "Implemented", statuses: ["IMPLEMENTED"], dropTo: "IMPLEMENTED" },
+  { id: "parked", title: "Parked", hint: "shelved — revive via Move to", statuses: ["PARKED"], dropTo: "PARKED" },
   { id: "closed", title: "Closed", statuses: ["REJECTED", "WITHDRAWN"], dropTo: "WITHDRAWN" },
 ];
 
 /** Manual moves the API accepts (mirrors domain ChangeTransitions minus decision-driven targets). */
 const MANUAL_MOVES: Record<string, string[]> = {
-  DRAFT: ["SUBMITTED", "WITHDRAWN"],
-  SUBMITTED: ["TRIAGING", "NEEDS_CLARIFICATION", "WITHDRAWN"],
-  TRIAGING: ["ESTIMATING", "NEEDS_CLARIFICATION", "SUBMITTED", "WITHDRAWN"],
-  NEEDS_CLARIFICATION: ["TRIAGING", "ESTIMATING", "WITHDRAWN"],
-  ESTIMATING: ["TRIAGING", "NEEDS_CLARIFICATION", "WITHDRAWN"],
+  DRAFT: ["SUBMITTED", "PARKED", "WITHDRAWN"],
+  SUBMITTED: ["TRIAGING", "NEEDS_CLARIFICATION", "PARKED", "WITHDRAWN"],
+  TRIAGING: ["ESTIMATING", "NEEDS_CLARIFICATION", "SUBMITTED", "PARKED", "WITHDRAWN"],
+  NEEDS_CLARIFICATION: ["TRIAGING", "ESTIMATING", "PARKED", "WITHDRAWN"],
+  ESTIMATING: ["TRIAGING", "NEEDS_CLARIFICATION", "PARKED", "WITHDRAWN"],
   PENDING_APPROVAL: ["ESTIMATING", "NEEDS_CLARIFICATION", "WITHDRAWN"],
   APPROVED: ["IMPLEMENTED", "WITHDRAWN"],
-  REJECTED: ["ESTIMATING", "WITHDRAWN"],
+  REJECTED: ["ESTIMATING", "PARKED", "WITHDRAWN"],
+  PARKED: ["DRAFT", "SUBMITTED", "WITHDRAWN"],
   WITHDRAWN: ["DRAFT"],
   IMPLEMENTED: [],
 };

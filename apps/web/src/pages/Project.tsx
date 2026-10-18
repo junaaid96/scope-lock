@@ -26,6 +26,7 @@ export function ProjectPage(): JSX.Element {
   const [showChange, setShowChange] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [parkedOnly, setParkedOnly] = useState(false);
   const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "policy" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
@@ -75,8 +76,17 @@ export function ProjectPage(): JSX.Element {
         changes.isLoading ? <Spinner /> : (changes.data ?? []).length === 0 ? (
           <Empty title="No change requests" hint="When the client asks for something new, capture it here to assess it against the baseline." />
         ) : (
-          <ul className="space-y-3">
-            {(changes.data ?? []).map((c) => (
+          <div>
+            {(changes.data ?? []).some((c) => c.status === "PARKED") ? (
+              <div className="mb-3 flex items-center gap-2 text-sm">
+                <Button size="sm" variant={parkedOnly ? "primary" : "secondary"} onClick={() => setParkedOnly((v) => !v)} aria-pressed={parkedOnly}>
+                  Parked ({(changes.data ?? []).filter((c) => c.status === "PARKED").length})
+                </Button>
+                {parkedOnly ? <span className="text-slate-600">Shelved items — open one to revive it into a new submission.</span> : null}
+              </div>
+            ) : null}
+            <ul className="space-y-3">
+              {(changes.data ?? []).filter((c) => !parkedOnly || c.status === "PARKED").map((c) => (
               <li key={c.id}>
                 <Link to={`/projects/${p.id}/changes/${c.id}`} className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-teal-600">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -93,7 +103,8 @@ export function ProjectPage(): JSX.Element {
                 </Link>
               </li>
             ))}
-          </ul>
+            </ul>
+          </div>
         )
       ) : null}
       {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}

@@ -8,8 +8,9 @@ import type { AllowancePoolView, ChangeDetail, EstimateTemplate, ProjectDetail, 
 import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, statusTone } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
+import { OptionsCard } from "../components/options.js";
 
-const MANUAL_STATUSES = ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "WITHDRAWN"];
+const MANUAL_STATUSES = ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "PARKED", "WITHDRAWN"];
 
 export function ChangePage(): JSX.Element {
   const { id, changeId } = useParams<{ id: string; changeId: string }>();
@@ -121,6 +122,15 @@ export function ChangePage(): JSX.Element {
             {c.impact?.pricing ? <PricingBreakdown impact={c.impact} /> : null}
           </Card>
 
+          <OptionsCard
+            changeId={c.id}
+            currency={c.impact?.currency ?? (c.options ?? []).find((o) => o.currency)?.currency ?? "USD"}
+            status={c.status}
+            options={c.options ?? []}
+            chosenOptionIds={c.approvals.map((a) => a.chosenOptionId).filter((id): id is string => !!id)}
+            onDone={refresh}
+          />
+
           <Card>
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-medium">Linked requirements & dependencies</h2>
@@ -222,6 +232,7 @@ export function ChangePage(): JSX.Element {
                   </span>
                   <span className="text-xs text-slate-500">expires {formatDate(a.expiresAt)}</span>
                   {a.invalidatedReason ? <p className="text-xs text-red-700">Invalidated: {a.invalidatedReason}</p> : null}
+                  {a.chosenOptionId ? <p className="text-xs text-teal-800">Chose option “{(a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?"}”</p> : null}
                 </li>
               ))}
             </ul>
@@ -230,6 +241,7 @@ export function ChangePage(): JSX.Element {
                 {c.decisions.map((d) => (
                   <li key={d.id} className="rounded-md bg-slate-50 p-2">
                     <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
+                    {d.optionLabel ? <span className="ml-2 text-sm font-medium">Option “{d.optionLabel}”</span> : null}
                     <p className="mt-1">{d.comment ?? "No comment"}</p>
                     <p className="text-xs text-slate-500">{d.approverEmail} · {formatDate(d.createdAt)}</p>
                   </li>
@@ -306,7 +318,9 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
         ? "Rejected by the client — revise the estimate or withdraw it."
         : status === "WITHDRAWN"
           ? "Withdrawn — reopen it as a draft to continue."
-          : null;
+          : status === "PARKED"
+            ? "Parked — revive it into a new submission when the timing is right."
+            : null;
   return (
     <div className="mb-5">
       <ol className="flex flex-wrap items-center gap-y-2" aria-label="Workflow progress">
