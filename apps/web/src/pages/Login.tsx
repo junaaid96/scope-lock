@@ -1,13 +1,24 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { LoginSchema } from "@scopelock/contracts";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import { invalidateAll } from "../lib/query.js";
 import { CreditPill } from "../components/credit.js";
 import { Button, Card, ErrorBanner, Field, Input } from "../components/ui.js";
+
+const OAUTH_ERRORS: Record<string, string> = {
+  denied: "The provider sign-in was cancelled. Try again or use your password.",
+  nolink: "No account is linked to that provider identity. Log in with your password, then link it under workspace settings.",
+  mismatch: "That provider address does not match your account email, so nothing was linked.",
+  taken: "That provider identity is already linked to a different account.",
+  linked: "That provider identity is already linked to your account.",
+  failed: "The provider sign-in failed. Try again or use your password.",
+  invalid: "That sign-in request expired. Start again.",
+};
 
 type Form = z.infer<typeof LoginSchema>;
 
@@ -31,12 +42,60 @@ const HIGHLIGHTS: Array<{ title: string; body: string }> = [
 
 export function LoginPage(): JSX.Element {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const [ticket, setTicket] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
   const [demoBusy, setDemoBusy] = useState<string | null>(null);
+  const [methods, setMethods] = useState<{ google: boolean; github: boolean; passkey: boolean } | null>(null);
+  const [pkEmail, setPkEmail] = useState("");
+  const [pkBusy, setPkBusy] = useState(false);
   const { register, handleSubmit, formState } = useForm<Form>({ resolver: zodResolver(LoginSchema) });
+
+  // OAuth callback landings: MFA ticket continues to TOTP; errors explain.
+  useEffect(() => {
+    const mfaTicket = params.get("mfaTicket");
+    if (mfaTicket) setTicket(mfaTicket);
+    const oauthError = params.get("oauthError");
+    if (oauthError) setError({ message: OAUTH_ERRORS[oauthError] ?? OAUTH_ERRORS.failed ?? "Sign-in failed." });
+  }, [params]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ google: boolean; github: boolean; passkey: boolean }>("/auth/methods")
+      .then((m) => {
+        if (!cancelled) setMethods(m);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loginWithPasskey = async (): Promise<void> => {
+    setError(null);
+    setPkBusy(true);
+    try {
+      const options = await api.post<PublicKeyCredentialRequestOptionsJSON>("/auth/passkeys/login/start", {
+        ...(pkEmail.trim() ? { email: pkEmail.trim() } : {}),
+      });
+      const credential = await startAuthentication({ optionsJSON: options });
+      const res = await api.post<{ mfaRequired?: boolean; mfaTicket?: string }>("/auth/passkeys/login/finish", {
+        credential,
+      });
+      if (res.mfaRequired && res.mfaTicket) {
+        setTicket(res.mfaTicket);
+        return;
+      }
+      invalidateAll();
+      navigate("/");
+    } catch (err) {
+      setError({ message: errorMessage(err) });
+    } finally {
+      setPkBusy(false);
+    }
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
@@ -139,6 +198,46 @@ export function LoginPage(): JSX.Element {
                   {formState.isSubmitting ? "Logging in…" : "Log in"}
                 </Button>
               </form>
+            )}
+            {ticket ? null : (
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                {(methods?.google || methods?.github) && (
+                  <div className="flex gap-2">
+                    {methods.google && (
+                      <a
+                        href="/api/v1/auth/oauth/google/start"
+                        className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
+                      >
+                        Continue with Google
+                      </a>
+                    )}
+                    {methods.github && (
+                      <a
+                        href="/api/v1/auth/oauth/github/start"
+                        className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-800 transition-colors hover:bg-slate-100"
+                      >
+                        Continue with GitHub
+                      </a>
+                    )}
+                  </div>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <div className="flex-1">
+                    <label htmlFor="pk-email" className="sr-only">Email for passkey login (optional)</label>
+                    <Input
+                      id="pk-email"
+                      type="email"
+                      autoComplete="email webauthn"
+                      placeholder="Email (optional)"
+                      value={pkEmail}
+                      onChange={(e) => setPkEmail(e.target.value)}
+                    />
+                  </div>
+                  <Button type="button" variant="secondary" disabled={pkBusy} onClick={() => void loginWithPasskey()}>
+                    {pkBusy ? "Waiting…" : "Passkey"}
+                  </Button>
+                </div>
+              </div>
             )}
             <p className="mt-4 text-center text-sm text-slate-600">
               No account? <Link to="/register" className="font-medium text-teal-800 underline">Create one</Link>

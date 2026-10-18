@@ -8,6 +8,7 @@ import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js"
 import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
 import { PreferencesCard, SlackCard } from "../components/channels.js";
 import { ScopeTemplatesCard } from "../components/templates.js";
+import { OAuthCard, PasskeysCard } from "../components/security.js";
 
 interface Member {
   id: string;
@@ -98,6 +99,9 @@ export function OrgSettingsPage(): JSX.Element {
           <h2 className="mb-2 font-medium">Your sign-in security</h2>
           <MfaCard />
         </Card>
+
+        <OAuthCard />
+        <PasskeysCard />
 
         <Card>
           <h2 className="mb-2 font-medium">AI assistance</h2>
