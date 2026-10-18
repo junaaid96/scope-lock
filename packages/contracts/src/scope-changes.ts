@@ -68,7 +68,7 @@ export const UpdateEvidenceSchema = z.object({ status: EvidenceStatusSchema });
 export const CreateChangeSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(12000),
-  source: z.enum(["CLIENT", "AGENCY", "INTAKE_FORM"]).default("CLIENT"),
+  source: z.enum(["CLIENT", "AGENCY", "INTAKE_FORM", "INBOUND_EMAIL"]).default("CLIENT"),
   /** Requirement IDs the pre-submission scope check suggested (for metrics). */
   suggestedRequirementIds: z.array(IdSchema).max(10).default([]),
 });
