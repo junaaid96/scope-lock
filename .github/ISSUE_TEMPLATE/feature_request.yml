@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose an idea that keeps scope auditable
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Which of the four ScopeLock questions (agreed scope, changes, decisions, impact) does this help with?
+      placeholder: When a client asks for ..., my team cannot ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: Add ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope boundary
+      description: ScopeLock deliberately does not do task management, time tracking, invoicing, tax, or payments.
+      options:
+        - label: This proposal stays outside that boundary (or explains why the boundary should move)
+          required: true

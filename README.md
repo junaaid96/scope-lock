@@ -408,51 +408,13 @@ ScopeLock is free and open-source software under the [MIT License](LICENSE)
 — use it for client work, host it yourself, fork it, and shape it to your
 agency's process.
 
-### Report issues
-
-Open a GitHub issue with steps to reproduce, expected vs actual behavior,
-and the relevant API log line (it carries a `correlationId`). For security
-reports, email the maintainers privately instead of filing a public issue —
-see [Security model](#security-model) for what is covered.
-
-### Contribute code
-
-1. **Fork** the repo and clone your fork, then follow
-   [Setup & run](#setup--run-detailed) above.
-2. **Branch** from `main`: `git checkout -b feat/short-name`
-   (or `fix/…`, `docs/…`).
-3. **Change** as little as possible to solve the problem. Match surrounding
-   conventions: the Express API owns all business logic and authorization,
-   React never touches the database or provider credentials, and every
-   protected action checks membership server-side (see
-   [Architecture rules](#architecture-rules-enforced-in-code)).
-4. **Verify** with the same gates CI runs (`.github/workflows/ci.yml`):
-
-   | Gate | Command | Covers |
-   | --- | --- | --- |
-   | Schema | `npm run prisma:validate` | Prisma schema validity |
-   | Build | `npm run build` | packages → API → web compile |
-   | Types | `npm run typecheck` | `tsc --noEmit` in every workspace |
-   | Lint | `npm run lint` | ESLint, zero warnings |
-   | Unit + API | `npm run test` | domain rules + API integration suite |
-   | Contracts | `npm run test:contracts` | error envelopes + pagination |
-   | Postgres | `TEST_DATABASE_URL=…` smoke + `migrate deploy` | migrations apply cleanly |
-   | E2E + a11y | `npm run e2e` | Playwright flows + axe scans (serious/critical) |
-   | Deps | `npm audit --omit=dev --audit-level=high` | advisory vulnerability scan |
-
-5. **Test your change**: bug fixes must add a regression test, new API
-   behavior needs integration coverage, and user-facing web flows need a
-   Playwright spec (see `apps/web/e2e/`). Never weaken an existing test to
-   make a change pass.
-6. **Document** user-visible behavior in this README where users will look
-   for it (setup, tour, env vars, scripts).
-7. **Open a PR** against `main` with a clear description, linked issue, and
-   verification evidence (which gates you ran). Keep PRs focused — one
-   concern per PR.
-
-New here? Issues labeled `good first issue` are the fastest way in
-(suggested starter areas: e2e coverage for the board/timeline edge cases,
-accessibility polish, docs).
+- **Contribute:** see [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow,
+  verification gates, and PR checklist. Changes are tracked in
+  [CHANGELOG.md](CHANGELOG.md).
+- **Report issues:** open a GitHub issue (bug/feature templates provided).
+  For security vulnerabilities, report privately per
+  [SECURITY.md](SECURITY.md) instead of filing a public issue — see
+  [Security model](#security-model) for what is covered.
 
 ## License
 

@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in ScopeLock behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for reporting. Please do **not** use this form for security
+        vulnerabilities — see [SECURITY.md](../../SECURITY.md) for private reporting.
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Log in as ...
+        2. Open ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+      placeholder: I expected X, but Y happened.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: API log line / correlation ID
+      description: The API log line carries a correlationId (also returned as X-Request-Id). Paste it here.
+      placeholder: correlationId=...
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        - ScopeLock version/commit:
+        - Node version:
+        - Storage: file / Postgres
+        - Browser (for UI bugs):
