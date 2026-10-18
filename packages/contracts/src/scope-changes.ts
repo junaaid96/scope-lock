@@ -144,6 +144,8 @@ export const SendApprovalSchema = z.object({
   title: z.string().max(200).optional(),
   /** Allowance pool this change draws from when approved. Absent keeps the current link. */
   allowancePoolId: IdSchema.nullable().optional(),
+  /** Explicit policy mode. Absent resolves from the project's amount thresholds (default ANY). */
+  policyMode: z.enum(["ANY", "ALL", "SEQUENTIAL"]).optional(),
 });
 export const DecideApprovalSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED", "CHANGES_REQUESTED"]),

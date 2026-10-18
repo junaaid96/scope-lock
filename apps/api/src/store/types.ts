@@ -141,6 +141,8 @@ export interface Client {
 export interface ProjectSettings {
   aiEnabled: boolean;
   reminderHoursBeforeExpiry: number[];
+  /** Amount thresholds for approval policy; empty = ANY always. */
+  approvalPolicies: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
 }
 
 export interface Project {
@@ -478,6 +480,8 @@ export interface ApprovalRequest {
   checksum: string;
   status: ApprovalStatus;
   approverUserIds: string[];
+  /** Aggregation policy: how this package's approvers reach a terminal decision. */
+  policy: { mode: "ANY" | "ALL" | "SEQUENTIAL"; approverOrder: string[] };
   expiresAt: string | null;
   sentAt: string | null;
   sentBy: string | null;

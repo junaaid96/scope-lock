@@ -87,9 +87,16 @@ export const CreateClientSchema = z.object({
 export const UpdateClientSchema = CreateClientSchema.omit({ organizationId: true }).partial();
 
 // ---------- Projects ----------
+export const ApprovalThresholdRuleSchema = z.object({
+  /** Prices at or below this (minor units, project currency) use this mode; null = no ceiling. */
+  uptoMinor: z.number().int().min(0).max(1000000000000).nullable(),
+  mode: z.enum(["ANY", "ALL", "SEQUENTIAL"]),
+});
 export const ProjectSettingsSchema = z.object({
   aiEnabled: z.boolean().default(true),
   reminderHoursBeforeExpiry: z.array(z.number().int().min(1).max(720)).max(4).default([48, 24]),
+  /** Amount thresholds for approval policy; ascending ceilings, evaluated in order. Empty = ANY always. */
+  approvalPolicies: z.array(ApprovalThresholdRuleSchema).max(5).default([]),
 });
 export const CreateProjectSchema = z.object({
   organizationId: IdSchema,

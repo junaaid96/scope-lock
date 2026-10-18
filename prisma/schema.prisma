@@ -652,6 +652,7 @@ model ApprovalRequest {
   checksum        String
   status          ApprovalStatus @default(DRAFT)
   approverUserIds Json           @default("[]")
+  policy          Json           @default("{\"mode\":\"ANY\",\"approverOrder\":[]}")
   expiresAt       DateTime?
   sentAt          DateTime?
   sentBy          String?

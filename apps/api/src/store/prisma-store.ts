@@ -36,6 +36,7 @@ import type {
   PasswordReset,
   Project,
   ProjectMember,
+  ProjectSettings,
   RateCard,
   Requirement,
   RequirementRevision,
@@ -128,6 +129,7 @@ function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Pro
     settings: {
       aiEnabled: (settings.aiEnabled as boolean | undefined) ?? true,
       reminderHoursBeforeExpiry: (settings.reminderHoursBeforeExpiry as number[] | undefined) ?? [48, 24],
+      approvalPolicies: (settings.approvalPolicies as ProjectSettings["approvalPolicies"] | undefined) ?? [],
     },
     externalIntegrationsEnabled: r.externalIntegrationsEnabled,
     changeCounter: r.changeCounter,
@@ -238,10 +240,12 @@ function mapBundle(r: Prisma.BundleGetPayload<Prisma.BundleDefaultArgs>): Bundle
   return { ...r, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt) };
 }
 function mapApproval(r: Prisma.ApprovalRequestGetPayload<Prisma.ApprovalRequestDefaultArgs>): ApprovalRequest {
+  const policy = json(r.policy, { mode: "ANY", approverOrder: [] }) as ApprovalRequest["policy"];
   return {
     ...r,
     package: json(r.package, {}) as ApprovalRequest["package"],
     approverUserIds: json(r.approverUserIds, []),
+    policy: { mode: policy.mode ?? "ANY", approverOrder: policy.approverOrder ?? [] },
     remindersSent: json(r.remindersSent, []),
     expiresAt: r.expiresAt ? iso(r.expiresAt) : null,
     sentAt: r.sentAt ? iso(r.sentAt) : null,
@@ -1253,6 +1257,7 @@ export class PrismaStore implements Store {
           checksum: data.checksum,
           status: data.status,
           approverUserIds: J(data.approverUserIds),
+          policy: J(data.policy),
           expiresAt: data.expiresAt ? asDate(data.expiresAt) : null,
           sentAt: data.sentAt ? asDate(data.sentAt) : null,
           sentBy: data.sentBy,
