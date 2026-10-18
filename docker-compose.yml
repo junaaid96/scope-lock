@@ -1,0 +1,58 @@
+name: scopelock
+
+# Self-hosted ScopeLock: Postgres + API + web.
+# Quickstart (see README "Self-host in 5 minutes"):
+#   cp .env.example .env   # then set DB_PASSWORD; localhost URLs work as-is for a local trial
+#   docker compose up --build -d
+#   open http://localhost:8080
+# Going public: set NODE_ENV=production, a 32+ char AUTH_SECRET, https
+# WEB_URL/API_URL/AUTH_URL, and terminate TLS in front of the web service.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scopelock
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env (compose Postgres password)}
+      POSTGRES_DB: scopelock
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scopelock"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # `environment` wins over env_file: inside compose, the database is
+      # always the db service above, never a stray local DATABASE_URL.
+      DATABASE_URL: postgresql://scopelock:${DB_PASSWORD:?Set DB_PASSWORD in your .env}@db:5432/scopelock
+    volumes:
+      # Local-driver upload bytes (used when R2_* is unset). Back up together
+      # with pgdata — they are only consistent as a pair.
+      - uploads:/srv/scopelock/data/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  pgdata:
+  uploads:
