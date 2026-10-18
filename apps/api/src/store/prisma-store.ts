@@ -23,6 +23,7 @@ import type {
   ExternalLink,
   IdempotencyRecord,
   ImpactPricing,
+  InboundMailbox,
   IntakeLink,
   Invitation,
   ListQuery,
@@ -258,6 +259,9 @@ function mapToken(r: Prisma.ApprovalTokenGetPayload<Prisma.ApprovalTokenDefaultA
   };
 }
 function mapDecision(r: Prisma.ApprovalDecisionGetPayload<Prisma.ApprovalDecisionDefaultArgs>): ApprovalDecision {
+  return { ...r, createdAt: iso(r.createdAt) };
+}
+function mapMailbox(r: Prisma.InboundMailboxGetPayload<Prisma.InboundMailboxDefaultArgs>): InboundMailbox {
   return { ...r, createdAt: iso(r.createdAt) };
 }
 function mapIntakeLink(r: Prisma.IntakeLinkGetPayload<Prisma.IntakeLinkDefaultArgs>): IntakeLink {
@@ -1339,6 +1343,32 @@ export class PrismaStore implements Store {
         },
       }),
     );
+  }
+
+  async createInboundMailbox(data: Omit<InboundMailbox, "id" | "createdAt">): Promise<InboundMailbox> {
+    return mapMailbox(
+      await this.db.inboundMailbox.create({
+        data: { id: newId("imb"), projectId: data.projectId, name: data.name, localPart: data.localPart, createdBy: data.createdBy },
+      }),
+    );
+  }
+
+  async findInboundMailboxByLocalPart(localPart: string): Promise<InboundMailbox | null> {
+    const r = await this.db.inboundMailbox.findUnique({ where: { localPart } });
+    return r ? mapMailbox(r) : null;
+  }
+
+  async findInboundMailboxById(id: string): Promise<InboundMailbox | null> {
+    const r = await this.db.inboundMailbox.findUnique({ where: { id } });
+    return r ? mapMailbox(r) : null;
+  }
+
+  async listInboundMailboxes(projectId: string): Promise<InboundMailbox[]> {
+    return (await this.db.inboundMailbox.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } })).map(mapMailbox);
+  }
+
+  async deleteInboundMailbox(id: string): Promise<void> {
+    await this.db.inboundMailbox.delete({ where: { id } });
   }
 
   async createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink> {

@@ -502,6 +502,16 @@ export interface ApprovalToken {
   createdAt: string;
 }
 
+/** Unguessable per-project inbound-email alias. Address = localPart@INBOUND_EMAIL_DOMAIN. */
+export interface InboundMailbox {
+  id: string;
+  projectId: string;
+  name: string;
+  localPart: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 /** Revocable public intake link for a project. The raw token is shown once. */
 export interface IntakeLink {
   id: string;

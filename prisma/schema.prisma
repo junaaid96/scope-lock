@@ -183,6 +183,7 @@ model User {
   approvalDecisions ApprovalDecision[]
   aiAnalyses       AIAnalysis[]
   intakeLinks      IntakeLink[]
+  inboundMailboxes InboundMailbox[]
   attachments      Attachment[]
   evidenceAuthored DeliveryEvidence[] @relation("EvidenceAuthor")
   evidenceVerified DeliveryEvidence[] @relation("EvidenceVerifier")
@@ -319,6 +320,7 @@ model Project {
   metricEvents   MetricEvent[]
   allowancePools AllowancePool[]
   intakeLinks    IntakeLink[]
+  inboundMailboxes InboundMailbox[]
   changeCounter  Int @default(0)
   requirementCounter Int @default(0)
 
@@ -681,6 +683,20 @@ model ApprovalToken {
   createdAt         DateTime @default(now())
 
   approval ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+}
+
+model InboundMailbox {
+  id        String   @id
+  projectId String
+  name      String
+  localPart String   @unique
+  createdBy String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
 }
 
 model IntakeLink {

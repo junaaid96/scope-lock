@@ -21,6 +21,7 @@ import type {
   EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
+  InboundMailbox,
   IntakeLink,
   Invitation,
   ListQuery,
@@ -71,6 +72,7 @@ type Tables = {
   approvals: Map<string, ApprovalRequest>;
   approvalTokens: Map<string, ApprovalToken>;
   decisions: Map<string, ApprovalDecision>;
+  inboundMailboxes: Map<string, InboundMailbox>;
   intakeLinks: Map<string, IntakeLink>;
   attachments: Map<string, Attachment>;
   evidence: Map<string, DeliveryEvidence>;
@@ -112,6 +114,7 @@ function emptyTables(): Tables {
     approvals: new Map(),
     approvalTokens: new Map(),
     decisions: new Map(),
+    inboundMailboxes: new Map(),
     intakeLinks: new Map(),
     attachments: new Map(),
     evidence: new Map(),
@@ -1023,6 +1026,34 @@ export class MemoryStore implements Store {
     this.tables.approvalTokens.set(id, updated);
     this.afterCommit();
     return updated;
+  }
+
+  async createInboundMailbox(data: Omit<InboundMailbox, "id" | "createdAt">): Promise<InboundMailbox> {
+    for (const m of this.tables.inboundMailboxes.values()) {
+      if (m.localPart === data.localPart) throw new Error(`Mailbox already exists: ${data.localPart}`);
+    }
+    const row: InboundMailbox = { id: newId("imb"), createdAt: nowIso(), ...data };
+    this.tables.inboundMailboxes.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findInboundMailboxByLocalPart(localPart: string): Promise<InboundMailbox | null> {
+    for (const m of this.tables.inboundMailboxes.values()) if (m.localPart === localPart) return m;
+    return null;
+  }
+
+  async findInboundMailboxById(id: string): Promise<InboundMailbox | null> {
+    return this.tables.inboundMailboxes.get(id) ?? null;
+  }
+
+  async listInboundMailboxes(projectId: string): Promise<InboundMailbox[]> {
+    return sortDesc([...this.tables.inboundMailboxes.values()].filter((m) => m.projectId === projectId));
+  }
+
+  async deleteInboundMailbox(id: string): Promise<void> {
+    this.tables.inboundMailboxes.delete(id);
+    this.afterCommit();
   }
 
   async createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink> {

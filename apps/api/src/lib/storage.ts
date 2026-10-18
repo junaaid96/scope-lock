@@ -1,5 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { newId } from "@scopelock/domain";
@@ -18,6 +18,8 @@ export interface StorageDriver {
   readonly name: "r2" | "local";
   createUploadUrl(fileName: string, contentType: string, sizeBytes: number): Promise<PresignedUpload>;
   createDownloadUrl(storageKey: string, fileName: string): Promise<{ downloadUrl: string; expiresAt: string }>;
+  /** Server-side byte write (inbound email attachments). Key must come from createUploadUrl. */
+  putBytes(storageKey: string, bytes: Buffer, contentType: string): Promise<void>;
   /** Best-effort byte removal for retention GC. Never throws on missing keys. */
   deleteBytes(storageKey: string): Promise<void>;
 }
@@ -54,6 +56,12 @@ class R2StorageDriver implements StorageDriver {
     });
     const downloadUrl = await getSignedUrl(this.client, command, { expiresIn: URL_TTL_SECONDS });
     return { downloadUrl, expiresAt: ttl() };
+  }
+
+  async putBytes(storageKey: string, bytes: Buffer, contentType: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({ Bucket: this.env.R2_BUCKET_NAME, Key: storageKey, Body: bytes, ContentType: contentType }),
+    );
   }
 
   async deleteBytes(storageKey: string): Promise<void> {
@@ -95,6 +103,15 @@ class LocalStorageDriver implements StorageDriver {
   async deleteBytes(storageKey: string): Promise<void> {
     if (storageKey.includes("..") || storageKey.startsWith("/")) return;
     rmSync(`${this.env.UPLOAD_DIR}/${storageKey}`, { force: true });
+  }
+
+  async putBytes(storageKey: string, bytes: Buffer): Promise<void> {
+    if (storageKey.includes("..") || storageKey.startsWith("/") || !storageKey.startsWith("attachments/")) {
+      throw new Error("Refusing to write outside the attachments directory");
+    }
+    const full = `${this.env.UPLOAD_DIR}/${storageKey}`;
+    mkdirSync(full.slice(0, full.lastIndexOf("/")), { recursive: true });
+    writeFileSync(full, bytes);
   }
 }
 

@@ -19,6 +19,7 @@ import type {
   EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
+  InboundMailbox,
   IntakeLink,
   Invitation,
   ListQuery,
@@ -215,6 +216,13 @@ export interface Store {
   updateApprovalToken(id: string, patch: Partial<ApprovalToken>): Promise<ApprovalToken>;
   createDecision(data: Omit<ApprovalDecision, "id" | "createdAt">): Promise<ApprovalDecision>;
   listDecisions(approvalRequestId: string): Promise<ApprovalDecision[]>;
+
+  // ----- Inbound mailboxes -----
+  createInboundMailbox(data: Omit<InboundMailbox, "id" | "createdAt">): Promise<InboundMailbox>;
+  findInboundMailboxByLocalPart(localPart: string): Promise<InboundMailbox | null>;
+  findInboundMailboxById(id: string): Promise<InboundMailbox | null>;
+  listInboundMailboxes(projectId: string): Promise<InboundMailbox[]>;
+  deleteInboundMailbox(id: string): Promise<void>;
 
   // ----- Intake links -----
   createIntakeLink(data: Omit<IntakeLink, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "submissions">): Promise<IntakeLink>;

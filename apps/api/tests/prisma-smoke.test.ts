@@ -212,6 +212,17 @@ describe("prisma postgres smoke", () => {
       const revoked = await store.updateIntakeLink(intake.id, { revokedAt: new Date().toISOString(), submissions: 3 });
       expect(revoked.submissions).toBe(3);
       expect(revoked.revokedAt).not.toBeNull();
+      // Inbound mailboxes from migration 0009.
+      const mailbox = await store.createInboundMailbox({
+        projectId: project.id,
+        name: "Smoke box",
+        localPart: `chg-smoke-${Date.now()}`,
+        createdBy: user.id,
+      });
+      expect((await store.findInboundMailboxByLocalPart(mailbox.localPart))?.id).toBe(mailbox.id);
+      expect(await store.listInboundMailboxes(project.id)).toHaveLength(1);
+      await store.deleteInboundMailbox(mailbox.id);
+      expect(await store.listInboundMailboxes(project.id)).toHaveLength(0);
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {
