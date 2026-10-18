@@ -218,10 +218,12 @@ describe("files, health, worker, idempotency", () => {
     });
     const health = await fx.owner.agent.get(`/api/v1/projects/${fx.projectId}/health`);
     expect(health.status).toBe(200);
-    expect(health.body.signals).toHaveLength(5);
+    expect(health.body.signals).toHaveLength(6);
     expect(health.body.signals.every((s: { detail: string }) => s.detail.length > 0)).toBe(true);
     const unlinked = health.body.signals.find((s: { key: string }) => s.key === "unlinked");
     expect(unlinked.count).toBe(1);
+    const unlinkedWork = health.body.signals.find((s: { key: string }) => s.key === "unlinked-work");
+    expect(unlinkedWork.count).toBe(0);
     const metrics = await fx.owner.agent.get(`/api/v1/projects/${fx.projectId}/metrics`);
     expect(metrics.status).toBe(200);
     expect(metrics.body.eventCounts["change.submitted"]).toBe(1);
