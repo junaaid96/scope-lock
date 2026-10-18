@@ -9,6 +9,7 @@ import { ChangeBoard } from "../components/change-board.js";
 import { ContractTab } from "../components/contract.js";
 import { AllowanceTab } from "../components/allowance.js";
 import { IntakeTab } from "../components/intake.js";
+import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
@@ -108,12 +109,16 @@ function ChangeDialog({ projectId, onClose }: { projectId: string; onClose: () =
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const { register, handleSubmit, formState } = useForm<{ title: string; description: string; source: string }>({
+  const [suggestedIds, setSuggestedIds] = useState<string[]>([]);
+  const { register, handleSubmit, formState, watch } = useForm<{ title: string; description: string; source: string }>({
     defaultValues: { source: "CLIENT" },
   });
   const save = useMutation({
     mutationFn: async (v: { title: string; description: string; source: string }) => {
-      const created = await api.post<{ id: string }>(`/projects/${projectId}/change-requests`, v);
+      const created = await api.post<{ id: string }>(`/projects/${projectId}/change-requests`, {
+        ...v,
+        suggestedRequirementIds: suggestedIds,
+      });
       // Attach selected files to the new request (best effort after create).
       if (files.length > 0) {
         setUploading(true);
@@ -141,6 +146,22 @@ function ChangeDialog({ projectId, onClose }: { projectId: string; onClose: () =
         <Field label="Description" error={formState.errors.description?.message} htmlFor="change-description">
           <Textarea id="change-description" rows={4} {...register("description", { required: "Description is required" })} />
         </Field>
+        <ScopeCheckPanel
+          title={watch("title") ?? ""}
+          description={watch("description") ?? ""}
+          onMatches={setSuggestedIds}
+          onCheck={async (t, d) => {
+            const res = await api.post<{ deterministic: ScopeMatch[]; analysis: { status: string; output?: { links?: unknown[] } } }>(
+              `/projects/${projectId}/ai/scope-check`,
+              { title: t, description: d },
+            );
+            const aiLinks = res.analysis.status === "SUCCEEDED" ? (res.analysis.output?.links ?? []) : [];
+            return {
+              deterministic: res.deterministic,
+              aiNote: res.analysis.status === "SUCCEEDED" ? `AI refinement agrees on ${aiLinks.length} link(s).` : null,
+            };
+          }}
+        />
         <Field label="Source" htmlFor="change-source">
           <Select id="change-source" {...register("source")}>
             <option value="CLIENT">Client</option>

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import { LoadingScreen } from "../components/layout.js";
 import { Button, Card, ErrorBanner, Field, Input, Textarea } from "../components/ui.js";
+import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 
 interface IntakeInfo {
   projectName: string;
@@ -26,6 +27,7 @@ export function IntakePage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [suggestedIds, setSuggestedIds] = useState<string[]>([]);
 
   if (info.isLoading) return <LoadingScreen message="Loading the request form…" />;
   if (info.isError || !info.data) {
@@ -52,6 +54,7 @@ export function IntakePage(): JSX.Element {
         submitterName: name || undefined,
         submitterEmail: email || undefined,
         website,
+        suggestedRequirementIds: suggestedIds,
       });
       setDone(res.number ?? "");
     } catch (err) {
@@ -90,6 +93,15 @@ export function IntakePage(): JSX.Element {
             <Field label="Details" htmlFor="intake-description" hint="What should happen, and why? At least a sentence or two.">
               <Textarea id="intake-description" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} required minLength={20} maxLength={8000} />
             </Field>
+            <ScopeCheckPanel
+              title={title}
+              description={description}
+              onMatches={setSuggestedIds}
+              onCheck={async (t, d) => {
+                const res = await api.post<{ deterministic: ScopeMatch[] }>(`/intake/${token}/scope-check`, { title: t, description: d });
+                return { deterministic: res.deterministic, aiNote: null };
+              }}
+            />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Your name (optional)" htmlFor="intake-name">
                 <Input id="intake-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="name" />
