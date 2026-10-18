@@ -308,12 +308,22 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   selectable verdict cards, and binding-confirmation copy.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
+### Screenshots
+
+Captured from the portfolio demo seed (`npm run screenshots` regenerates them):
+
+![Agency dashboard over the 16-project portfolio](docs/screenshots/dashboard.png)
+![Login-free client review link with impact and related scope](docs/screenshots/review.png)
+![Change request detail with audit trail](docs/screenshots/change.png)
+
 ## Scripts
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev:api` / `npm run dev:web` | hot-reload API / web client |
 | `npm run build` | packages → API → web production builds |
+| `npm start` | run the built API in production (needs env, see self-host guide) |
+| `npm run screenshots` | regenerate `docs/screenshots/*.png` from the portfolio seed |
 | `npm run typecheck` | `tsc --noEmit` for every workspace (incl. API tests) |
 | `npm run lint` | ESLint with zero-warning tolerance |
 | `npm run test` | domain unit tests + full API integration suite |

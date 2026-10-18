@@ -27,7 +27,8 @@
     "seed:portfolio": "tsx prisma/seed-portfolio.ts",
     "prisma:validate": "DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma validate --schema prisma/schema.prisma",
     "prisma:generate": "DATABASE_URL=postgresql://localhost:5432/scopelock npx prisma generate --schema prisma/schema.prisma",
-    "e2e": "npm run e2e -w apps/web"
+    "e2e": "npm run e2e -w apps/web",
+    "screenshots": "npm run build -w apps/api && npm run screenshots -w apps/web"
   },
   "devDependencies": {
     "@eslint/js": "9.17.0",

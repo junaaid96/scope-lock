@@ -12,8 +12,11 @@ All notable changes to ScopeLock are documented here. Format follows
   (nginx + same-origin `/api/*` proxy), `docker-compose.yml` (api, web,
   postgres with healthchecks), root `npm start`, and a "Self-host in 5
   minutes" README guide with a CI smoke job for the stack.
-- Community health files: `SECURITY.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
-  bug/feature issue templates, and a pull-request template.
+- Community health files: `CHANGELOG.md`, `CONTRIBUTING.md`, bug/feature
+  issue templates, and a pull-request template (`SECURITY.md` follows once
+  the maintainer contact address is confirmed).
+- `npm run screenshots`: portfolio-seeded Playwright captures in
+  `docs/screenshots`, embedded in the README tour.
 
 ## [0.1.0] - 2026-10-16
 

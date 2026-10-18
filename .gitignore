@@ -17,6 +17,7 @@ data/
 
 # vite / playwright
 apps/web/dist/
+apps/web/screenshots-data/
 test-results/
 playwright-report/
 playwright/.cache/
