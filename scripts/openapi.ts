@@ -18,7 +18,6 @@ import {
   WebhookEventSchema,
   WebhookViewSchema,
 } from "@scopelock/contracts";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(HERE);
@@ -26,21 +25,139 @@ const OUT = join(ROOT, "apps", "api", "src", "openapi.json");
 
 const rootPkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string };
 
-function schemaOf(name: string, schema: Parameters<typeof zodToJsonSchema>[0]): Record<string, unknown> {
-  const out = zodToJsonSchema(schema, { name, target: "openApi3" });
-  const defs = (out as { definitions?: Record<string, unknown> }).definitions;
-  if (defs && defs[name]) return defs[name] as Record<string, unknown>;
-  const { $schema: _schema, ...rest } = out as Record<string, unknown>;
-  void _schema;
-  return rest;
+// ---------- Minimal Zod v3 -> JSON Schema converter ----------
+// Covers exactly the shapes the integration contracts use. Anything else
+// throws, so a new contract shape fails loudly instead of mis-rendering.
+interface SchemaLike {
+  _def: { typeName: string; [key: string]: unknown };
+  [key: string]: unknown;
 }
 
-const ApiKeyView = schemaOf("ApiKeyView", ApiKeyViewSchema);
-const CreateApiKey = schemaOf("CreateApiKey", CreateApiKeySchema);
-const WebhookView = schemaOf("WebhookView", WebhookViewSchema);
-const CreateWebhook = schemaOf("CreateWebhook", CreateWebhookSchema);
-const UpdateWebhook = schemaOf("UpdateWebhook", UpdateWebhookSchema);
-const WebhookDeliveryView = schemaOf("WebhookDeliveryView", WebhookDeliveryViewSchema);
+function isSchema(value: unknown): value is SchemaLike {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "_def" in value &&
+    typeof (value as { _def: unknown })._def === "object" &&
+    (value as { _def: unknown })._def !== null &&
+    typeof ((value as { _def: { typeName: unknown } })._def.typeName) === "string"
+  );
+}
+
+function asSchema(value: unknown, what: string): SchemaLike {
+  if (!isSchema(value)) throw new Error(`openapi: ${what} is not a Zod schema`);
+  return value;
+}
+
+interface CheckLike {
+  kind: string;
+  value?: unknown;
+}
+
+function checksOf(schema: SchemaLike): CheckLike[] {
+  const checks = schema._def["checks"];
+  if (!Array.isArray(checks)) return [];
+  return checks.filter((c): c is CheckLike => typeof c === "object" && c !== null && typeof (c as { kind: unknown }).kind === "string");
+}
+
+function convertSchema(schema: SchemaLike): Record<string, unknown> {
+  const def = schema._def;
+  switch (def.typeName) {
+    case "ZodObject": {
+      const shape = schema["shape"] as unknown;
+      if (typeof shape !== "object" || shape === null) throw new Error("openapi: ZodObject without shape");
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+      for (const [key, field] of Object.entries(shape)) {
+        const sub = asSchema(field, `field ${key}`);
+        properties[key] = convertSchema(sub);
+        const inner = sub._def.typeName;
+        if (inner !== "ZodOptional" && inner !== "ZodDefault") required.push(key);
+      }
+      const out: Record<string, unknown> = { type: "object", properties };
+      if (required.length > 0) out["required"] = required;
+      out["additionalProperties"] = false;
+      return out;
+    }
+    case "ZodString": {
+      const out: Record<string, unknown> = { type: "string" };
+      for (const check of checksOf(schema)) {
+        if (check.kind === "min" && typeof check.value === "number") out["minLength"] = check.value;
+        else if (check.kind === "max" && typeof check.value === "number") out["maxLength"] = check.value;
+        else if (check.kind === "url") out["format"] = "uri";
+        else if (check.kind === "datetime") out["format"] = "date-time";
+        else if (check.kind === "email") out["format"] = "email";
+        else if (check.kind === "length" && typeof check.value === "number") {
+          out["minLength"] = check.value;
+          out["maxLength"] = check.value;
+        }
+      }
+      return out;
+    }
+    case "ZodNumber": {
+      const checks = checksOf(schema);
+      const out: Record<string, unknown> = { type: checks.some((c) => c.kind === "int") ? "integer" : "number" };
+      for (const check of checks) {
+        if (check.kind === "min" && typeof check.value === "number") out["minimum"] = check.value;
+        else if (check.kind === "max" && typeof check.value === "number") out["maximum"] = check.value;
+      }
+      return out;
+    }
+    case "ZodBoolean":
+      return { type: "boolean" };
+    case "ZodEnum": {
+      const values = def["values"];
+      if (!Array.isArray(values)) throw new Error("openapi: ZodEnum without values");
+      return { type: "string", enum: values };
+    }
+    case "ZodArray": {
+      const itemType = asSchema(def["type"], "array items");
+      const out: Record<string, unknown> = { type: "array", items: convertSchema(itemType) };
+      // Zod v3 stores lengths as { value } objects (or null).
+      const len = (key: string): number | null => {
+        const entry = def[key] as { value?: unknown } | null;
+        return entry && typeof entry.value === "number" ? entry.value : null;
+      };
+      const min = len("minLength");
+      const max = len("maxLength");
+      const exact = len("exactLength");
+      if (min !== null) out["minItems"] = min;
+      if (max !== null) out["maxItems"] = max;
+      if (exact !== null) {
+        out["minItems"] = exact;
+        out["maxItems"] = exact;
+      }
+      return out;
+    }
+    case "ZodOptional":
+      return convertSchema(asSchema(def["innerType"], "optional inner"));
+    case "ZodNullable": {
+      const inner = convertSchema(asSchema(def["innerType"], "nullable inner"));
+      return { ...inner, nullable: true };
+    }
+    case "ZodDefault": {
+      const inner = convertSchema(asSchema(def["innerType"], "default inner"));
+      const getDefault = def["defaultValue"];
+      if (typeof getDefault !== "function") throw new Error("openapi: ZodDefault without defaultValue");
+      return { ...inner, default: (getDefault as () => unknown)() };
+    }
+    case "ZodEffects":
+      return convertSchema(asSchema(schema["innerType"] ?? def["schema"], "effect inner"));
+    default:
+      throw new Error(`openapi: unsupported Zod shape ${def.typeName}; extend the converter`);
+  }
+}
+
+function schemaOf(schema: unknown): Record<string, unknown> {
+  return convertSchema(asSchema(schema, "contract"));
+}
+
+const ApiKeyView = schemaOf(ApiKeyViewSchema);
+const CreateApiKey = schemaOf(CreateApiKeySchema);
+const WebhookView = schemaOf(WebhookViewSchema);
+const CreateWebhook = schemaOf(CreateWebhookSchema);
+const UpdateWebhook = schemaOf(UpdateWebhookSchema);
+const WebhookDeliveryView = schemaOf(WebhookDeliveryViewSchema);
 const eventEnum = WebhookEventSchema.options as unknown as string[];
 
 function err(description: string): Record<string, unknown> {
