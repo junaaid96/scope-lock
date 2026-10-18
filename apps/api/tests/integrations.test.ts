@@ -6,7 +6,7 @@ import { ApiKeyScopeSchema, WebhookEventSchema } from "@scopelock/contracts";
 import { ACTIONS, WEBHOOK_EVENTS, verifyWebhookSignature } from "@scopelock/domain";
 import { checkApiKeyLimit, resetRateLimits } from "../src/http/rate-limit.js";
 import { drainOnce } from "../src/lib/worker.js";
-import { agencyFixture, createTestApp, type Agent } from "./helpers.js";
+import { agencyFixture, createClient, createProject, createTestApp, register, type Agent } from "./helpers.js";
 
 interface Received {
   headers: Record<string, string | string[] | undefined>;
@@ -171,6 +171,22 @@ describe("API keys", () => {
     const limited = await request(app).get(`/api/v1/projects/${fx.projectId}`).set("Authorization", `Bearer ${secret}`);
     expect(limited.status).toBe(429);
     expect(limited.headers["retry-after"]).toBeDefined();
+  });
+
+  it("hides other orgs' keys and webhooks (IDOR)", async () => {
+    const { app } = createTestApp();
+    const fx = await agencyFixture(app);
+    const stranger = await register(app, { organizationName: "Stranger" });
+    const strangerClient = await createClient(app, stranger.agent, stranger.organization.id);
+    const strangerProject = await createProject(app, stranger.agent, { organizationId: stranger.organization.id, clientId: strangerClient.id });
+    // Sessions from another org see nothing, without existence disclosure.
+    expect((await stranger.agent.get(`/api/v1/organizations/${fx.organizationId}/api-keys`)).status).toBe(404);
+    expect((await stranger.agent.get(`/api/v1/organizations/${fx.organizationId}/webhooks`)).status).toBe(404);
+    // A key issued by one org cannot read another org's resources.
+    const created = await fx.owner.agent.post(`/api/v1/organizations/${fx.organizationId}/api-keys`).send({ name: "scoped", scopes: ["*"] });
+    const secret = (created.body as { secret: string }).secret;
+    const cross = await request(app).get(`/api/v1/projects/${strangerProject.id}`).set("Authorization", `Bearer ${secret}`);
+    expect([401, 403, 404]).toContain(cross.status);
   });
 });
 
