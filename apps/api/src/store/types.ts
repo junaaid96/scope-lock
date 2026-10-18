@@ -718,7 +718,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type OutboxType = "EMAIL" | "REALTIME";
+export type OutboxType = "EMAIL" | "REALTIME" | "WEBHOOK";
 export type OutboxStatus = "PENDING" | "SENT" | "FAILED" | "DEAD";
 
 export interface OutboxEvent {
@@ -730,6 +730,47 @@ export interface OutboxEvent {
   nextRunAt: string;
   lastError: string | null;
   idempotencyKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiKey {
+  id: string;
+  organizationId: string;
+  userId: string;
+  name: string;
+  keyHash: string;
+  prefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface WebhookSubscription {
+  id: string;
+  organizationId: string;
+  url: string;
+  events: string[];
+  secretSealed: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WebhookDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "DEAD";
+
+export interface WebhookDelivery {
+  id: string;
+  subscriptionId: string;
+  outboxEventId: string | null;
+  event: string;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  requestBody: Record<string, unknown>;
+  responseStatus: number | null;
+  lastError: string | null;
   createdAt: string;
   updatedAt: string;
 }

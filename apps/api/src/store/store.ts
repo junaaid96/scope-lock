@@ -2,6 +2,7 @@ import type {
   AIAnalysis,
   AllowanceDrawDown,
   AllowancePool,
+  ApiKey,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -43,6 +44,8 @@ import type {
   StepUpChallenge,
   UsageCounter,
   User,
+  WebhookDelivery,
+  WebhookSubscription,
 } from "./types.js";
 
 /**
@@ -274,6 +277,23 @@ export interface Store {
   enqueueOutbox(data: Pick<OutboxEvent, "type" | "payload" | "idempotencyKey">): Promise<OutboxEvent>;
   claimOutboxBatch(limit: number, nowIso: string): Promise<OutboxEvent[]>;
   updateOutbox(id: string, patch: Partial<OutboxEvent>): Promise<OutboxEvent>;
+
+  // ----- API keys / webhooks -----
+  createApiKey(data: Omit<ApiKey, "id" | "createdAt">): Promise<ApiKey>;
+  findApiKeyById(id: string): Promise<ApiKey | null>;
+  findApiKeyByHash(keyHash: string): Promise<ApiKey | null>;
+  listApiKeys(organizationId: string): Promise<ApiKey[]>;
+  updateApiKey(id: string, patch: Partial<ApiKey>): Promise<ApiKey>;
+  createWebhook(data: Omit<WebhookSubscription, "id" | "createdAt" | "updatedAt">): Promise<WebhookSubscription>;
+  findWebhookById(id: string): Promise<WebhookSubscription | null>;
+  listWebhooks(organizationId: string): Promise<WebhookSubscription[]>;
+  updateWebhook(id: string, patch: Partial<WebhookSubscription>): Promise<WebhookSubscription>;
+  deleteWebhook(id: string): Promise<void>;
+  createWebhookDelivery(data: Omit<WebhookDelivery, "id" | "createdAt" | "updatedAt">): Promise<WebhookDelivery>;
+  findWebhookDeliveryById(id: string): Promise<WebhookDelivery | null>;
+  findWebhookDeliveryByOutboxId(outboxEventId: string): Promise<WebhookDelivery | null>;
+  listWebhookDeliveries(subscriptionId: string, query: ListQuery): Promise<PageResult<WebhookDelivery>>;
+  updateWebhookDelivery(id: string, patch: Partial<WebhookDelivery>): Promise<WebhookDelivery>;
 
   // ----- AI / metrics / misc -----
   createAIAnalysis(data: Omit<AIAnalysis, "id" | "createdAt">): Promise<AIAnalysis>;

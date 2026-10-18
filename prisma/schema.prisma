@@ -163,6 +163,7 @@ enum OutboxStatus {
 enum OutboxType {
   EMAIL
   REALTIME
+  WEBHOOK
 }
 
 model User {
@@ -190,6 +191,7 @@ model User {
   attachments      Attachment[]
   evidenceAuthored DeliveryEvidence[] @relation("EvidenceAuthor")
   evidenceVerified DeliveryEvidence[] @relation("EvidenceVerifier")
+  apiKeys          ApiKey[]
 
   @@index([email])
 }
@@ -212,6 +214,8 @@ model Organization {
   usage       UsageCounter[]
   rateCards   RateCard[]
   estimateTemplates EstimateTemplate[]
+  apiKeys     ApiKey[]
+  webhooks    WebhookSubscription[]
 }
 
 model Membership {
@@ -993,4 +997,64 @@ model UsageCounter {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, period])
+}
+
+model ApiKey {
+  id             String    @id
+  organizationId String
+  userId         String
+  name           String
+  keyHash        String    @unique
+  prefix         String
+  scopes         Json
+  expiresAt      DateTime?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model WebhookSubscription {
+  id             String   @id
+  organizationId String
+  url            String
+  events         Json
+  secretSealed   String
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  DEAD
+}
+
+model WebhookDelivery {
+  id             String                @id
+  subscriptionId String
+  outboxEventId  String?               @unique
+  event          String
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  requestBody    Json
+  responseStatus Int?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
 }

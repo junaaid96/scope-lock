@@ -5,6 +5,7 @@ import type {
   AIAnalysis,
   AllowanceDrawDown,
   AllowancePool,
+  ApiKey,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -48,6 +49,8 @@ import type {
   StepUpChallenge,
   UsageCounter,
   User,
+  WebhookDelivery,
+  WebhookSubscription,
 } from "./types.js";
 import { nowIso } from "./types.js";
 
@@ -384,6 +387,35 @@ function mapOutbox(r: Prisma.OutboxEventGetPayload<Prisma.OutboxEventDefaultArgs
     ...r,
     payload: json(r.payload, {}),
     nextRunAt: iso(r.nextRunAt),
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+
+function mapApiKey(r: Prisma.ApiKeyGetPayload<Prisma.ApiKeyDefaultArgs>): ApiKey {
+  return {
+    ...r,
+    scopes: json(r.scopes, []),
+    expiresAt: r.expiresAt ? iso(r.expiresAt) : null,
+    lastUsedAt: r.lastUsedAt ? iso(r.lastUsedAt) : null,
+    revokedAt: r.revokedAt ? iso(r.revokedAt) : null,
+    createdAt: iso(r.createdAt),
+  };
+}
+
+function mapWebhook(r: Prisma.WebhookSubscriptionGetPayload<Prisma.WebhookSubscriptionDefaultArgs>): WebhookSubscription {
+  return {
+    ...r,
+    events: json(r.events, []),
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+
+function mapWebhookDelivery(r: Prisma.WebhookDeliveryGetPayload<Prisma.WebhookDeliveryDefaultArgs>): WebhookDelivery {
+  return {
+    ...r,
+    requestBody: json(r.requestBody, {}),
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -1891,6 +1923,148 @@ export class PrismaStore implements Store {
           ...(patch.status !== undefined ? { status: patch.status } : {}),
           ...(patch.attempts !== undefined ? { attempts: patch.attempts } : {}),
           ...(patch.nextRunAt !== undefined ? { nextRunAt: asDate(patch.nextRunAt) } : {}),
+          ...(patch.lastError !== undefined ? { lastError: patch.lastError } : {}),
+        },
+      }),
+    );
+  }
+
+  // ----- API keys / webhooks -----
+  async createApiKey(data: Omit<ApiKey, "id" | "createdAt">): Promise<ApiKey> {
+    return mapApiKey(
+      await this.db.apiKey.create({
+        data: {
+          id: newId("key"),
+          organizationId: data.organizationId,
+          userId: data.userId,
+          name: data.name,
+          keyHash: data.keyHash,
+          prefix: data.prefix,
+          scopes: J(data.scopes),
+          expiresAt: data.expiresAt ? asDate(data.expiresAt) : null,
+          lastUsedAt: null,
+          revokedAt: null,
+        },
+      }),
+    );
+  }
+
+  async findApiKeyById(id: string): Promise<ApiKey | null> {
+    const row = await this.db.apiKey.findUnique({ where: { id } });
+    return row ? mapApiKey(row) : null;
+  }
+
+  async findApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
+    const row = await this.db.apiKey.findUnique({ where: { keyHash } });
+    return row ? mapApiKey(row) : null;
+  }
+
+  async listApiKeys(organizationId: string): Promise<ApiKey[]> {
+    const orderBy = ORDER_DESC;
+    return (await this.db.apiKey.findMany({ where: { organizationId }, orderBy })).map(mapApiKey);
+  }
+
+  async updateApiKey(id: string, patch: Partial<ApiKey>): Promise<ApiKey> {
+    return mapApiKey(
+      await this.db.apiKey.update({
+        where: { id },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.expiresAt !== undefined ? { expiresAt: patch.expiresAt ? asDate(patch.expiresAt) : null } : {}),
+          ...(patch.lastUsedAt !== undefined ? { lastUsedAt: patch.lastUsedAt ? asDate(patch.lastUsedAt) : null } : {}),
+          ...(patch.revokedAt !== undefined ? { revokedAt: patch.revokedAt ? asDate(patch.revokedAt) : null } : {}),
+        },
+      }),
+    );
+  }
+
+  async createWebhook(data: Omit<WebhookSubscription, "id" | "createdAt" | "updatedAt">): Promise<WebhookSubscription> {
+    return mapWebhook(
+      await this.db.webhookSubscription.create({
+        data: {
+          id: newId("whk"),
+          organizationId: data.organizationId,
+          url: data.url,
+          events: J(data.events),
+          secretSealed: data.secretSealed,
+          enabled: data.enabled,
+        },
+      }),
+    );
+  }
+
+  async findWebhookById(id: string): Promise<WebhookSubscription | null> {
+    const row = await this.db.webhookSubscription.findUnique({ where: { id } });
+    return row ? mapWebhook(row) : null;
+  }
+
+  async listWebhooks(organizationId: string): Promise<WebhookSubscription[]> {
+    const orderBy = ORDER_DESC;
+    return (await this.db.webhookSubscription.findMany({ where: { organizationId }, orderBy })).map(mapWebhook);
+  }
+
+  async updateWebhook(id: string, patch: Partial<WebhookSubscription>): Promise<WebhookSubscription> {
+    return mapWebhook(
+      await this.db.webhookSubscription.update({
+        where: { id },
+        data: {
+          ...(patch.url !== undefined ? { url: patch.url } : {}),
+          ...(patch.events !== undefined ? { events: J(patch.events) } : {}),
+          ...(patch.secretSealed !== undefined ? { secretSealed: patch.secretSealed } : {}),
+          ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        },
+      }),
+    );
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    await this.db.webhookSubscription.delete({ where: { id } });
+  }
+
+  async createWebhookDelivery(data: Omit<WebhookDelivery, "id" | "createdAt" | "updatedAt">): Promise<WebhookDelivery> {
+    return mapWebhookDelivery(
+      await this.db.webhookDelivery.create({
+        data: {
+          id: newId("whd"),
+          subscriptionId: data.subscriptionId,
+          outboxEventId: data.outboxEventId,
+          event: data.event,
+          status: data.status,
+          attempts: data.attempts,
+          requestBody: J(data.requestBody),
+          responseStatus: data.responseStatus,
+          lastError: data.lastError,
+        },
+      }),
+    );
+  }
+
+  async findWebhookDeliveryById(id: string): Promise<WebhookDelivery | null> {
+    const row = await this.db.webhookDelivery.findUnique({ where: { id } });
+    return row ? mapWebhookDelivery(row) : null;
+  }
+
+  async findWebhookDeliveryByOutboxId(outboxEventId: string): Promise<WebhookDelivery | null> {
+    const row = await this.db.webhookDelivery.findUnique({ where: { outboxEventId } });
+    return row ? mapWebhookDelivery(row) : null;
+  }
+
+  async listWebhookDeliveries(subscriptionId: string, query: ListQuery): Promise<PageResult<WebhookDelivery>> {
+    const orderBy = ORDER_DESC;
+    const rows = await this.db.webhookDelivery.findMany({ where: { subscriptionId }, orderBy });
+    return page(rows.map(mapWebhookDelivery), query);
+  }
+
+  async updateWebhookDelivery(id: string, patch: Partial<WebhookDelivery>): Promise<WebhookDelivery> {
+    return mapWebhookDelivery(
+      await this.db.webhookDelivery.update({
+        where: { id },
+        data: {
+          ...(patch.outboxEventId !== undefined ? { outboxEventId: patch.outboxEventId } : {}),
+          ...(patch.status !== undefined ? { status: patch.status } : {}),
+          ...(patch.attempts !== undefined ? { attempts: patch.attempts } : {}),
+          ...(patch.requestBody !== undefined ? { requestBody: J(patch.requestBody) } : {}),
+          ...(patch.responseStatus !== undefined ? { responseStatus: patch.responseStatus } : {}),
           ...(patch.lastError !== undefined ? { lastError: patch.lastError } : {}),
         },
       }),

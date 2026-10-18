@@ -4,6 +4,7 @@ import type {
   AIAnalysis,
   AllowanceDrawDown,
   AllowancePool,
+  ApiKey,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -46,6 +47,8 @@ import type {
   StepUpChallenge,
   UsageCounter,
   User,
+  WebhookDelivery,
+  WebhookSubscription,
 } from "./types.js";
 import { currentPeriod, nowIso } from "./types.js";
 
@@ -86,6 +89,9 @@ type Tables = {
   chainHeads: Map<string, AuditChainHead>;
   notifications: Map<string, Notification>;
   outbox: Map<string, OutboxEvent>;
+  apiKeys: Map<string, ApiKey>;
+  webhooks: Map<string, WebhookSubscription>;
+  webhookDeliveries: Map<string, WebhookDelivery>;
   aiAnalyses: Map<string, AIAnalysis>;
   externalLinks: Map<string, ExternalLink>;
   metricEvents: Map<string, MetricEvent>;
@@ -131,6 +137,9 @@ function emptyTables(): Tables {
     chainHeads: new Map(),
     notifications: new Map(),
     outbox: new Map(),
+    apiKeys: new Map(),
+    webhooks: new Map(),
+    webhookDeliveries: new Map(),
     aiAnalyses: new Map(),
     externalLinks: new Map(),
     metricEvents: new Map(),
@@ -1377,6 +1386,102 @@ export class MemoryStore implements Store {
     if (!existing) throw new Error(`Outbox event not found: ${id}`);
     const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
     this.tables.outbox.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  // ----- API keys / webhooks -----
+  async createApiKey(data: Omit<ApiKey, "id" | "createdAt">): Promise<ApiKey> {
+    const row: ApiKey = { id: newId("key"), createdAt: nowIso(), ...data };
+    this.tables.apiKeys.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findApiKeyById(id: string): Promise<ApiKey | null> {
+    return this.tables.apiKeys.get(id) ?? null;
+  }
+
+  async findApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
+    for (const row of this.tables.apiKeys.values()) if (row.keyHash === keyHash) return row;
+    return null;
+  }
+
+  async listApiKeys(organizationId: string): Promise<ApiKey[]> {
+    return sortDesc([...this.tables.apiKeys.values()].filter((k) => k.organizationId === organizationId));
+  }
+
+  async updateApiKey(id: string, patch: Partial<ApiKey>): Promise<ApiKey> {
+    const existing = this.tables.apiKeys.get(id);
+    if (!existing) throw new Error(`API key not found: ${id}`);
+    const updated = { ...existing, ...patch, id };
+    this.tables.apiKeys.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async createWebhook(data: Omit<WebhookSubscription, "id" | "createdAt" | "updatedAt">): Promise<WebhookSubscription> {
+    const now = nowIso();
+    const row: WebhookSubscription = { id: newId("whk"), createdAt: now, updatedAt: now, ...data };
+    this.tables.webhooks.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findWebhookById(id: string): Promise<WebhookSubscription | null> {
+    return this.tables.webhooks.get(id) ?? null;
+  }
+
+  async listWebhooks(organizationId: string): Promise<WebhookSubscription[]> {
+    return sortDesc([...this.tables.webhooks.values()].filter((w) => w.organizationId === organizationId));
+  }
+
+  async updateWebhook(id: string, patch: Partial<WebhookSubscription>): Promise<WebhookSubscription> {
+    const existing = this.tables.webhooks.get(id);
+    if (!existing) throw new Error(`Webhook not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.webhooks.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    this.tables.webhooks.delete(id);
+    for (const [deliveryId, delivery] of this.tables.webhookDeliveries) {
+      if (delivery.subscriptionId === id) this.tables.webhookDeliveries.delete(deliveryId);
+    }
+    this.afterCommit();
+  }
+
+  async createWebhookDelivery(data: Omit<WebhookDelivery, "id" | "createdAt" | "updatedAt">): Promise<WebhookDelivery> {
+    const now = nowIso();
+    const row: WebhookDelivery = { id: newId("whd"), createdAt: now, updatedAt: now, ...data };
+    this.tables.webhookDeliveries.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findWebhookDeliveryById(id: string): Promise<WebhookDelivery | null> {
+    return this.tables.webhookDeliveries.get(id) ?? null;
+  }
+
+  async findWebhookDeliveryByOutboxId(outboxEventId: string): Promise<WebhookDelivery | null> {
+    for (const row of this.tables.webhookDeliveries.values()) if (row.outboxEventId === outboxEventId) return row;
+    return null;
+  }
+
+  async listWebhookDeliveries(subscriptionId: string, query: ListQuery): Promise<PageResult<WebhookDelivery>> {
+    return page(
+      [...this.tables.webhookDeliveries.values()].filter((d) => d.subscriptionId === subscriptionId),
+      query,
+    );
+  }
+
+  async updateWebhookDelivery(id: string, patch: Partial<WebhookDelivery>): Promise<WebhookDelivery> {
+    const existing = this.tables.webhookDeliveries.get(id);
+    if (!existing) throw new Error(`Webhook delivery not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.webhookDeliveries.set(id, updated);
     this.afterCommit();
     return updated;
   }
