@@ -25,7 +25,7 @@ const SCOPES: string[] = [
 
 const EVENTS: string[] = ["approval.sent", "approval.decided", "approval.expired", "approval.escalated", "acceptance.deemed"];
 
-function SecretDialog({ title, warning, secret, onClose }: { title: string; warning: string; secret: string; onClose: () => void }): JSX.Element {
+export function SecretDialog({ title, warning, secret, onClose, extra }: { title: string; warning: string; secret: string; onClose: () => void; extra?: { label: string; value: string } }): JSX.Element {
   const { t } = useLocale();
   const [copied, setCopied] = useState(false);
   async function copy(): Promise<void> {
@@ -39,6 +39,12 @@ function SecretDialog({ title, warning, secret, onClose }: { title: string; warn
   return (
     <Dialog title={title} onClose={onClose}>
       <p className="mb-3 text-sm text-slate-600">{warning}</p>
+      {extra ? (
+        <div className="mb-3">
+          <p className="mb-1 text-sm font-medium text-slate-700">{extra.label}</p>
+          <Input readOnly value={extra.value} aria-label={extra.label} onFocus={(e) => e.target.select()} />
+        </div>
+      ) : null}
       <Input readOnly value={secret} aria-label={title} onFocus={(e) => e.target.select()} />
       <div className="mt-3 flex items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => void copy()}>{t("integrations.copySecret")}</Button>

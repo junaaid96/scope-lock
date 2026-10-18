@@ -10,6 +10,7 @@ import { ContractTab } from "../components/contract.js";
 import { AllowanceTab } from "../components/allowance.js";
 import { IntakeTab } from "../components/intake.js";
 import { PolicyTab } from "../components/policy.js";
+import { IntegrationsTab } from "../components/github.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 import { ImportDialog } from "../components/import.js";
 
@@ -27,7 +28,7 @@ export function ProjectPage(): JSX.Element {
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [parkedOnly, setParkedOnly] = useState(false);
-  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "policy" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "policy" | "integrations" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -66,6 +67,7 @@ export function ProjectPage(): JSX.Element {
           { id: "allowance" as const, label: "Allowance" },
           ...(canManage ? [{ id: "intake" as const, label: "Intake" }] : []),
           ...(canManage ? [{ id: "policy" as const, label: "Policy" }] : []),
+          { id: "integrations" as const, label: "Integrations" },
           { id: "members" as const, label: "Members" },
           { id: "bundles" as const, label: "Bundles" },
           { id: "notes" as const, label: "Notes" },
@@ -112,6 +114,7 @@ export function ProjectPage(): JSX.Element {
       {tab === "allowance" ? <AllowanceTab projectId={p.id} currency={p.currency} myRole={p.myRole} canManage={canManage} /> : null}
       {tab === "intake" && canManage ? <IntakeTab projectId={p.id} /> : null}
       {tab === "policy" && canManage ? <PolicyTab project={p} /> : null}
+      {tab === "integrations" ? <IntegrationsTab project={p} canManage={canManage} /> : null}
       {tab === "members" ? <MembersTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}

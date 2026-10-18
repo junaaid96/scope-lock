@@ -503,3 +503,27 @@ export interface WebhookDeliveryView {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ExternalConnectionView {
+  id: string;
+  projectId: string;
+  provider: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalWorkItemView {
+  id: string;
+  projectId: string;
+  provider: string;
+  externalId: string;
+  kind: "PULL_REQUEST" | "PUSH";
+  url: string | null;
+  title: string | null;
+  refs: string[];
+  merged: boolean;
+  mergedAt: string | null;
+  observedAt: string;
+  updatedAt: string;
+}
