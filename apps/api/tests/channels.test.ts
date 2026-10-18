@@ -6,7 +6,6 @@ import { notify, notifyChannels } from "../src/lib/notify.js";
 import { createSlackDriver } from "../src/lib/slack.js";
 import { createSmsDriver, createWhatsappDriver } from "../src/lib/sms.js";
 import { drainOnce } from "../src/lib/worker.js";
-import { nowIso } from "../src/store/index.js";
 import type { OutboxEvent } from "../src/store/index.js";
 import type { MemoryStore } from "../src/store/memory.js";
 import { agencyFixture, createTestApp } from "./helpers.js";
