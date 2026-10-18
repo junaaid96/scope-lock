@@ -30,7 +30,7 @@ describe("prisma postgres smoke", () => {
         budgetMinor: null,
         startDate: null,
         targetDate: null,
-        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [] },
+        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [], stepUp: { otp: null, typedName: null } },
       });
       expect((await store.findProjectById(project.id))?.name).toBe("Smoke Project");
       const doc = await store.createScopeDocument(project.id, "Scope");
@@ -292,12 +292,26 @@ describe("prisma postgres smoke", () => {
         decision: "APPROVED",
         comment: null,
         optionId: optA.id,
+        typedName: "Smoke Signer",
         checksum: "smoke",
         ip: null,
         userAgent: null,
       });
       expect((await store.listDecisions(approval.id))[0]?.optionId).toBe(optA.id);
       expect(vote.decision).toBe("APPROVED");
+      // Step-up challenges from migration 0013 round-trip, hashed.
+      const challenge = await store.createStepUpChallenge({
+        approvalRequestId: approval.id,
+        tokenId: null,
+        approverKey: user.id,
+        codeHash: "smoke-hash",
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        maxAttempts: 5,
+      });
+      expect(challenge.attempts).toBe(0);
+      expect(await store.listStepUpChallenges(approval.id)).toHaveLength(1);
+      const consumed = await store.updateStepUpChallenge(challenge.id, { attempts: 1, consumedAt: new Date().toISOString() });
+      expect(consumed.consumedAt).not.toBeNull();
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {
