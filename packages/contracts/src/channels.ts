@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IdSchema } from "./common.js";
+import { IdSchema, LocaleSchema } from "./common.js";
 
 // ---------- Notification channels ----------
 
@@ -9,6 +9,7 @@ export const UpdateNotificationPreferencesSchema = z.object({
   notifyEmail: z.boolean().optional(),
   notifySms: z.boolean().optional(),
   notifyWhatsapp: z.boolean().optional(),
+  locale: LocaleSchema.optional(),
 });
 
 export const NotificationPreferencesViewSchema = z.object({
@@ -17,6 +18,7 @@ export const NotificationPreferencesViewSchema = z.object({
   notifyEmail: z.boolean(),
   notifySms: z.boolean(),
   notifyWhatsapp: z.boolean(),
+  locale: LocaleSchema,
 });
 
 export const UpdateOrgSlackSchema = z.object({

@@ -24,6 +24,7 @@ export function publicUser(user: {
   name: string;
   status: string;
   mfaEnabled?: boolean;
+  locale?: string;
   createdAt: string;
 }): unknown {
   return {
@@ -32,6 +33,7 @@ export function publicUser(user: {
     name: user.name,
     status: user.status,
     mfaEnabled: user.mfaEnabled ?? false,
+    locale: user.locale ?? "en",
     createdAt: user.createdAt,
   };
 }

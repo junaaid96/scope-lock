@@ -89,6 +89,7 @@ export function projectRoutes(ctx: AppContext): Router {
               afterHours: input.settings?.escalation?.afterHours ?? null,
               target: input.settings?.escalation?.target ?? "AGENCY_LEAD",
             },
+            defaultLocale: input.settings?.defaultLocale ?? null,
           },
         });
         await tx.upsertProjectMember(created.id, auth.user.id, "LEAD");
@@ -188,6 +189,11 @@ export function projectRoutes(ctx: AppContext): Router {
                   input.settings && "deemedAcceptanceDays" in input.settings
                     ? (input.settings.deemedAcceptanceDays ?? null)
                     : (access.project.settings.deemedAcceptanceDays ?? null),
+                // Explicit null reverts to org-inherit; absence keeps current.
+                defaultLocale:
+                  input.settings && "defaultLocale" in input.settings
+                    ? (input.settings.defaultLocale ?? null)
+                    : (access.project.settings.defaultLocale ?? null),
                 escalation: {
                   afterHours:
                     input.settings?.escalation && "afterHours" in input.settings.escalation

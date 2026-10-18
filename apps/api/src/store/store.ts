@@ -68,7 +68,7 @@ export interface Store {
   findUserByEmail(email: string): Promise<User | null>;
   updateUser(
     id: string,
-    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes" | "phoneE164" | "notifyEmail" | "notifySms" | "notifyWhatsapp">>,
+    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes" | "phoneE164" | "notifyEmail" | "notifySms" | "notifyWhatsapp" | "locale">>,
   ): Promise<User>;
   createSession(data: Pick<Session, "userId" | "tokenHash" | "expiresAt" | "ip">): Promise<Session>;
   findSessionByTokenHash(tokenHash: string): Promise<Session | null>;

@@ -6,6 +6,7 @@ import {
   HttpsUrlSchema,
   IdSchema,
   IsoDateSchema,
+  LocaleSchema,
   MinorUnitsSchema,
   OrgRoleSchema,
   PlanSchema,
@@ -79,6 +80,8 @@ export const UpdateOrganizationSchema = z.object({
     .optional(),
   /** Org-wide step-up default; projects inherit unless they pin their own. */
   stepUp: StepUpSettingsSchema.optional(),
+  /** Default UI language for logged-out review links; projects may override. */
+  defaultLocale: LocaleSchema.optional(),
 });
 export const CreateInvitationSchema = z.object({
   email: EmailSchema,
@@ -118,6 +121,8 @@ export const ProjectSettingsSchema = z.object({
   /** Deemed-acceptance window in days; null disables deemed acceptance. */
   deemedAcceptanceDays: z.number().int().min(1).max(90).nullable().default(null),
   escalation: EscalationSettingsSchema.default({}),
+  /** Review-link UI language; null inherits the org default. */
+  defaultLocale: LocaleSchema.nullable().default(null),
 });
 export const CreateProjectSchema = z.object({
   organizationId: IdSchema,

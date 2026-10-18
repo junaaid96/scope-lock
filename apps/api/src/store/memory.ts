@@ -225,6 +225,7 @@ export class MemoryStore implements Store {
       notifyEmail: true,
       notifySms: true,
       notifyWhatsapp: true,
+      locale: "en",
       createdAt: now,
       updatedAt: now,
     };

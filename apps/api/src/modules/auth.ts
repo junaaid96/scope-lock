@@ -44,6 +44,7 @@ function preferencesView(userId: string, user: User | null): unknown {
     notifyEmail: user.notifyEmail,
     notifySms: user.notifySms,
     notifyWhatsapp: user.notifyWhatsapp,
+    locale: user.locale,
   };
 }
 
@@ -221,6 +222,7 @@ export function authRoutes(ctx: AppContext): Router {
         ...(input.notifyEmail !== undefined ? { notifyEmail: input.notifyEmail } : {}),
         ...(input.notifySms !== undefined ? { notifySms: input.notifySms } : {}),
         ...(input.notifyWhatsapp !== undefined ? { notifyWhatsapp: input.notifyWhatsapp } : {}),
+        ...(input.locale !== undefined ? { locale: input.locale } : {}),
       });
       res.json(preferencesView(auth.user.id, updated));
     }),

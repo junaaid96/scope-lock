@@ -120,22 +120,30 @@ export function organizationRoutes(ctx: AppContext): Router {
       }
       const before = { name: org.name, plan: org.plan, aiEnabled: org.aiEnabled, branding: org.branding };
       const prevStepUp = (org.settings?.stepUp ?? {}) as { otp?: boolean | null; typedName?: boolean | null };
+      const settingsPatch =
+        input.stepUp !== undefined || input.defaultLocale !== undefined
+          ? {
+              settings: {
+                ...(org.settings ?? {}),
+                ...(input.defaultLocale !== undefined ? { defaultLocale: input.defaultLocale } : {}),
+                ...(input.stepUp !== undefined
+                  ? {
+                      stepUp: {
+                        otp: "otp" in input.stepUp ? (input.stepUp.otp ?? null) : (prevStepUp.otp ?? null),
+                        typedName:
+                          "typedName" in input.stepUp ? (input.stepUp.typedName ?? null) : (prevStepUp.typedName ?? null),
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {};
       const updated = await ctx.store.updateOrganization(org.id, {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.plan !== undefined ? { plan: input.plan } : {}),
         ...(input.aiEnabled !== undefined ? { aiEnabled: input.aiEnabled } : {}),
         ...(input.branding !== undefined ? { branding: input.branding } : {}),
-        ...(input.stepUp !== undefined
-          ? {
-              settings: {
-                ...(org.settings ?? {}),
-                stepUp: {
-                  otp: "otp" in input.stepUp ? (input.stepUp.otp ?? null) : (prevStepUp.otp ?? null),
-                  typedName: "typedName" in input.stepUp ? (input.stepUp.typedName ?? null) : (prevStepUp.typedName ?? null),
-                },
-              },
-            }
-          : {}),
+        ...settingsPatch,
       });
       await audit(ctx.store, {
         organizationId: org.id,

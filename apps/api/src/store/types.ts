@@ -49,6 +49,8 @@ export interface User {
   email: string;
   name: string;
   passwordHash: string | null;
+  /** UI language ("en" | "bn"). */
+  locale: string;
   status: "ACTIVE" | "DISABLED";
   /** AES-GCM sealed TOTP secret (see lib/mfa). Null until MFA setup. */
   totpSecretEnc: string | null;
@@ -177,6 +179,8 @@ export interface ProjectSettings {
   approvalPolicies: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
   /** Step-up verification; null inherits the org default. */
   stepUp: { otp: boolean | null; typedName: boolean | null };
+  /** Review-link UI language; null inherits the org default. */
+  defaultLocale: string | null;
   /** Deemed-acceptance window in days; null disables deemed acceptance. */
   deemedAcceptanceDays: number | null;
   /** Stalled-package escalation; null afterHours disables it. */

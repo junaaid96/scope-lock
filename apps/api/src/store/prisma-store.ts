@@ -159,6 +159,7 @@ function mapProject(r: Prisma.ProjectGetPayload<Prisma.ProjectDefaultArgs>): Pro
       stepUp: (settings.stepUp as ProjectSettings["stepUp"] | undefined) ?? { otp: null, typedName: null },
       deemedAcceptanceDays: (settings.deemedAcceptanceDays as number | null | undefined) ?? null,
       escalation: mapEscalation(settings),
+      defaultLocale: (settings.defaultLocale as string | null | undefined) ?? null,
     },
     externalIntegrationsEnabled: r.externalIntegrationsEnabled,
     changeCounter: r.changeCounter,

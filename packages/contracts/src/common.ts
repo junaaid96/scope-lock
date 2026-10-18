@@ -6,6 +6,8 @@ export const CursorSchema = z.string().min(1).max(500).optional();
 export const LimitSchema = z.coerce.number().int().min(1).max(100).default(25);
 export const IsoDateSchema = z.string().datetime({ offset: true });
 export const CurrencySchema = z.string().regex(/^[A-Z]{3}$/, "Use an ISO 4217 code, e.g. USD");
+/** UI locales with full catalogs. */
+export const LocaleSchema = z.enum(["en", "bn"]);
 export const MinorUnitsSchema = z.number().int().min(0);
 export const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const HttpsUrlSchema = z.string().url().refine((u) => u.startsWith("https://"), {

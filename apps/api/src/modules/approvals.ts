@@ -346,6 +346,15 @@ export function resolveStepUp(org: { settings?: unknown } | null, project: { set
   return effectiveStepUp(orgSettings.stepUp, projectSettings.stepUp);
 }
 
+/** Review-link UI language: project override, else org default, else English. */
+export function resolveLocale(org: { settings?: unknown } | null, project: { settings?: unknown }): string {
+  const projectLocale = (project.settings as Record<string, unknown> | undefined)?.defaultLocale;
+  if (projectLocale === "en" || projectLocale === "bn") return projectLocale;
+  const orgLocale = ((org?.settings ?? {}) as Record<string, unknown>).defaultLocale;
+  if (orgLocale === "en" || orgLocale === "bn") return orgLocale;
+  return "en";
+}
+
 export function decisionVote(d: ApprovalDecision): PolicyVote {
   return { tokenId: d.tokenId, approverKey: approverKey(d.approverUserId, d.approverEmail), decision: d.decision };
 }
@@ -1007,6 +1016,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         branding: org?.branding ?? null,
         organizationName: org?.name ?? "ScopeLock",
         projectName: project.name,
+        locale: resolveLocale(org, project),
       });
     }),
   );
