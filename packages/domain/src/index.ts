@@ -20,3 +20,4 @@ export * from "./stepup.js";
 export * from "./certificate.js";
 export * from "./chain.js";
 export * from "./acceptance.js";
+export * from "./escalation.js";

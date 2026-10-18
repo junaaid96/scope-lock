@@ -55,6 +55,12 @@ export const StepUpSettingsSchema = z.object({
   typedName: z.boolean().nullable().optional(),
 });
 
+/** Escalation of stalled packages; null afterHours disables it. */
+export const EscalationSettingsSchema = z.object({
+  afterHours: z.number().int().min(1).max(720).nullable().default(null),
+  target: z.enum(["SECOND_APPROVER", "AGENCY_LEAD"]).default("AGENCY_LEAD"),
+});
+
 // ---------- Organizations ----------
 export const CreateOrganizationSchema = z.object({
   name: z.string().min(1).max(120),
@@ -111,6 +117,7 @@ export const ProjectSettingsSchema = z.object({
   stepUp: StepUpSettingsSchema.default({}),
   /** Deemed-acceptance window in days; null disables deemed acceptance. */
   deemedAcceptanceDays: z.number().int().min(1).max(90).nullable().default(null),
+  escalation: EscalationSettingsSchema.default({}),
 });
 export const CreateProjectSchema = z.object({
   organizationId: IdSchema,
