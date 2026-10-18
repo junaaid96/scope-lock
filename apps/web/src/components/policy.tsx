@@ -28,11 +28,21 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
   const { t, money } = useLocale();
   const client = useQueryClient();
   const [rules, setRules] = useState<RuleDraft[] | null>(null);
+  const [stepUp, setStepUp] = useState<{ otp: boolean | null; typedName: boolean | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const current = rules ?? fromServer((project.settings.approvalPolicies ?? []) as Array<{ uptoMinor: number | null; mode: Mode }>);
+  const serverStepUp = project.settings.stepUp ?? { otp: null, typedName: null };
+  const currentStepUp = stepUp ?? serverStepUp;
+  const tri = (v: boolean | null): string => (v === null ? "inherit" : v ? "on" : "off");
+  const untri = (v: string): boolean | null => (v === "inherit" ? null : v === "on");
   const edit = (next: RuleDraft[]): void => {
     setRules(next);
+    setSaved(false);
+    setError(null);
+  };
+  const editStepUp = (next: { otp: boolean | null; typedName: boolean | null }): void => {
+    setStepUp(next);
     setSaved(false);
     setError(null);
   };
@@ -67,6 +77,17 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
     },
     onSuccess: () => {
       setRules(null);
+      setSaved(true);
+      void client.invalidateQueries({ queryKey: ["project", project.id] });
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+
+  const saveStepUp = useMutation({
+    mutationFn: async () =>
+      api.patch(`/projects/${project.id}`, { settings: { stepUp: currentStepUp } }),
+    onSuccess: () => {
+      setStepUp(null);
       setSaved(true);
       void client.invalidateQueries({ queryKey: ["project", project.id] });
     },
@@ -174,6 +195,41 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
             .join(" → ")}
         </p>
       ) : null}
+      <Card>
+        <fieldset>
+          <legend className="text-base font-semibold text-slate-900">{t("policy.stepUpTitle")}</legend>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">{t("policy.stepUpBlurb")}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label={t("policy.otpLabel")} htmlFor="policy-stepup-otp">
+              <Select
+                id="policy-stepup-otp"
+                value={tri(currentStepUp.otp)}
+                onChange={(e) => editStepUp({ ...currentStepUp, otp: untri(e.target.value) })}
+              >
+                <option value="inherit">{t("policy.inherit")}</option>
+                <option value="on">{t("policy.on")}</option>
+                <option value="off">{t("policy.off")}</option>
+              </Select>
+            </Field>
+            <Field label={t("policy.typedNameLabel")} htmlFor="policy-stepup-name">
+              <Select
+                id="policy-stepup-name"
+                value={tri(currentStepUp.typedName)}
+                onChange={(e) => editStepUp({ ...currentStepUp, typedName: untri(e.target.value) })}
+              >
+                <option value="inherit">{t("policy.inherit")}</option>
+                <option value="on">{t("policy.on")}</option>
+                <option value="off">{t("policy.off")}</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="mt-3">
+            <Button type="button" disabled={saveStepUp.isPending} onClick={() => saveStepUp.mutate()}>
+              {t("policy.savePolicy")}
+            </Button>
+          </div>
+        </fieldset>
+      </Card>
     </div>
   );
 }

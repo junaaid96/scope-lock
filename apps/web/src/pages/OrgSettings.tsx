@@ -35,6 +35,7 @@ interface Org {
   plan: string;
   aiEnabled: boolean;
   branding: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
+  settings?: { stepUp?: { otp?: boolean | null; typedName?: boolean | null } };
 }
 
 export function OrgSettingsPage(): JSX.Element {
@@ -102,6 +103,11 @@ export function OrgSettingsPage(): JSX.Element {
         <Card>
           <h2 className="mb-2 font-medium">Client review branding</h2>
           <BrandingForm org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
+        </Card>
+
+        <Card>
+          <h2 className="mb-2 font-medium">Review step-up verification</h2>
+          <StepUpCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
 
         <RateCardsCard organizationId={orgId} canManage={canManage} />
@@ -294,6 +300,48 @@ function MfaCard(): JSX.Element {
           <Button size="sm" variant="secondary" disabled={disable.isPending || !password} onClick={() => disable.mutate()}>Disable MFA</Button>
         </div>
       ) : null}
+      {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
+    </div>
+  );
+}
+
+function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const [error, setError] = useState<string | null>(null);
+  const [local, setLocal] = useState<{ otp?: boolean | null; typedName?: boolean | null } | null>(null);
+  const current = local ?? org.settings?.stepUp ?? {};
+  const save = useMutation({
+    mutationFn: (stepUp: { otp?: boolean; typedName?: boolean }) => api.patch(`/organizations/${org.id}`, { stepUp }),
+    onSuccess: () => { setError(null); setLocal(null); onDone(); },
+    onError: (err) => { setError(errorMessage(err)); setLocal(null); },
+  });
+  const toggle = (key: "otp" | "typedName", value: boolean): void => {
+    setLocal({ ...current, [key]: value });
+    save.mutate({ [key]: value });
+  };
+  return (
+    <div>
+      <p className="mb-2 text-sm text-slate-600">
+        Extra identity checks on client review links. Projects inherit these defaults unless they pin their own.
+        This confirms who is deciding — it is not an e-signature.
+      </p>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={current.otp ?? false}
+            onChange={(e) => toggle("otp", e.target.checked)}
+          />
+          Email code — approvers enter a 6-digit code from an email before deciding
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={current.typedName ?? false}
+            onChange={(e) => toggle("typedName", e.target.checked)}
+          />
+          Typed name — approvers type their full name with the decision
+        </label>
+      </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
     </div>
   );

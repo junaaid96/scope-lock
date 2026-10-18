@@ -105,7 +105,15 @@
     "save": "Save thresholds",
     "saved": "Thresholds saved.",
     "ascendingError": "Ceilings must ascend; the last rule may cover any amount.",
-    "amountPlaceholder": "e.g. 5000.00"
+    "amountPlaceholder": "e.g. 5000.00",
+    "stepUpTitle": "Step-up verification",
+    "stepUpBlurb": "Extra identity checks on this project's review links. Inherit follows the workspace default; this confirms who is deciding — it is not an e-signature.",
+    "otpLabel": "Email code",
+    "typedNameLabel": "Typed name",
+    "inherit": "Inherit workspace default",
+    "on": "On",
+    "off": "Off",
+    "savePolicy": "Save policy"
   },
   "options": {
     "title": "Proposal options",

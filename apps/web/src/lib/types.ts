@@ -30,6 +30,7 @@ export interface ProjectDetail extends ProjectListItem {
     aiEnabled: boolean;
     reminderHoursBeforeExpiry: number[];
     approvalPolicies?: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
+    stepUp?: { otp: boolean | null; typedName: boolean | null };
   };
   externalIntegrationsEnabled: boolean;
   client: Client | null;
@@ -258,6 +259,7 @@ export interface Decision {
   approverEmail: string | null;
   optionId?: string | null;
   optionLabel?: string | null;
+  typedName?: string | null;
   checksum: string;
   createdAt: string;
 }

@@ -242,6 +242,7 @@ export function ChangePage(): JSX.Element {
                   <li key={d.id} className="rounded-md bg-slate-50 p-2">
                     <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
                     {d.optionLabel ? <span className="ml-2 text-sm font-medium">Option “{d.optionLabel}”</span> : null}
+                    {d.typedName ? <span className="ml-2 text-sm text-slate-600">Confirmed by {d.typedName}</span> : null}
                     <p className="mt-1">{d.comment ?? "No comment"}</p>
                     <p className="text-xs text-slate-500">{d.approverEmail} · {formatDate(d.createdAt)}</p>
                   </li>

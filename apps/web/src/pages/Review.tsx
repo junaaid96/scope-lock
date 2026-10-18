@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, ApiError } from "../lib/api.js";
 import type { ReviewPackage } from "../lib/types.js";
 import { LoadingScreen } from "../components/layout.js";
-import { Badge, Button, Card, ErrorBanner, Field, Textarea, formatDate, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, ErrorBanner, Field, Input, Textarea, formatDate, statusTone } from "../components/ui.js";
 
 interface PolicyState {
   outcome: { state: "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"; deciding: { tokenId: string; approverKey: string; decision: string } | null };
@@ -22,7 +22,8 @@ interface ReviewData {
   policy?: { mode: "ANY" | "ALL" | "SEQUENTIAL"; approverOrder: string[] } | null;
   chosenOptionId?: string | null;
   policyState?: PolicyState | null;
-  decisions: Array<{ decision: string; comment: string | null; approverEmail: string | null; optionId?: string | null; optionLabel?: string | null; createdAt: string }>;
+  stepUp?: { otp: boolean; typedName: boolean } | null;
+  decisions: Array<{ decision: string; comment: string | null; approverEmail: string | null; optionId?: string | null; optionLabel?: string | null; typedName?: string | null; createdAt: string }>;
   invalidatedReason: string | null;
   branding?: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
   organizationName?: string;
@@ -90,11 +91,15 @@ export function ReviewPage(): JSX.Element {
                 {r.decisions.length > 1 ? (
                   <ul className="mt-1 list-disc pl-5">
                     {r.decisions.map((d, i) => (
-                      <li key={i}>{d.approverEmail ?? "Approver"} — {d.decision}{d.optionLabel ? ` (option “${d.optionLabel}”)` : ""}{d.comment ? ` — ${d.comment}` : ""}</li>
+                      <li key={i}>{d.typedName ?? d.approverEmail ?? "Approver"} — {d.decision}{d.optionLabel ? ` (option “${d.optionLabel}”)` : ""}{d.comment ? ` — ${d.comment}` : ""}</li>
                     ))}
                   </ul>
-                ) : r.decisions[0]?.optionLabel || r.decisions[0]?.comment ? (
-                  <p>{r.decisions[0]?.optionLabel ? `Option “${r.decisions[0]?.optionLabel}”. ` : ""}{r.decisions[0]?.comment ?? ""}</p>
+                ) : r.decisions[0]?.optionLabel || r.decisions[0]?.comment || r.decisions[0]?.typedName ? (
+                  <p>
+                    {r.decisions[0]?.typedName ? `Confirmed by ${r.decisions[0]?.typedName}. ` : ""}
+                    {r.decisions[0]?.optionLabel ? `Option “${r.decisions[0]?.optionLabel}”. ` : ""}
+                    {r.decisions[0]?.comment ?? ""}
+                  </p>
                 ) : null}
               </div>
             ) : r.status === "EXPIRED" ? (
@@ -238,6 +243,7 @@ export function ReviewPage(): JSX.Element {
             accent={accent}
             policyState={r.policyState ?? null}
             options={pkg.options ?? []}
+            stepUp={r.stepUp ?? { otp: false, typedName: false }}
             onDecided={() => void client.invalidateQueries({ queryKey: ["review", token] })}
           />
         ) : null}
@@ -265,21 +271,27 @@ export function ReviewPage(): JSX.Element {
   );
 }
 
-function DecisionForm({ refParam, accent, policyState, options, onDecided }: {
+function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecided }: {
   refParam: string;
   accent: string;
   policyState: PolicyState | null;
   options: ReviewPackage["options"];
+  stepUp: { otp: boolean; typedName: boolean };
   onDecided: () => void;
 }): JSX.Element {
   const [decision, setDecision] = useState("APPROVED");
   const [optionId, setOptionId] = useState("");
   const [comment, setComment] = useState("");
+  const [otp, setOtp] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [typedName, setTypedName] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const optionList = options ?? [];
   const needsPick = decision === "APPROVED" && optionList.length > 0;
+  const ready = confirm && (!needsPick || optionId) && (!stepUp.otp || /^\d{6}$/.test(otp)) && (!stepUp.typedName || typedName.trim().length >= 2);
 
   if (policyState?.yourDecision) {
     return (
@@ -303,6 +315,19 @@ function DecisionForm({ refParam, accent, policyState, options, onDecided }: {
     );
   }
 
+  const requestCode = async (): Promise<void> => {
+    setError(null);
+    setSendingCode(true);
+    try {
+      const res = await api.post<{ email: string }>(`/approval-requests/${refParam}/step-up`, {});
+      setCodeSentTo(res.email);
+    } catch (err) {
+      setError({ message: errorMessage(err), correlationId: err instanceof ApiError ? err.correlationId : undefined });
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
@@ -312,6 +337,8 @@ function DecisionForm({ refParam, accent, policyState, options, onDecided }: {
         decision,
         comment: comment || undefined,
         ...(needsPick ? { optionId } : {}),
+        ...(stepUp.otp ? { otp } : {}),
+        ...(stepUp.typedName ? { typedName: typedName.trim() } : {}),
         confirm: true,
       });
       onDecided();
@@ -369,12 +396,54 @@ function DecisionForm({ refParam, accent, policyState, options, onDecided }: {
           <Textarea id="decision-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} required={decision !== "APPROVED"} />
         </Field>
       </div>
+      {stepUp.otp || stepUp.typedName ? (
+        <fieldset className="mt-3 rounded-md border border-slate-200 p-3">
+          <legend className="px-1 text-sm font-medium text-slate-900">Verify it is you</legend>
+          {stepUp.otp ? (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-600">
+                {codeSentTo
+                  ? `We emailed a 6-digit code to ${codeSentTo}. It expires in 10 minutes.`
+                  : "This review asks for an email code before you can decide."}
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label="6-digit code" htmlFor="decision-otp">
+                  <Input
+                    id="decision-otp"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    className="w-32"
+                  />
+                </Field>
+                <Button type="button" variant="secondary" disabled={sendingCode} onClick={() => void requestCode()}>
+                  {sendingCode ? "Sending…" : codeSentTo ? "Resend code" : "Email me a code"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {stepUp.typedName ? (
+            <div className={stepUp.otp ? "mt-3" : undefined}>
+              <Field label="Type your full name" htmlFor="decision-typed-name" hint="Recorded with your decision to show who confirmed it.">
+                <Input
+                  id="decision-typed-name"
+                  autoComplete="name"
+                  value={typedName}
+                  onChange={(e) => setTypedName(e.target.value)}
+                />
+              </Field>
+            </div>
+          ) : null}
+        </fieldset>
+      ) : null}
       <label className="mt-3 flex items-start gap-2 text-sm">
         <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} required className="mt-1" />
         I confirm this decision on the exact package above. I understand recorded decisions are final.
       </label>
       {error ? <div className="mt-3"><ErrorBanner message={error.message} correlationId={error.correlationId} /></div> : null}
-      <Button type="submit" disabled={saving || !confirm || (needsPick && !optionId)} className="mt-3 w-full" style={{ backgroundColor: accent }}>
+      <Button type="submit" disabled={saving || !ready} className="mt-3 w-full" style={{ backgroundColor: accent }}>
         {saving ? "Recording…" : "Record decision"}
       </Button>
     </form>
