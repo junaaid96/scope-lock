@@ -346,6 +346,9 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   criteria and evidence snapshotted into the package. A configurable
   deemed window (Policy tab) accepts by policy at the deadline when
   nobody objects — recorded as policy, never as a client decision.
+- **Escalation** (Policy tab) — stalled packages escalate exactly once
+  past the project's delay: undecided approvers get a second nudge, or
+  the agency leads are told the package is stalled. Off by default.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

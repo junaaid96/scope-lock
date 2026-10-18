@@ -96,6 +96,11 @@ All notable changes to ScopeLock are documented here. Format follows
   configurable per-project deemed window (Policy tab) accepts overdue
   packages by policy — actor `policy`, no client decision row — with
   acceptance-aware reminders and an acceptance-record PDF.
+- Approval escalation: packages still awaiting a decision past the
+  project's delay (Policy tab, off by default) escalate exactly once —
+  either the undecided approvers get a second nudge (whoever's turn it
+  is, when sequential) or the agency leads are told the package is
+  stalled — with an `approval.escalated` audit event and dedupe keys.
 
 ## [0.1.0] - 2026-10-16
 

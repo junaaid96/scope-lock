@@ -1069,6 +1069,44 @@ async function main(): Promise<void> {
     }
   }
 
+  // Escalation showcase on InterEd: a package stalled 25h with a 24h delay
+  // escalates to the agency lead (resumable).
+  {
+    const slug = "intered_hub";
+    const projectId = projectIds[slug] as string;
+    const existing = await store.listProjectApprovals(projectId);
+    if (!existing.some((a) => a.escalatedAt !== null)) {
+      await expectOk(
+        await owner.agent.patch(`/api/v1/projects/${projectId}`).send({ settings: { escalation: { afterHours: 24 } } }),
+        "seed escalation delay",
+      );
+      const ch = await createChange(slug, {
+        title: "Student referral program",
+        description: "Referral links with credit rewards for enrolled students who bring a friend.",
+      });
+      let v = await transition(ch.id, slug, "SUBMITTED", ch.version);
+      v = await transition(ch.id, slug, "TRIAGING", v);
+      v = await transition(ch.id, slug, "ESTIMATING", v);
+      await recordImpact(ch.id, slug, { effortDays: 5, priceMinor: 3200000, timelineDays: 6, confidence: "MEDIUM" });
+      await linkRequirement(ch.id, slug);
+      const sent = (await expectOk(
+        await owner.agent.post(`/api/v1/change-requests/${ch.id}/approval-requests`).send({
+          approverUserIds: [ownerReg.id],
+          expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+          title: "Student referral program — ৳32,000",
+        }),
+        "seed escalation send",
+        [201],
+      )) as { approval: { id: string } };
+      await store.updateApproval(sent.approval.id, { sentAt: new Date(Date.now() - 25 * 3_600_000).toISOString() });
+      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+      const escalated = await store.findApprovalById(sent.approval.id);
+      if (!escalated?.escalatedAt) throw new Error("seed escalation sweep did not fire");
+      await sweepOutbox(store);
+      console.log("showcase: intered stalled package escalated to the agency lead (24h delay)");
+    }
+  }
+
   // Default rate card + estimate templates for the portfolio org (resumable).
   {
     const existing = (await expectOk(await owner.agent.get(`/api/v1/organizations/${orgId}/rate-cards?limit=1`), "list rate cards")) as {
