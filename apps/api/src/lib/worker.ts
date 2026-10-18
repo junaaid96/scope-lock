@@ -17,6 +17,7 @@ import type { StorageDriver } from "./storage.js";
 import type { Store } from "../store/index.js";
 import { currentPeriod, nowIso } from "../store/index.js";
 import { logger } from "../logger.js";
+import { approvalKindOf, deliverWebhookEvent, emitWebhookEvent } from "./webhooks.js";
 
 const MAX_ATTEMPTS = 8;
 const BATCH = 25;
@@ -47,6 +48,8 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
         if (p.organizationId) {
           await store.bumpUsage(p.organizationId, currentPeriod(), { emailsSent: 1 }).catch(() => undefined);
         }
+      } else if (event.type === "WEBHOOK") {
+        await deliverWebhookEvent(deps, event);
       } else {
         const p = event.payload as { channel: string; event: string; title?: string; link?: string | null };
         await realtime.publish(p.channel, p.event, { title: p.title ?? "", link: p.link ?? null });
@@ -56,12 +59,18 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
     } catch (err) {
       const attempts = event.attempts + 1;
       const dead = attempts >= MAX_ATTEMPTS;
+      const lastError = err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500);
       await store.updateOutbox(event.id, {
         status: dead ? "DEAD" : "FAILED",
         attempts,
-        lastError: err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500),
+        lastError,
         nextRunAt: new Date(Date.now() + backoffMs(attempts)).toISOString(),
       });
+      if (dead && event.type === "WEBHOOK") {
+        // Terminal outbox state mirrors into the delivery log.
+        const delivery = await store.findWebhookDeliveryByOutboxId(event.id).catch(() => null);
+        if (delivery) await store.updateWebhookDelivery(delivery.id, { status: "DEAD", lastError }).catch(() => undefined);
+      }
       failed++;
       logger.warn("Outbox delivery failed", { outboxId: event.id, attempts, dead });
     }
@@ -116,6 +125,12 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
           after: { status: "EXPIRED" },
           correlationId: `worker-${Date.now()}`,
           ip: null,
+        });
+        await emitWebhookEvent(tx, {
+          organizationId: project.organizationId,
+          event: "approval.expired",
+          occurrenceKey: fresh.id,
+          data: { approvalId: fresh.id, projectId: fresh.projectId, title: fresh.title, kind: approvalKindOf(fresh) },
         });
         const members = await tx.listProjectMembers(fresh.projectId);
         for (const m of members) {
@@ -327,6 +342,12 @@ async function escalateApproval(deps: WorkerDeps, approvalId: string, now: strin
       correlationId: `worker-${Date.now()}`,
       ip: null,
     });
+    await emitWebhookEvent(tx, {
+      organizationId: project.organizationId,
+      event: "approval.escalated",
+      occurrenceKey: fresh.id,
+      data: { approvalId: fresh.id, projectId: fresh.projectId, title: fresh.title, kind: approvalKindOf(fresh), target },
+    });
     return true;
   });
 }
@@ -384,6 +405,18 @@ async function deemAcceptance(deps: WorkerDeps, approvalId: string, now: string)
       after: { status: "DEEMED", actor: POLICY_ACTOR, acceptedRequirementIds: accepted, skippedRequirementIds: skipped },
       correlationId: `worker-${Date.now()}`,
       ip: null,
+    });
+    await emitWebhookEvent(tx, {
+      organizationId: project.organizationId,
+      event: "acceptance.deemed",
+      occurrenceKey: fresh.id,
+      data: {
+        approvalId: fresh.id,
+        projectId: fresh.projectId,
+        title: fresh.title,
+        kind: approvalKindOf(fresh),
+        acceptedRequirementIds: accepted,
+      },
     });
     const keys: string[] = [];
     for (const reqId of accepted) {

@@ -49,6 +49,7 @@ import type { ApiRequest } from "../http/types.js";
 import { getContext } from "../context.js";
 import { audit } from "../lib/audit.js";
 import { notify, notifyProjectMembers } from "../lib/notify.js";
+import { approvalKindOf, emitWebhookEvent } from "../lib/webhooks.js";
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -551,6 +552,19 @@ export function approvalRoutes(ctx: AppContext): Router {
       targetId: approval.id,
       after: { changeId: change.id, checksum, approvers: approvers.map((a) => a.email), policy: policy.mode },
     });
+    await emitWebhookEvent(ctx.store, {
+      organizationId: access.org.id,
+      event: "approval.sent",
+      occurrenceKey: approval.id,
+      data: {
+        approvalId: approval.id,
+        projectId: access.project.id,
+        title: approval.title,
+        kind: approvalKindOf(approval),
+        checksum,
+        expiresAt: approval.expiresAt,
+      },
+    });
     await ctx.store.recordMetric({
       organizationId: access.org.id,
       projectId: access.project.id,
@@ -676,6 +690,19 @@ export function approvalRoutes(ctx: AppContext): Router {
         targetId: approval.id,
         after: { bundleId: bundle.id, checksum, policy: bundlePolicy.mode },
       });
+      await emitWebhookEvent(ctx.store, {
+        organizationId: access.org.id,
+        event: "approval.sent",
+        occurrenceKey: approval.id,
+        data: {
+          approvalId: approval.id,
+          projectId: access.project.id,
+          title: approval.title,
+          kind: approvalKindOf(approval),
+          checksum,
+          expiresAt: approval.expiresAt,
+        },
+      });
       res.status(201).json({
         approval,
         ...(ctx.env.NODE_ENV !== "production"
@@ -767,6 +794,19 @@ export function approvalRoutes(ctx: AppContext): Router {
         targetType: "APPROVAL",
         targetId: approval.id,
         after: { acceptanceRequirementIds: approval.acceptanceRequirementIds, checksum, policy: policy.mode },
+      });
+      await emitWebhookEvent(ctx.store, {
+        organizationId: access.org.id,
+        event: "approval.sent",
+        occurrenceKey: approval.id,
+        data: {
+          approvalId: approval.id,
+          projectId: access.project.id,
+          title: approval.title,
+          kind: approvalKindOf(approval),
+          checksum,
+          expiresAt: approval.expiresAt,
+        },
       });
       await ctx.store.recordMetric({
         organizationId: access.org.id,
@@ -1332,6 +1372,18 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     const terminal = outcome.state;
     assertTransition(ApprovalTransitions, fresh.status, "DECIDED", "approval");
     await tx.updateApproval(fresh.id, { status: "DECIDED", version: fresh.version + 1 });
+    await emitWebhookEvent(tx, {
+      organizationId: project.organizationId,
+      event: "approval.decided",
+      occurrenceKey: fresh.id,
+      data: {
+        approvalId: fresh.id,
+        projectId: project.id,
+        title: fresh.title,
+        kind: approvalKindOf(fresh),
+        outcome: terminal,
+      },
+    });
     const now = nowIso();
     const targetChanges: ChangeRequest[] = [];
     if (fresh.changeRequestId) {

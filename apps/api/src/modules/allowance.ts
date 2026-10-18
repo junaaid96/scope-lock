@@ -25,6 +25,7 @@ import { paginateList } from "../http/pagination.js";
 import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import { notify } from "../lib/notify.js";
+import { approvalKindOf, emitWebhookEvent } from "../lib/webhooks.js";
 import { nowIso, type AllowanceDrawDown, type AllowancePool, type ReviewPackageSnapshot, type Store } from "../store/index.js";
 import { notifyApprovalRequested, resolveApprovers, resolveSendPolicy } from "./approvals.js";
 
@@ -291,6 +292,19 @@ export function allowanceRoutes(ctx: AppContext): Router {
         targetType: "APPROVAL",
         targetId: approval.id,
         after: { allowancePoolId: pool.id, checksum, policy: grantPolicy.mode },
+      });
+      await emitWebhookEvent(ctx.store, {
+        organizationId: access.org.id,
+        event: "approval.sent",
+        occurrenceKey: approval.id,
+        data: {
+          approvalId: approval.id,
+          projectId: access.project.id,
+          title: approval.title,
+          kind: approvalKindOf(approval),
+          checksum,
+          expiresAt: approval.expiresAt,
+        },
       });
       await notifyApprovalRequested(ctx, {
         orgId: access.org.id,

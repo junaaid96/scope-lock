@@ -16,6 +16,7 @@ import { authenticate, requireAuth } from "./http/auth.js";
 import { asyncHandler } from "./http/errors.js";
 import { organizationRoutes } from "./modules/organizations.js";
 import { apiKeyRoutes } from "./modules/api-keys.js";
+import { webhookRoutes } from "./modules/webhooks.js";
 import { clientRoutes } from "./modules/clients.js";
 import { projectRoutes } from "./modules/projects.js";
 import { scopeRoutes } from "./modules/scope.js";
@@ -93,6 +94,7 @@ export function createApp(ctx: AppContext): Express {
   v1.get("/me", authenticate(ctx.store), requireAuth, asyncHandler(sessionMeHandler(ctx)));
   v1.use("/organizations", organizationRoutes(ctx));
   v1.use("/organizations", apiKeyRoutes(ctx));
+  v1.use("/organizations", webhookRoutes(ctx));
   v1.use("/clients", clientRoutes(ctx));
   v1.use("/projects", projectRoutes(ctx));
   v1.use(scopeRoutes(ctx));
