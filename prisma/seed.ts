@@ -116,6 +116,7 @@ async function main(): Promise<void> {
       submitterId: clientUser.id,
       bundleId: null,
       amendmentVersionId: null,
+      drawAllowancePoolId: null,
     });
     await tx.createImpact({
       changeRequestId: change.id,

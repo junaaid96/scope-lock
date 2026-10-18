@@ -2,6 +2,8 @@ import { afterCursor, newId, paginate } from "@scopelock/domain";
 import type { Store } from "./store.js";
 import type {
   AIAnalysis,
+  AllowanceDrawDown,
+  AllowancePool,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -62,6 +64,8 @@ type Tables = {
   clarifications: Map<string, Clarification>;
   rateCards: Map<string, RateCard>;
   estimateTemplates: Map<string, EstimateTemplate>;
+  allowancePools: Map<string, AllowancePool>;
+  drawDowns: Map<string, AllowanceDrawDown>;
   bundles: Map<string, Bundle>;
   approvals: Map<string, ApprovalRequest>;
   approvalTokens: Map<string, ApprovalToken>;
@@ -100,6 +104,8 @@ function emptyTables(): Tables {
     clarifications: new Map(),
     rateCards: new Map(),
     estimateTemplates: new Map(),
+    allowancePools: new Map(),
+    drawDowns: new Map(),
     bundles: new Map(),
     approvals: new Map(),
     approvalTokens: new Map(),
@@ -831,6 +837,104 @@ export class MemoryStore implements Store {
 
   async countImpactsByRateCard(rateCardId: string): Promise<number> {
     return [...this.tables.impacts.values()].filter((i) => i.rateCardId === rateCardId).length;
+  }
+
+  // ----- Allowance pools -----
+  async createAllowancePool(data: {
+    projectId: string;
+    name: string;
+    kind: AllowancePool["kind"];
+    totalHours: number | null;
+    totalMinor: number | null;
+    currency: string | null;
+    objectionWindowHours: number;
+    enabled: boolean;
+    createdBy: string;
+  }): Promise<AllowancePool> {
+    const now = nowIso();
+    const row: AllowancePool = { id: newId("alp"), status: "PROPOSED", grantDecisionId: null, createdAt: now, updatedAt: now, ...data };
+    this.tables.allowancePools.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findAllowancePoolById(id: string): Promise<AllowancePool | null> {
+    return this.tables.allowancePools.get(id) ?? null;
+  }
+
+  async listAllowancePools(projectId: string): Promise<AllowancePool[]> {
+    return [...this.tables.allowancePools.values()].filter((p) => p.projectId === projectId);
+  }
+
+  async updateAllowancePool(id: string, patch: Partial<AllowancePool>): Promise<AllowancePool> {
+    const existing = this.tables.allowancePools.get(id);
+    if (!existing) throw new Error(`Allowance pool not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.allowancePools.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async touchAllowancePool(id: string): Promise<AllowancePool> {
+    return this.updateAllowancePool(id, {});
+  }
+
+  async createDrawDown(data: {
+    poolId: string;
+    changeRequestId: string;
+    hours: number | null;
+    amountMinor: number | null;
+    notifiedAt: string;
+    objectionDeadline: string;
+  }): Promise<AllowanceDrawDown> {
+    for (const existing of this.tables.drawDowns.values()) {
+      if (existing.changeRequestId === data.changeRequestId) throw new Error(`Draw-down already exists for change: ${data.changeRequestId}`);
+    }
+    const now = nowIso();
+    const row: AllowanceDrawDown = {
+      id: newId("add"),
+      status: "NOTIFIED",
+      objectionReason: null,
+      objectedBy: null,
+      objectedAt: null,
+      resolutionNote: null,
+      resolvedBy: null,
+      resolvedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      ...data,
+    };
+    this.tables.drawDowns.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findDrawDownById(id: string): Promise<AllowanceDrawDown | null> {
+    return this.tables.drawDowns.get(id) ?? null;
+  }
+
+  async findDrawDownByChange(changeRequestId: string): Promise<AllowanceDrawDown | null> {
+    for (const row of this.tables.drawDowns.values()) {
+      if (row.changeRequestId === changeRequestId) return row;
+    }
+    return null;
+  }
+
+  async listDrawDownsByPool(poolId: string): Promise<AllowanceDrawDown[]> {
+    return [...this.tables.drawDowns.values()].filter((d) => d.poolId === poolId);
+  }
+
+  async updateDrawDown(id: string, patch: Partial<AllowanceDrawDown>): Promise<AllowanceDrawDown> {
+    const existing = this.tables.drawDowns.get(id);
+    if (!existing) throw new Error(`Draw-down not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.drawDowns.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async listApprovalsForPool(allowancePoolId: string): Promise<ApprovalRequest[]> {
+    return sortDesc([...this.tables.approvals.values()].filter((a) => a.allowancePoolId === allowancePoolId));
   }
 
   // ----- Bundles -----

@@ -230,6 +230,8 @@ export interface ChangeRequest {
   classificationRationale: string | null;
   submitterId: string;
   bundleId: string | null;
+  /** Allowance pool this change draws from when its approval is decided. */
+  drawAllowancePoolId: string | null;
   version: number;
   decidedAt: string | null;
   implementedAt: string | null;
@@ -322,6 +324,47 @@ export interface EstimateTemplate {
   updatedAt: string;
 }
 
+export type AllowanceKind = "HOURS" | "AMOUNT";
+export type AllowancePoolStatus = "PROPOSED" | "ACTIVE" | "CLOSED";
+export type DrawDownStatus = "NOTIFIED" | "OBJECTED" | "FINAL" | "RELEASED";
+
+export interface AllowancePool {
+  id: string;
+  projectId: string;
+  name: string;
+  kind: AllowanceKind;
+  totalHours: number | null;
+  totalMinor: number | null;
+  currency: string | null;
+  objectionWindowHours: number;
+  enabled: boolean;
+  status: AllowancePoolStatus;
+  /** The client-approved decision that granted this allowance (never auto-approval). */
+  grantDecisionId: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AllowanceDrawDown {
+  id: string;
+  poolId: string;
+  changeRequestId: string;
+  hours: number | null;
+  amountMinor: number | null;
+  status: DrawDownStatus;
+  notifiedAt: string;
+  objectionDeadline: string;
+  objectionReason: string | null;
+  objectedBy: string | null;
+  objectedAt: string | null;
+  resolutionNote: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChangeLink {
   id: string;
   changeRequestId: string;
@@ -404,6 +447,15 @@ export interface ReviewPackageSnapshot {
   assumptions: string[];
   exclusions: string[];
   sentAt: string;
+  /** Set only on allowance-grant packages. Optional: older packages predate it. */
+  allowance?: {
+    poolId: string;
+    kind: "HOURS" | "AMOUNT";
+    totalHours: number | null;
+    totalMinor: number | null;
+    currency: string | null;
+    objectionWindowHours: number;
+  } | null;
 }
 
 export interface ApprovalRequest {
@@ -411,6 +463,8 @@ export interface ApprovalRequest {
   projectId: string;
   changeRequestId: string | null;
   bundleId: string | null;
+  /** Set when the client is deciding the allowance grant itself. */
+  allowancePoolId: string | null;
   title: string | null;
   package: ReviewPackageSnapshot;
   checksum: string;

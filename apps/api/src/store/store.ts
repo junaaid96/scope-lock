@@ -1,5 +1,7 @@
 import type {
   AIAnalysis,
+  AllowanceDrawDown,
+  AllowancePool,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -161,6 +163,37 @@ export interface Store {
   deleteEstimateTemplate(id: string): Promise<void>;
   /** Impacts referencing a card (delete/rate-change guards). */
   countImpactsByRateCard(rateCardId: string): Promise<number>;
+
+  // ----- Allowance pools -----
+  createAllowancePool(data: {
+    projectId: string;
+    name: string;
+    kind: AllowancePool["kind"];
+    totalHours: number | null;
+    totalMinor: number | null;
+    currency: string | null;
+    objectionWindowHours: number;
+    enabled: boolean;
+    createdBy: string;
+  }): Promise<AllowancePool>;
+  findAllowancePoolById(id: string): Promise<AllowancePool | null>;
+  listAllowancePools(projectId: string): Promise<AllowancePool[]>;
+  updateAllowancePool(id: string, patch: Partial<AllowancePool>): Promise<AllowancePool>;
+  /** Touch updatedAt (decision-time row lock against concurrent draw-downs). */
+  touchAllowancePool(id: string): Promise<AllowancePool>;
+  createDrawDown(data: {
+    poolId: string;
+    changeRequestId: string;
+    hours: number | null;
+    amountMinor: number | null;
+    notifiedAt: string;
+    objectionDeadline: string;
+  }): Promise<AllowanceDrawDown>;
+  findDrawDownById(id: string): Promise<AllowanceDrawDown | null>;
+  findDrawDownByChange(changeRequestId: string): Promise<AllowanceDrawDown | null>;
+  listDrawDownsByPool(poolId: string): Promise<AllowanceDrawDown[]>;
+  updateDrawDown(id: string, patch: Partial<AllowanceDrawDown>): Promise<AllowanceDrawDown>;
+  listApprovalsForPool(allowancePoolId: string): Promise<ApprovalRequest[]>;
 
   // ----- Bundles -----
   createBundle(data: Pick<Bundle, "projectId" | "name" | "adjustmentMinor" | "adjustmentNote" | "createdBy">): Promise<Bundle>;

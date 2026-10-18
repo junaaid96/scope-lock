@@ -60,6 +60,7 @@ describe("prisma postgres smoke", () => {
         submitterId: user.id,
         bundleId: null,
         amendmentVersionId: null,
+        drawAllowancePoolId: null,
       });
       expect(change.number).toBe("CHG-001");
       // MFA columns from migration 0002 round-trip.
@@ -124,6 +125,55 @@ describe("prisma postgres smoke", () => {
       expect(await store.countImpactsByRateCard(card.id)).toBe(1);
       await store.deleteEstimateTemplate(template.id);
       expect(await store.listEstimateTemplates(org.id)).toHaveLength(0);
+      // Allowance pools + draw-downs from migration 0005.
+      const pool = await store.createAllowancePool({
+        projectId: project.id,
+        name: "Smoke Pool",
+        kind: "AMOUNT",
+        totalHours: null,
+        totalMinor: 100000,
+        currency: "USD",
+        objectionWindowHours: 72,
+        enabled: true,
+        createdBy: user.id,
+      });
+      expect(pool.status).toBe("PROPOSED");
+      expect((await store.findAllowancePoolById(pool.id))?.name).toBe("Smoke Pool");
+      expect(await store.listAllowancePools(project.id)).toHaveLength(1);
+      const active = await store.updateAllowancePool(pool.id, { status: "ACTIVE" });
+      expect(active.enabled).toBe(true);
+      await store.touchAllowancePool(pool.id);
+      const draw = await store.createDrawDown({
+        poolId: pool.id,
+        changeRequestId: change.id,
+        hours: null,
+        amountMinor: 25000,
+        notifiedAt: new Date().toISOString(),
+        objectionDeadline: new Date(Date.now() + 72 * 3600_000).toISOString(),
+      });
+      expect(draw.status).toBe("NOTIFIED");
+      expect((await store.findDrawDownByChange(change.id))?.id).toBe(draw.id);
+      expect(await store.listDrawDownsByPool(pool.id)).toHaveLength(1);
+      const objected = await store.updateDrawDown(draw.id, { status: "OBJECTED", objectionReason: "too much" });
+      expect(objected.objectionReason).toBe("too much");
+      // Roll back: a failed transaction leaves no pool behind.
+      await expect(
+        store.transaction(async (tx) => {
+          await tx.createAllowancePool({
+            projectId: project.id,
+            name: "Doomed Pool",
+            kind: "HOURS",
+            totalHours: 5,
+            totalMinor: null,
+            currency: null,
+            objectionWindowHours: 24,
+            enabled: false,
+            createdBy: user.id,
+          });
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect((await store.listAllowancePools(project.id)).map((p) => p.name)).toEqual(["Smoke Pool"]);
       // Roll back: a failed transaction leaves no card behind.
       await expect(
         store.transaction(async (tx) => {

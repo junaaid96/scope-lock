@@ -316,6 +316,7 @@ model Project {
   aiAnalyses     AIAnalysis[]
   externalLinks  ExternalLink[]
   metricEvents   MetricEvent[]
+  allowancePools AllowancePool[]
   changeCounter  Int @default(0)
   requirementCounter Int @default(0)
 
@@ -424,6 +425,7 @@ model ChangeRequest {
   classificationRationale String?
   submitterId             String
   bundleId                String?
+  drawAllowancePoolId     String?
   version                 Int                   @default(0)
   decidedAt               DateTime?
   implementedAt           DateTime?
@@ -438,6 +440,7 @@ model ChangeRequest {
   clarifications Clarification[]
   approvals     ApprovalRequest[]
   externalLinks ExternalLink[]
+  drawDowns     AllowanceDrawDown[]
 
   @@unique([projectId, number])
   @@index([projectId, status])
@@ -512,6 +515,70 @@ model EstimateTemplate {
   @@index([organizationId])
 }
 
+enum AllowanceKind {
+  HOURS
+  AMOUNT
+}
+
+enum AllowancePoolStatus {
+  PROPOSED
+  ACTIVE
+  CLOSED
+}
+
+enum DrawDownStatus {
+  NOTIFIED
+  OBJECTED
+  FINAL
+  RELEASED
+}
+
+model AllowancePool {
+  id                   String              @id
+  projectId            String
+  name                 String
+  kind                 AllowanceKind
+  totalHours           Float?
+  totalMinor           Int?
+  currency             String?
+  objectionWindowHours Int                 @default(72)
+  enabled              Boolean             @default(false)
+  status               AllowancePoolStatus @default(PROPOSED)
+  grantDecisionId      String?
+  createdBy            String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawDowns AllowanceDrawDown[]
+
+  @@index([projectId])
+}
+
+model AllowanceDrawDown {
+  id                String         @id
+  poolId            String
+  changeRequestId   String         @unique
+  hours             Float?
+  amountMinor       Int?
+  status            DrawDownStatus @default(NOTIFIED)
+  notifiedAt        DateTime       @default(now())
+  objectionDeadline DateTime
+  objectionReason   String?
+  objectedBy        String?
+  objectedAt        DateTime?
+  resolutionNote    String?
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  pool   AllowancePool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  change ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([poolId])
+}
+
 model ChangeLink {
   id                  String         @id
   changeRequestId     String
@@ -570,6 +637,7 @@ model ApprovalRequest {
   projectId       String
   changeRequestId String?
   bundleId        String?
+  allowancePoolId String?
   title           String?
   package         Json
   checksum        String

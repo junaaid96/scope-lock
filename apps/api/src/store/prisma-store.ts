@@ -3,6 +3,8 @@ import { DomainError, afterCursor, newId, paginate } from "@scopelock/domain";
 import type { Store } from "./store.js";
 import type {
   AIAnalysis,
+  AllowanceDrawDown,
+  AllowancePool,
   ApprovalDecision,
   ApprovalRequest,
   ApprovalToken,
@@ -184,6 +186,27 @@ function mapRateCard(
     isDefault: r.isDefault,
     rates: r.rates.map((e) => ({ id: e.id, rateCardId: e.rateCardId, role: e.role, hourlyRateMinor: e.hourlyRateMinor })),
     createdBy: r.createdBy,
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapAllowancePool(r: Prisma.AllowancePoolGetPayload<Prisma.AllowancePoolDefaultArgs>): AllowancePool {
+  return {
+    ...r,
+    kind: r.kind as AllowancePool["kind"],
+    status: r.status as AllowancePool["status"],
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapDrawDown(r: Prisma.AllowanceDrawDownGetPayload<Prisma.AllowanceDrawDownDefaultArgs>): AllowanceDrawDown {
+  return {
+    ...r,
+    status: r.status as AllowanceDrawDown["status"],
+    notifiedAt: iso(r.notifiedAt),
+    objectionDeadline: iso(r.objectionDeadline),
+    objectedAt: r.objectedAt ? iso(r.objectedAt) : null,
+    resolvedAt: r.resolvedAt ? iso(r.resolvedAt) : null,
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -811,6 +834,7 @@ export class PrismaStore implements Store {
           submitterId: data.submitterId,
           bundleId: data.bundleId,
           amendmentVersionId: data.amendmentVersionId,
+          drawAllowancePoolId: data.drawAllowancePoolId,
         },
       }),
     );
@@ -1052,6 +1076,116 @@ export class PrismaStore implements Store {
     return this.db.changeImpact.count({ where: { rateCardId } });
   }
 
+  // ----- Allowance pools -----
+  async createAllowancePool(data: {
+    projectId: string;
+    name: string;
+    kind: AllowancePool["kind"];
+    totalHours: number | null;
+    totalMinor: number | null;
+    currency: string | null;
+    objectionWindowHours: number;
+    enabled: boolean;
+    createdBy: string;
+  }): Promise<AllowancePool> {
+    return mapAllowancePool(
+      await this.db.allowancePool.create({
+        data: { id: newId("alp"), projectId: data.projectId, name: data.name, kind: data.kind, totalHours: data.totalHours, totalMinor: data.totalMinor, currency: data.currency, objectionWindowHours: data.objectionWindowHours, enabled: data.enabled, createdBy: data.createdBy },
+      }),
+    );
+  }
+
+  async findAllowancePoolById(id: string): Promise<AllowancePool | null> {
+    const r = await this.db.allowancePool.findUnique({ where: { id } });
+    return r ? mapAllowancePool(r) : null;
+  }
+
+  async listAllowancePools(projectId: string): Promise<AllowancePool[]> {
+    return (await this.db.allowancePool.findMany({ where: { projectId } })).map(mapAllowancePool);
+  }
+
+  async updateAllowancePool(id: string, patch: Partial<AllowancePool>): Promise<AllowancePool> {
+    const { id: _ignored, createdAt: _c, updatedAt: _u, projectId: _p, ...rest } = patch;
+    void _ignored;
+    void _c;
+    void _u;
+    void _p;
+    return mapAllowancePool(await this.db.allowancePool.update({ where: { id }, data: { ...rest } }));
+  }
+
+  async touchAllowancePool(id: string): Promise<AllowancePool> {
+    // The write holds the row lock until the surrounding transaction commits,
+    // serializing concurrent draw-down decisions on Postgres.
+    return mapAllowancePool(await this.db.allowancePool.update({ where: { id }, data: { updatedAt: new Date() } }));
+  }
+
+  async createDrawDown(data: {
+    poolId: string;
+    changeRequestId: string;
+    hours: number | null;
+    amountMinor: number | null;
+    notifiedAt: string;
+    objectionDeadline: string;
+  }): Promise<AllowanceDrawDown> {
+    try {
+      return mapDrawDown(
+        await this.db.allowanceDrawDown.create({
+          data: {
+            id: newId("add"),
+            poolId: data.poolId,
+            changeRequestId: data.changeRequestId,
+            hours: data.hours,
+            amountMinor: data.amountMinor,
+            notifiedAt: asDate(data.notifiedAt),
+            objectionDeadline: asDate(data.objectionDeadline),
+          },
+        }),
+      );
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new Error(`Draw-down already exists for change: ${data.changeRequestId}`);
+      throw err;
+    }
+  }
+
+  async findDrawDownById(id: string): Promise<AllowanceDrawDown | null> {
+    const r = await this.db.allowanceDrawDown.findUnique({ where: { id } });
+    return r ? mapDrawDown(r) : null;
+  }
+
+  async findDrawDownByChange(changeRequestId: string): Promise<AllowanceDrawDown | null> {
+    const r = await this.db.allowanceDrawDown.findUnique({ where: { changeRequestId } });
+    return r ? mapDrawDown(r) : null;
+  }
+
+  async listDrawDownsByPool(poolId: string): Promise<AllowanceDrawDown[]> {
+    return (await this.db.allowanceDrawDown.findMany({ where: { poolId } })).map(mapDrawDown);
+  }
+
+  async updateDrawDown(id: string, patch: Partial<AllowanceDrawDown>): Promise<AllowanceDrawDown> {
+    const { id: _ignored, createdAt: _c, updatedAt: _u, poolId: _p, changeRequestId: _ch, ...rest } = patch;
+    void _ignored;
+    void _c;
+    void _u;
+    void _p;
+    void _ch;
+    return mapDrawDown(
+      await this.db.allowanceDrawDown.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(rest.objectedAt !== undefined ? { objectedAt: rest.objectedAt ? asDate(rest.objectedAt) : null } : {}),
+          ...(rest.resolvedAt !== undefined ? { resolvedAt: rest.resolvedAt ? asDate(rest.resolvedAt) : null } : {}),
+          ...(rest.notifiedAt !== undefined ? { notifiedAt: asDate(rest.notifiedAt as string) } : {}),
+          ...(rest.objectionDeadline !== undefined ? { objectionDeadline: asDate(rest.objectionDeadline as string) } : {}),
+        },
+      }),
+    );
+  }
+
+  async listApprovalsForPool(allowancePoolId: string): Promise<ApprovalRequest[]> {
+    return (await this.db.approvalRequest.findMany({ where: { allowancePoolId }, orderBy: { createdAt: "desc" } })).map(mapApproval);
+  }
+
   // ----- Bundles -----
   async createBundle(data: Pick<Bundle, "projectId" | "name" | "adjustmentMinor" | "adjustmentNote" | "createdBy">): Promise<Bundle> {
     return mapBundle(
@@ -1093,6 +1227,7 @@ export class PrismaStore implements Store {
           projectId: data.projectId,
           changeRequestId: data.changeRequestId,
           bundleId: data.bundleId,
+          allowancePoolId: data.allowancePoolId,
           title: data.title,
           package: J(data.package),
           checksum: data.checksum,
