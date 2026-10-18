@@ -1,0 +1,1497 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ScopeLock API",
+    "version": "0.1.0",
+    "description": "System of record for client scope, change requests, approvals and delivery evidence. This document covers the integration surface (API keys, outgoing webhooks). Shapes are generated from the Zod contracts in packages/contracts; regenerate with `npm run openapi`."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Same origin as the API deployment."
+    }
+  ],
+  "tags": [
+    {
+      "name": "API keys",
+      "description": "Hashed, scoped, rotatable machine credentials."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Outgoing event subscriptions with HMAC-signed deliveries."
+    }
+  ],
+  "security": [
+    {
+      "SessionAuth": []
+    },
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/organizations/{id}/api-keys": {
+      "get": {
+        "tags": [
+          "API keys"
+        ],
+        "summary": "List API keys",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Keys (never includes secrets).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "API keys"
+        ],
+        "summary": "Create an API key",
+        "description": "The secret is shown once in the response and is stored hashed. Prefer short-lived keys.",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKey"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created key and one-time secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Key quota or name conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/api-keys/{keyId}/rotate": {
+      "post": {
+        "tags": [
+          "API keys"
+        ],
+        "summary": "Rotate an API key",
+        "description": "Issues a new secret, revokes the old one. The new secret is shown once.",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "API key ID."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Rotated key and one-time secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/api-keys/{keyId}": {
+      "delete": {
+        "tags": [
+          "API keys"
+        ],
+        "summary": "Revoke an API key",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "API key ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List webhook subscriptions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscriptions (never includes signing secrets).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookView"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Create a webhook subscription",
+        "description": "The signing secret is shown once. Targets are screened against SSRF (https-only in production; private/link-local/loopback blocked, including after DNS).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created subscription and one-time signing secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or target blocked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/webhooks/{hookId}": {
+      "patch": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Update a webhook subscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "hookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Webhook subscription ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated subscription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or target blocked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete a webhook subscription",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "hookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Webhook subscription ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/webhooks/{hookId}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Rotate a webhook signing secret",
+        "description": "Issues a new secret, shown once. In-flight deliveries keep the old signature.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "hookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Webhook subscription ID."
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Subscription and one-time signing secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookCreated"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/webhooks/{hookId}/deliveries": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List webhook deliveries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "hookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Webhook subscription ID."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor-paginated delivery log.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/webhooks/{hookId}/deliveries/{deliveryId}/replay": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Replay a webhook delivery",
+        "description": "Re-queues the stored request body through the outbox. Idempotent per replay.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          },
+          {
+            "name": "hookId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Webhook subscription ID."
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Delivery ID."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Replay queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage (or a key with that scope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription or delivery not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "approval.sent": {
+      "post": {
+        "summary": "Outgoing approval.sent event",
+        "description": "Delivered through the outbox with exponential backoff. Verify `X-ScopeLock-Signature` (`v1=<hex HMAC-SHA256(secret, \"<timestamp>.<raw body>\")>`) with a constant-time compare and reject timestamps older than 5 minutes.",
+        "parameters": [
+          {
+            "name": "X-ScopeLock-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged. Any 2xx stops retries."
+          }
+        }
+      }
+    },
+    "approval.decided": {
+      "post": {
+        "summary": "Outgoing approval.decided event",
+        "description": "Delivered through the outbox with exponential backoff. Verify `X-ScopeLock-Signature` (`v1=<hex HMAC-SHA256(secret, \"<timestamp>.<raw body>\")>`) with a constant-time compare and reject timestamps older than 5 minutes.",
+        "parameters": [
+          {
+            "name": "X-ScopeLock-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged. Any 2xx stops retries."
+          }
+        }
+      }
+    },
+    "approval.expired": {
+      "post": {
+        "summary": "Outgoing approval.expired event",
+        "description": "Delivered through the outbox with exponential backoff. Verify `X-ScopeLock-Signature` (`v1=<hex HMAC-SHA256(secret, \"<timestamp>.<raw body>\")>`) with a constant-time compare and reject timestamps older than 5 minutes.",
+        "parameters": [
+          {
+            "name": "X-ScopeLock-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged. Any 2xx stops retries."
+          }
+        }
+      }
+    },
+    "approval.escalated": {
+      "post": {
+        "summary": "Outgoing approval.escalated event",
+        "description": "Delivered through the outbox with exponential backoff. Verify `X-ScopeLock-Signature` (`v1=<hex HMAC-SHA256(secret, \"<timestamp>.<raw body>\")>`) with a constant-time compare and reject timestamps older than 5 minutes.",
+        "parameters": [
+          {
+            "name": "X-ScopeLock-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged. Any 2xx stops retries."
+          }
+        }
+      }
+    },
+    "acceptance.deemed": {
+      "post": {
+        "summary": "Outgoing acceptance.deemed event",
+        "description": "Delivered through the outbox with exponential backoff. Verify `X-ScopeLock-Signature` (`v1=<hex HMAC-SHA256(secret, \"<timestamp>.<raw body>\")>`) with a constant-time compare and reject timestamps older than 5 minutes.",
+        "parameters": [
+          {
+            "name": "X-ScopeLock-Event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-ScopeLock-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged. Any 2xx stops retries."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SessionAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "User session token from POST /api/v1/auth/login."
+      },
+      "ApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Machine key (`sk_...`) created via the API-keys endpoints. Calls are authorized through the same policy layer as sessions, limited to the key's scopes, and rate-limited per key."
+      }
+    },
+    "schemas": {
+      "ApiKeyView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "revokedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "name",
+          "prefix",
+          "scopes",
+          "expiresAt",
+          "lastUsedAt",
+          "revokedAt",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateApiKey": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "org.view",
+                "org.manage",
+                "org.invite",
+                "org.members.manage",
+                "org.usage.view",
+                "org.branding.manage",
+                "client.manage",
+                "project.create",
+                "project.view",
+                "project.manage",
+                "project.members.manage",
+                "scope.view",
+                "scope.draft",
+                "scope.publish",
+                "requirement.status",
+                "change.submit",
+                "acceptance.send",
+                "change.triage",
+                "change.estimate",
+                "change.send",
+                "change.implement",
+                "change.convert",
+                "approval.view",
+                "approval.decide",
+                "bundle.manage",
+                "note.create",
+                "evidence.attach",
+                "evidence.verify",
+                "file.upload",
+                "file.download",
+                "ai.use",
+                "ai.review",
+                "activity.view",
+                "health.view",
+                "export.read",
+                "external.manage",
+                "ratecard.view",
+                "ratecard.manage",
+                "allowance.manage",
+                "allowance.object",
+                "intake.manage",
+                "notifications.view",
+                "*"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 43
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "additionalProperties": false
+      },
+      "ApiKeyCreated": {
+        "type": "object",
+        "required": [
+          "key",
+          "secret"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/ApiKeyView"
+          },
+          "secret": {
+            "type": "string",
+            "description": "One-time secret. It is never returned again."
+          }
+        }
+      },
+      "WebhookView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "url",
+          "events",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateWebhook": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "approval.sent",
+                "approval.decided",
+                "approval.expired",
+                "approval.escalated",
+                "acceptance.deemed"
+              ]
+            },
+            "minItems": 1
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "url",
+          "events"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateWebhook": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "approval.sent",
+                "approval.decided",
+                "approval.expired",
+                "approval.escalated",
+                "acceptance.deemed"
+              ]
+            },
+            "minItems": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WebhookCreated": {
+        "type": "object",
+        "required": [
+          "webhook",
+          "secret"
+        ],
+        "properties": {
+          "webhook": {
+            "$ref": "#/components/schemas/WebhookView"
+          },
+          "secret": {
+            "type": "string",
+            "description": "One-time HMAC signing secret."
+          }
+        }
+      },
+      "WebhookDeliveryView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "subscriptionId": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SENT",
+              "FAILED",
+              "DEAD"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "responseStatus": {
+            "type": "integer",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subscriptionId",
+          "event",
+          "status",
+          "attempts",
+          "responseStatus",
+          "lastError",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookDeliveryPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookDeliveryView"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "WebhookPayload": {
+        "type": "object",
+        "required": [
+          "id",
+          "event",
+          "occurredAt",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Delivery body ID (dedupe key)."
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "approval.sent",
+              "approval.decided",
+              "approval.expired",
+              "approval.escalated",
+              "acceptance.deemed"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data": {
+            "type": "object",
+            "description": "Event data: IDs and snapshots, no secrets.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -174,6 +174,19 @@ describe("API keys", () => {
   });
 });
 
+describe("OpenAPI spec", () => {
+  it("serves the generated spec with the integration surface", async () => {
+    const { app } = await createTestApp();
+    const res = await request(app).get("/api/openapi.json");
+    expect(res.status).toBe(200);
+    const paths = Object.keys(res.body.paths as Record<string, unknown>);
+    expect(paths).toContain("/organizations/{id}/api-keys");
+    expect(paths).toContain("/organizations/{id}/webhooks/{hookId}/deliveries/{deliveryId}/replay");
+    expect(Object.keys(res.body.webhooks as Record<string, unknown>)).toContain("approval.decided");
+    expect(Object.keys(res.body.components.schemas as Record<string, unknown>)).toContain("ApiKeyView");
+  });
+});
+
 describe("outgoing webhooks", () => {
   it("manages subscriptions with SSRF screening and once-only secrets", async () => {
     const { app } = createTestApp();

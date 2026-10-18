@@ -14,6 +14,7 @@ import { captureRawBody } from "./http/types.js";
 import { authRoutes, sessionMeHandler } from "./modules/auth.js";
 import { authenticate, requireAuth } from "./http/auth.js";
 import { asyncHandler } from "./http/errors.js";
+import openapiSpec from "./openapi.json" with { type: "json" };
 import { organizationRoutes } from "./modules/organizations.js";
 import { apiKeyRoutes } from "./modules/api-keys.js";
 import { webhookRoutes } from "./modules/webhooks.js";
@@ -80,6 +81,7 @@ export function createApp(ctx: AppContext): Express {
   app.use("/api/", rateLimit(env, "default"));
 
   // Liveness + readiness (no auth).
+  app.get("/api/openapi.json", (_req, res) => res.json(openapiSpec));
   app.get("/healthz", (_req, res) => res.json({ ok: true, version: "0.1.0" }));
   app.get("/readyz", (_req, res) => {
     void ctx.store
