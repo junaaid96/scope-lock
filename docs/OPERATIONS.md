@@ -191,6 +191,21 @@ to disable):
 | `auth` | 30/min/IP | login, register, MFA, invitations |
 | `token` | 60/min/IP | public review links + intake forms |
 | `ai` | 30/min/IP | AI endpoints (also plan-quota'd) |
+| `apikey` | `API_KEY_RATE_LIMIT_PER_MIN`/min/key (300) | machine API keys (per key, not IP) |
+
+API keys are `sk_`-prefixed 192-bit secrets stored as SHA-256 hashes (prefix
+kept for identification; shown once at create/rotate, never logged).
+Webhook signing secrets are sealed at rest with AES-256-GCM under
+`AUTH_SECRET` — rotating `AUTH_SECRET` invalidates them, so rotate webhook
+secrets too. Key calls run through the
+same policy layer as sessions, limited to the key's scopes; rotation revokes
+the old secret immediately and every lifecycle action is audit-logged. On
+suspected leakage: rotate in workspace settings, then check `lastUsedAt`.
+Outgoing webhook targets are SSRF-screened on every save (https-only in
+production; private/link-local/loopback blocked including after DNS
+resolution); deliveries go through the outbox with exponential backoff and
+can be replayed from the subscription's delivery log. The machine surface is
+specified at `GET /api/openapi.json` (regenerate with `npm run openapi`).
 
 429s are logged with method/path/group only (no tokens). Review-link probing
 returns 404/410 without disclosing package existence. Intake forms add a

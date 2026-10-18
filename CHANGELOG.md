@@ -101,6 +101,16 @@ All notable changes to ScopeLock are documented here. Format follows
   either the undecided approvers get a second nudge (whoever's turn it
   is, when sequential) or the agency leads are told the package is
   stalled — with an `approval.escalated` audit event and dedupe keys.
+- Outgoing webhooks + API keys: org-scoped event subscriptions with
+  HMAC-SHA256 signed deliveries (`X-ScopeLock-*` headers) sent through
+  the outbox with exponential backoff, a delivery log with manual
+  replay, and SSRF screening (https-only in production; private,
+  link-local, and loopback targets blocked including after DNS).
+  Machine keys are shown once, stored hashed, scoped to policy actions,
+  rotatable, last-used tracked, and rate-limited
+  (`API_KEY_RATE_LIMIT_PER_MIN`). Org settings UI plus a generated
+  OpenAPI spec served at `GET /api/openapi.json`
+  (`npm run openapi [-- --check]`).
 
 ## [0.1.0] - 2026-10-16
 

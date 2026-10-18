@@ -349,6 +349,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 - **Escalation** (Policy tab) — stalled packages escalate exactly once
   past the project's delay: undecided approvers get a second nudge, or
   the agency leads are told the package is stalled. Off by default.
+- **API keys + webhooks** (workspace settings) — scoped machine keys
+  (shown once, hashed, rotatable) and HMAC-signed event deliveries with
+  a delivery log and replay. The integration surface is specified at
+  `GET /api/openapi.json`.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified
@@ -388,6 +392,7 @@ Captured from the portfolio demo seed (`npm run screenshots` regenerates them):
 | `npm run e2e` | Playwright suite (pilot loop, palette, board, timeline, inbox, accessibility) |
 | `npm run seed` | demo workspace seed |
 | `npm run seed:portfolio` | full 16-project portfolio demo workspace |
+| `npm run openapi [-- --check]` | regenerate (or freshness-check) the OpenAPI spec from Zod contracts |
 | `npm run prisma:validate` | Prisma schema validation |
 | `TEST_DATABASE_URL=… npx vitest run tests/prisma-smoke.test.ts` (in `apps/api`) | live-Postgres migration + store smoke test |
 
@@ -407,6 +412,7 @@ See [.env.example](.env.example) for the complete list. Highlights:
 - `EMAIL_API_KEY` + `EMAIL_FROM` — transactional email; unset = log driver
 - `MALWARE_SCANNER_URL` — optional ClamAV-style webhook for uploads
 - `PENDING_UPLOAD_TTL_HOURS` (24) / `DELETED_FILE_PURGE_DAYS` (30) — retention
+- `API_KEY_RATE_LIMIT_PER_MIN` (300) — per-key quota for machine API keys
 - `RATE_LIMIT_DISABLED=1`, `OUTBOX_AUTODRAIN=false` — test/CI conveniences
 
 Never put secrets in `VITE_*` variables — the browser bundle must not contain
