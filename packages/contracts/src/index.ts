@@ -11,3 +11,4 @@ export * from "./inbound.js";
 export * from "./audit.js";
 export * from "./integrations.js";
 export * from "./external.js";
+export * from "./channels.js";
