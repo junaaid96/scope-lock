@@ -42,6 +42,7 @@ export function buildPoolPackage(pool: AllowancePool): ReviewPackageSnapshot {
     request: null,
     members: [],
     impact: null,
+    options: [],
     requirements: [],
     attachments: [],
     assumptions: [],
@@ -257,6 +258,7 @@ export function allowanceRoutes(ctx: AppContext): Router {
           invalidatedReason: null,
           supersededBy: null,
           remindersSent: [],
+          chosenOptionId: null,
           version: 0,
         });
         for (let i = 0; i < approvers.length; i++) {

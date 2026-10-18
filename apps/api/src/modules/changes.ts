@@ -3,17 +3,21 @@ import { z } from "zod";
 import {
   AnswerClarificationSchema,
   CreateChangeLinkSchema,
+  CreateChangeOptionSchema,
   CreateChangeSchema,
   CreateClarificationSchema,
   ListQuerySchema,
   SubmitChangeSchema,
+  UpdateChangeOptionSchema,
   UpdateChangeSchema,
   UpsertImpactSchema,
 } from "@scopelock/contracts";
 import {
   ApprovalTransitions,
   DomainError,
+  MAX_OPTIONS,
   assertManualChangeTransition,
+  assertSendableOptions,
   assertTransition,
   computeImpactPrice,
 } from "@scopelock/domain";
@@ -31,6 +35,13 @@ import type { ChangeRequest, ImpactPricing, Store } from "../store/index.js";
 import { nowIso } from "../store/index.js";
 
 const SENDABLE_FROM = ["ESTIMATING"] as const;
+
+/** Options freeze once a decision references their snapshot — the live rows must not rewrite history. */
+function assertOptionsMutable(status: ChangeRequest["status"]): void {
+  if (status === "APPROVED" || status === "IMPLEMENTED") {
+    throw DomainError.unprocessable("Proposal options are frozen once the request is approved. The decision references the sent snapshot.");
+  }
+}
 
 /** Suggested IDs must cite real project requirements (rejects invented IDs). */
 export async function validatedSuggestionIds(store: Store, projectId: string, ids: string[]): Promise<string[]> {
@@ -70,9 +81,22 @@ export async function getSendBlockers(store: Store, change: ChangeRequest): Prom
     blockers.push(`Status must be ESTIMATING to send (currently ${change.status}). Move it through triage and estimation first.`);
   }
   const impact = await store.findLatestImpact(change.id);
+  const options = await store.listOptionsByChange(change.id);
+  let optionsTier: number | null = null;
+  if (options.length > 0) {
+    // Started options must be shippable: the package snapshots them verbatim.
+    try {
+      optionsTier = assertSendableOptions(options);
+    } catch (err) {
+      blockers.push(err instanceof DomainError ? err.message : "Proposal options are incomplete.");
+    }
+  }
   if (!impact) {
-    blockers.push("An impact assessment is required before sending.");
-  } else {
+    if (optionsTier === null) {
+      blockers.push("An impact assessment is required before sending (or 2–4 priced proposal options).");
+    }
+  } else if (optionsTier === null) {
+    // No valid options: the base impact carries the proposal and must be priced.
     if (impact.priceMinor === null || !impact.currency) blockers.push("Impact must include a price and currency (use 0 for no charge).");
     if (impact.effortDays === null) blockers.push("Impact must include an effort estimate.");
   }
@@ -253,10 +277,11 @@ export function changeRoutes(ctx: AppContext): Router {
       if (!change) throw DomainError.notFound("Change request not found");
       const access = await requireProjectAccess(ctx.store, auth.user.id, change.projectId);
       requireAction(access.access, "project.view");
-      const [impact, impacts, links, clarifications, approvals, versions, attachments, externalLinks, bundle] =
+      const [impact, impacts, options, links, clarifications, approvals, versions, attachments, externalLinks, bundle] =
         await Promise.all([
           ctx.store.findLatestImpact(change.id),
           ctx.store.listImpacts(change.id),
+          ctx.store.listOptionsByChange(change.id),
           ctx.store.listChangeLinks(change.id),
           ctx.store.listClarifications(change.id),
           ctx.store.listApprovalsForChange(change.id),
@@ -282,7 +307,13 @@ export function changeRoutes(ctx: AppContext): Router {
           return { ...l, targetTitle: null };
         }),
       );
-      const decisions = (await Promise.all(approvals.map((a) => ctx.store.listDecisions(a.id)))).flat();
+      const rawDecisions = (await Promise.all(approvals.map((a) => ctx.store.listDecisions(a.id)))).flat();
+      const optionLabels = new Map<string, string>();
+      for (const a of approvals) for (const o of a.package.options ?? []) optionLabels.set(o.optionId, o.label);
+      const decisions = rawDecisions.map((d) => ({
+        ...d,
+        optionLabel: d.optionId ? (optionLabels.get(d.optionId) ?? null) : null,
+      }));
       const sendBlockers = await getSendBlockers(ctx.store, change);
       const [drawPool, drawDown] = await Promise.all([
         change.drawAllowancePoolId ? ctx.store.findAllowancePoolById(change.drawAllowancePoolId) : Promise.resolve(null),
@@ -292,6 +323,7 @@ export function changeRoutes(ctx: AppContext): Router {
         ...change,
         impact,
         impacts,
+        options,
         links: enrichedLinks,
         clarifications,
         approvals,
@@ -565,6 +597,183 @@ export function changeRoutes(ctx: AppContext): Router {
         },
       });
       res.status(201).json(result);
+    }),
+  );
+
+  router.post(
+    "/change-requests/:id/options",
+    requireAuth,
+    validateParams(z.object({ id: z.string().min(1) })),
+    validateBody(CreateChangeOptionSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof CreateChangeOptionSchema>;
+      const change = await ctx.store.findChangeById(req.params.id as string);
+      if (!change) throw DomainError.notFound("Change request not found");
+      const access = await requireProjectAccess(ctx.store, auth.user.id, change.projectId);
+      requireAction(access.access, "change.estimate");
+      assertOptionsMutable(change.status);
+      if (input.currency && input.currency !== access.project.currency) {
+        throw DomainError.unprocessable(`Option currency must match the project currency (${access.project.currency})`);
+      }
+      const siblings = await ctx.store.listOptionsByChange(change.id);
+      if (siblings.length >= MAX_OPTIONS) {
+        throw DomainError.unprocessable(`A request carries at most ${MAX_OPTIONS} proposal options`);
+      }
+      if (siblings.some((o) => o.label.trim().toLowerCase() === input.label.trim().toLowerCase())) {
+        throw DomainError.conflict(`An option labelled "${input.label.trim()}" already exists`);
+      }
+      const option = await ctx.store.transaction(async (tx) => {
+        const created = await tx.createOption({
+          changeRequestId: change.id,
+          label: input.label.trim(),
+          description: input.description ?? null,
+          effortDays: input.effortDays ?? null,
+          priceMinor: input.priceMinor ?? null,
+          currency: input.currency ?? access.project.currency,
+          timelineDays: input.timelineDays ?? null,
+          milestoneEffect: input.milestoneEffect ?? null,
+          risks: input.risks ?? [],
+          exclusions: input.exclusions ?? [],
+          notes: input.notes ?? null,
+          createdBy: auth.user.id,
+        });
+        await tx.updateChange(change.id, { version: change.version + 1 });
+        await invalidateApprovalsForChange(tx, {
+          organizationId: access.org.id,
+          projectId: access.project.id,
+          actorId: auth.user.id,
+          actorEmail: auth.user.email,
+          changeId: change.id,
+          bundleId: change.bundleId,
+          reason: "Proposal options changed after the package was sent",
+        });
+        return created;
+      });
+      await audit(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "change.option_added",
+        targetType: "CHANGE",
+        targetId: change.id,
+        after: { optionId: option.id, label: option.label },
+      });
+      res.status(201).json(option);
+    }),
+  );
+
+  router.patch(
+    "/change-requests/:id/options/:optionId",
+    requireAuth,
+    validateParams(z.object({ id: z.string().min(1), optionId: z.string().min(1) })),
+    validateBody(UpdateChangeOptionSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof UpdateChangeOptionSchema>;
+      const change = await ctx.store.findChangeById(req.params.id as string);
+      if (!change) throw DomainError.notFound("Change request not found");
+      const access = await requireProjectAccess(ctx.store, auth.user.id, change.projectId);
+      requireAction(access.access, "change.estimate");
+      assertOptionsMutable(change.status);
+      if (input.currency && input.currency !== access.project.currency) {
+        throw DomainError.unprocessable(`Option currency must match the project currency (${access.project.currency})`);
+      }
+      const option = await ctx.store.findOptionById(req.params.optionId as string);
+      if (!option || option.changeRequestId !== change.id) throw DomainError.notFound("Option not found");
+      if (option.version !== input.expectedVersion) {
+        throw DomainError.conflict("This option changed since you loaded it. Reload and retry.", {
+          expected: input.expectedVersion,
+          actual: option.version,
+        });
+      }
+      if (input.label !== undefined) {
+        const siblings = await ctx.store.listOptionsByChange(change.id);
+        if (siblings.some((o) => o.id !== option.id && o.label.trim().toLowerCase() === input.label?.trim().toLowerCase())) {
+          throw DomainError.conflict(`An option labelled "${input.label.trim()}" already exists`);
+        }
+      }
+      const updated = await ctx.store.transaction(async (tx) => {
+        const next = await tx.updateOption(option.id, {
+          ...(input.label !== undefined ? { label: input.label.trim() } : {}),
+          ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.effortDays !== undefined ? { effortDays: input.effortDays } : {}),
+          ...(input.priceMinor !== undefined ? { priceMinor: input.priceMinor } : {}),
+          ...(input.currency !== undefined ? { currency: input.currency } : {}),
+          ...(input.timelineDays !== undefined ? { timelineDays: input.timelineDays } : {}),
+          ...(input.milestoneEffect !== undefined ? { milestoneEffect: input.milestoneEffect } : {}),
+          ...(input.risks !== undefined ? { risks: input.risks } : {}),
+          ...(input.exclusions !== undefined ? { exclusions: input.exclusions } : {}),
+          ...(input.notes !== undefined ? { notes: input.notes } : {}),
+          version: option.version + 1,
+        });
+        await tx.updateChange(change.id, { version: change.version + 1 });
+        await invalidateApprovalsForChange(tx, {
+          organizationId: access.org.id,
+          projectId: access.project.id,
+          actorId: auth.user.id,
+          actorEmail: auth.user.email,
+          changeId: change.id,
+          bundleId: change.bundleId,
+          reason: "Proposal options changed after the package was sent",
+        });
+        return next;
+      });
+      await audit(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "change.option_updated",
+        targetType: "CHANGE",
+        targetId: change.id,
+        after: { optionId: updated.id, label: updated.label },
+      });
+      res.json(updated);
+    }),
+  );
+
+  router.delete(
+    "/change-requests/:id/options/:optionId",
+    requireAuth,
+    validateParams(z.object({ id: z.string().min(1), optionId: z.string().min(1) })),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const change = await ctx.store.findChangeById(req.params.id as string);
+      if (!change) throw DomainError.notFound("Change request not found");
+      const access = await requireProjectAccess(ctx.store, auth.user.id, change.projectId);
+      requireAction(access.access, "change.estimate");
+      assertOptionsMutable(change.status);
+      const option = await ctx.store.findOptionById(req.params.optionId as string);
+      if (!option || option.changeRequestId !== change.id) throw DomainError.notFound("Option not found");
+      await ctx.store.transaction(async (tx) => {
+        await tx.deleteOption(option.id);
+        await tx.updateChange(change.id, { version: change.version + 1 });
+        await invalidateApprovalsForChange(tx, {
+          organizationId: access.org.id,
+          projectId: access.project.id,
+          actorId: auth.user.id,
+          actorEmail: auth.user.email,
+          changeId: change.id,
+          bundleId: change.bundleId,
+          reason: "Proposal options changed after the package was sent",
+        });
+      });
+      await audit(ctx.store, {
+        organizationId: access.org.id,
+        projectId: access.project.id,
+        actorId: auth.user.id,
+        actorEmail: auth.user.email,
+        action: "change.option_removed",
+        targetType: "CHANGE",
+        targetId: change.id,
+        after: { optionId: option.id, label: option.label },
+      });
+      res.status(204).end();
     }),
   );
 

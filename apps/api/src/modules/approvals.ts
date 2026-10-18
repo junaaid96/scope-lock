@@ -7,7 +7,10 @@ import {
   ChangeTransitions,
   DomainError,
   aggregatePolicy,
+  assertOptionAgreement,
+  assertSendableOptions,
   assertTransition,
+  assertValidChoice,
   checksumOf,
   currentTurn,
   drawAmountFor,
@@ -80,6 +83,7 @@ async function requirementEntries(
 
 async function buildChangePackage(store: Store, change: ChangeRequest): Promise<ReviewPackageSnapshot> {
   const impact = await store.findLatestImpact(change.id);
+  const options = await store.listOptionsByChange(change.id);
   const links = await store.listChangeLinks(change.id);
   const reqIds = links.filter((l) => l.targetType === "REQUIREMENT" && l.targetRequirementId).map((l) => l.targetRequirementId as string);
   const governing = await getGoverningVersion(store, change.projectId);
@@ -111,6 +115,19 @@ async function buildChangePackage(store: Store, change: ChangeRequest): Promise<
           confidence: impact.confidence,
         }
       : null,
+    options: options.map((o) => ({
+      optionId: o.id,
+      label: o.label,
+      description: o.description,
+      effortDays: o.effortDays,
+      priceMinor: o.priceMinor,
+      currency: o.currency,
+      timelineDays: o.timelineDays,
+      milestoneEffect: o.milestoneEffect,
+      risks: o.risks,
+      exclusions: o.exclusions,
+      notes: o.notes,
+    })),
     requirements: await requirementEntries(store, change.projectId, reqIds),
     attachments: attachments.map((a) => ({
       attachmentId: a.id,
@@ -154,6 +171,8 @@ async function buildBundlePackage(store: Store, bundle: Bundle): Promise<ReviewP
       notes: bundle.adjustmentNote ? `Bundle adjustment: ${bundle.adjustmentNote}` : null,
       confidence: "MEDIUM",
     },
+    // Bundles decide member changes as a whole; per-change options stay out.
+    options: [],
     requirements: await requirementEntries(store, bundle.projectId, reqIds),
     attachments: attachments.map((a) => ({
       attachmentId: a.id,
@@ -309,9 +328,14 @@ export function approvalRoutes(ctx: AppContext): Router {
     const project = await ctx.store.findProjectById(change.projectId);
     if (!project) throw DomainError.notFound("Project not found");
     const sendImpact = await ctx.store.findLatestImpact(change.id);
+    const sendOptions = await ctx.store.listOptionsByChange(change.id);
+    // Blockers already rejected invalid options; tier on the priciest
+    // alternative so bigger commitments face the stricter rule.
+    const optionsTier = sendOptions.length > 0 ? assertSendableOptions(sendOptions) : null;
+    const basePrice = sendImpact?.priceMinor ?? null;
     const policy = resolveSendPolicy({
       settings: project.settings,
-      priceMinor: sendImpact?.priceMinor ?? null,
+      priceMinor: optionsTier !== null ? Math.max(basePrice ?? 0, optionsTier) : basePrice,
       overrideMode: input.policyMode,
       approvers,
     });
@@ -334,6 +358,7 @@ export function approvalRoutes(ctx: AppContext): Router {
         invalidatedReason: null,
         supersededBy: null,
         remindersSent: [],
+        chosenOptionId: null,
         version: 0,
       });
       for (let i = 0; i < approvers.length; i++) {
@@ -460,6 +485,7 @@ export function approvalRoutes(ctx: AppContext): Router {
           invalidatedReason: null,
           supersededBy: null,
           remindersSent: [],
+          chosenOptionId: null,
           version: 0,
         });
         for (let i = 0; i < approvers.length; i++) {
@@ -658,11 +684,14 @@ export function approvalRoutes(ctx: AppContext): Router {
         checksum: approval.checksum,
         expiresAt: approval.expiresAt,
         policy: policyOf(approval),
+        chosenOptionId: approval.chosenOptionId ?? null,
         policyState: policyStateFor(approval, tokens, decisions, approverKey(token.approverUserId, token.approverEmail ?? "")),
         decisions: decisions.map((d) => ({
           decision: d.decision,
           comment: d.comment,
           approverEmail: d.approverEmail,
+          optionId: d.optionId,
+          optionLabel: d.optionId ? (approval.package.options ?? []).find((o) => o.optionId === d.optionId)?.label ?? null : null,
           createdAt: d.createdAt,
         })),
         invalidatedReason: approval.invalidatedReason,
@@ -835,6 +864,22 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
     }
     const prior = await tx.listDecisions(fresh.id);
     assertDecideAllowed(fresh, approverKeys, prior, key);
+    const snapshots = fresh.package.options ?? [];
+    const optionId = args.input.optionId ?? null;
+    if (snapshots.length > 0) {
+      if (args.input.decision !== "APPROVED") {
+        if (optionId) throw DomainError.unprocessable("An option choice only applies to approvals");
+      } else {
+        if (!optionId) throw DomainError.unprocessable("This package offers proposal options — pick exactly one to approve");
+        assertValidChoice(snapshots, optionId);
+        assertOptionAgreement(
+          prior.filter((d) => d.decision === "APPROVED").map((d) => d.optionId),
+          optionId,
+        );
+      }
+    } else if (optionId) {
+      throw DomainError.unprocessable("This package has no proposal options to choose from");
+    }
     const created = await tx.createDecision({
       approvalRequestId: fresh.id,
       approverUserId: args.approverUserId,
@@ -842,6 +887,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
       tokenId: args.tokenId,
       decision: args.input.decision,
       comment: args.input.comment?.trim() || null,
+      optionId: args.input.decision === "APPROVED" ? optionId : null,
       checksum: fresh.checksum,
       ip: ctxInfo?.ip ?? args.req.ip ?? null,
       userAgent: args.req.headers["user-agent"]?.slice(0, 300) ?? null,
@@ -860,6 +906,7 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         status: outcome.state === "PENDING" ? "SENT" : "DECIDED",
         decision: args.input.decision,
         outcome: outcome.state,
+        optionId: created.optionId,
         checksum: fresh.checksum,
       },
       correlationId: ctxInfo?.correlationId ?? "no-correlation",
@@ -921,6 +968,30 @@ async function recordDecision(ctx: AppContext, approval: ApprovalRequest, args: 
         properties: { number: change.number, decision: terminal },
         actorId: args.approverUserId,
       });
+    }
+    // The client's pick becomes the change's effective impact, BEFORE any
+    // draw-down reads it: ledger, export, and pool draws all see the chosen
+    // option, attributed to the decision. Snapshot ids make this exact.
+    if (terminal === "APPROVED" && optionId && fresh.changeRequestId) {
+      const chosen = assertValidChoice(snapshots, optionId);
+      await tx.createImpact({
+        changeRequestId: fresh.changeRequestId,
+        effortDays: chosen.effortDays,
+        priceMinor: chosen.priceMinor,
+        rateCardId: null,
+        templateId: null,
+        pricing: null,
+        overrideReason: null,
+        currency: chosen.currency,
+        timelineDays: chosen.timelineDays,
+        milestoneEffect: chosen.milestoneEffect,
+        risks: chosen.risks,
+        exclusions: chosen.exclusions,
+        notes: `Chosen option "${chosen.label}" (decided ${now}).${chosen.notes ? ` ${chosen.notes}` : ""}`,
+        confidence: "MEDIUM",
+        createdBy: args.approverUserId ?? fresh.createdBy,
+      });
+      await tx.updateApproval(fresh.id, { chosenOptionId: optionId });
     }
     // Allowance grant decisions activate the pool itself — the grant IS the
     // client-approved decision, so draw-downs never become auto-approval.
