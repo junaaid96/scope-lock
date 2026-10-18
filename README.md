@@ -333,6 +333,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 - **Review step-up** (workspace settings → project Policy tab) — optional
   email code + typed-name confirmation on review links, recorded with each
   decision. An identity check, not an e-signature.
+- **Change Order PDF + decision certificate** (review page, decided
+  packages) — deterministic PDF with the package checksum and a QR/URL to
+  a public verify page (`/verify/:approvalId`) that recomputes the
+  checksum and shows match/mismatch from the package contents only.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

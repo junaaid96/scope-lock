@@ -78,6 +78,11 @@ All notable changes to ScopeLock are documented here. Format follows
   full-name confirmation recorded with each decision. Configurable per
   workspace with per-project inherit/on/off pins; explicitly not an
   e-signature.
+- Change Order PDF + decision certificate: deterministic server-side PDF
+  for decided packages (package checksum, per-decision record, QR/URL to
+  the public verify page) plus `/verify/:approvalId`, which recomputes
+  the checksum server-side and shows match/mismatch from the package
+  contents only.
 
 ## [0.1.0] - 2026-10-16
 

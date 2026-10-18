@@ -567,6 +567,7 @@ async function main(): Promise<void> {
 
   // 2) Haat — change sent, awaiting the client's decision (inbox + review link).
   let haatReviewUrl = "";
+  let certificateApprovalId = "";
   if (!(await hasChanges("haat-marketplace"))) {
     const slug = "haat-marketplace";
     const ch = await createChange(slug, {
@@ -977,6 +978,7 @@ async function main(): Promise<void> {
         "seed options decision",
         [201],
       );
+      certificateApprovalId = body.approval.id;
       await sweepOutbox(store);
       console.log("showcase: quickfood options decided (Reduced picked, ledger prices the pick)");
     }
@@ -1087,6 +1089,9 @@ async function main(): Promise<void> {
   }
   if (intakeUrl) {
     console.log(`  Public intake form (Forgeline, no login needed): ${intakeUrl}`);
+  }
+  if (certificateApprovalId) {
+    console.log(`  Decision certificate (QuickFood options, no login needed): ${env.WEB_URL}/verify/${certificateApprovalId}`);
   }
 
   // Inbound mailbox for Forgeline (resumable): forward mail to post it as email intake.
