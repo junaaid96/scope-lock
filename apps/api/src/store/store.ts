@@ -37,6 +37,8 @@ import type {
   PageResult,
   PastDecision,
   PasswordReset,
+  OAuthAccount,
+  PasskeyCredential,
   Project,
   ProjectMember,
   RateCard,
@@ -76,6 +78,15 @@ export interface Store {
   createPasswordReset(data: Pick<PasswordReset, "userId" | "tokenHash" | "expiresAt">): Promise<PasswordReset>;
   findPasswordResetByTokenHash(tokenHash: string): Promise<PasswordReset | null>;
   markPasswordResetUsed(id: string, usedAt: string): Promise<void>;
+  createOAuthAccount(data: Pick<OAuthAccount, "userId" | "provider" | "providerUserId" | "email">): Promise<OAuthAccount>;
+  findOAuthAccount(provider: string, providerUserId: string): Promise<OAuthAccount | null>;
+  listOAuthAccounts(userId: string): Promise<OAuthAccount[]>;
+  deleteOAuthAccount(id: string): Promise<void>;
+  createPasskey(data: Pick<PasskeyCredential, "userId" | "name" | "credentialId" | "publicKey" | "counter" | "transports">): Promise<PasskeyCredential>;
+  findPasskeyByCredentialId(credentialId: string): Promise<PasskeyCredential | null>;
+  listPasskeys(userId: string): Promise<PasskeyCredential[]>;
+  updatePasskeyCounter(id: string, counter: number, lastUsedAt: string): Promise<void>;
+  deletePasskey(id: string): Promise<void>;
 
   // ----- Organizations / memberships / invitations -----
   createOrganization(data: { name: string; plan?: Organization["plan"] }): Promise<Organization>;

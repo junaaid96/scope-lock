@@ -41,6 +41,8 @@ import type {
   PageResult,
   PastDecision,
   PasswordReset,
+  OAuthAccount,
+  PasskeyCredential,
   Project,
   ProjectMember,
   ProjectSettings,
@@ -114,6 +116,12 @@ function mapSession(r: Prisma.SessionGetPayload<Prisma.SessionDefaultArgs>): Ses
 }
 function mapPasswordReset(r: Prisma.PasswordResetGetPayload<Prisma.PasswordResetDefaultArgs>): PasswordReset {
   return { ...r, expiresAt: iso(r.expiresAt), usedAt: r.usedAt ? iso(r.usedAt) : null, createdAt: iso(r.createdAt) };
+}
+function mapOAuthAccount(r: Prisma.OAuthAccountGetPayload<Prisma.OAuthAccountDefaultArgs>): OAuthAccount {
+  return { ...r, createdAt: iso(r.createdAt) };
+}
+function mapPasskey(r: Prisma.PasskeyCredentialGetPayload<Prisma.PasskeyCredentialDefaultArgs>): PasskeyCredential {
+  return { ...r, transports: json(r.transports, []), createdAt: iso(r.createdAt), lastUsedAt: r.lastUsedAt ? iso(r.lastUsedAt) : null };
 }
 function mapClient(r: Prisma.ClientGetPayload<Prisma.ClientDefaultArgs>): Client {
   return {
@@ -596,6 +604,64 @@ export class PrismaStore implements Store {
 
   async markPasswordResetUsed(id: string, usedAt: string): Promise<void> {
     await this.db.passwordReset.update({ where: { id }, data: { usedAt: asDate(usedAt) } });
+  }
+
+  async createOAuthAccount(
+    data: Pick<OAuthAccount, "userId" | "provider" | "providerUserId" | "email">,
+  ): Promise<OAuthAccount> {
+    return mapOAuthAccount(
+      await this.db.oAuthAccount.create({
+        data: { id: newId("oa"), userId: data.userId, provider: data.provider, providerUserId: data.providerUserId, email: data.email },
+      }),
+    );
+  }
+
+  async findOAuthAccount(provider: string, providerUserId: string): Promise<OAuthAccount | null> {
+    const r = await this.db.oAuthAccount.findUnique({ where: { provider_providerUserId: { provider, providerUserId } } });
+    return r ? mapOAuthAccount(r) : null;
+  }
+
+  async listOAuthAccounts(userId: string): Promise<OAuthAccount[]> {
+    return (await this.db.oAuthAccount.findMany({ where: { userId } })).map(mapOAuthAccount);
+  }
+
+  async deleteOAuthAccount(id: string): Promise<void> {
+    await this.db.oAuthAccount.deleteMany({ where: { id } });
+  }
+
+  async createPasskey(
+    data: Pick<PasskeyCredential, "userId" | "name" | "credentialId" | "publicKey" | "counter" | "transports">,
+  ): Promise<PasskeyCredential> {
+    return mapPasskey(
+      await this.db.passkeyCredential.create({
+        data: {
+          id: newId("pk"),
+          userId: data.userId,
+          name: data.name,
+          credentialId: data.credentialId,
+          publicKey: data.publicKey,
+          counter: data.counter,
+          transports: J(data.transports),
+        },
+      }),
+    );
+  }
+
+  async findPasskeyByCredentialId(credentialId: string): Promise<PasskeyCredential | null> {
+    const r = await this.db.passkeyCredential.findUnique({ where: { credentialId } });
+    return r ? mapPasskey(r) : null;
+  }
+
+  async listPasskeys(userId: string): Promise<PasskeyCredential[]> {
+    return (await this.db.passkeyCredential.findMany({ where: { userId } })).map(mapPasskey);
+  }
+
+  async updatePasskeyCounter(id: string, counter: number, lastUsedAt: string): Promise<void> {
+    await this.db.passkeyCredential.update({ where: { id }, data: { counter, lastUsedAt: asDate(lastUsedAt) } });
+  }
+
+  async deletePasskey(id: string): Promise<void> {
+    await this.db.passkeyCredential.deleteMany({ where: { id } });
   }
 
   // ----- Organizations / memberships / invitations -----

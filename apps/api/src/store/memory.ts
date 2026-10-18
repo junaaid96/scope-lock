@@ -40,6 +40,8 @@ import type {
   PageResult,
   PastDecision,
   PasswordReset,
+  OAuthAccount,
+  PasskeyCredential,
   Project,
   ProjectMember,
   RateCard,
@@ -64,6 +66,8 @@ type Tables = {
   invitations: Map<string, Invitation>;
   sessions: Map<string, Session>;
   passwordResets: Map<string, PasswordReset>;
+  oauthAccounts: Map<string, OAuthAccount>;
+  passkeys: Map<string, PasskeyCredential>;
   clients: Map<string, Client>;
   projects: Map<string, Project>;
   projectMembers: Map<string, ProjectMember>;
@@ -116,6 +120,8 @@ function emptyTables(): Tables {
     invitations: new Map(),
     sessions: new Map(),
     passwordResets: new Map(),
+    oauthAccounts: new Map(),
+    passkeys: new Map(),
     clients: new Map(),
     projects: new Map(),
     projectMembers: new Map(),
@@ -274,6 +280,72 @@ export class MemoryStore implements Store {
 
   async deleteSession(id: string): Promise<void> {
     this.tables.sessions.delete(id);
+    this.afterCommit();
+  }
+
+  async createOAuthAccount(
+    data: Pick<OAuthAccount, "userId" | "provider" | "providerUserId" | "email">,
+  ): Promise<OAuthAccount> {
+    for (const row of this.tables.oauthAccounts.values()) {
+      if (row.provider === data.provider && row.providerUserId === data.providerUserId) {
+        throw new Error(`OAuth account already linked: ${data.provider}`);
+      }
+    }
+    const row: OAuthAccount = { id: newId("oa"), createdAt: nowIso(), ...data };
+    this.tables.oauthAccounts.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findOAuthAccount(provider: string, providerUserId: string): Promise<OAuthAccount | null> {
+    for (const row of this.tables.oauthAccounts.values()) {
+      if (row.provider === provider && row.providerUserId === providerUserId) return row;
+    }
+    return null;
+  }
+
+  async listOAuthAccounts(userId: string): Promise<OAuthAccount[]> {
+    return [...this.tables.oauthAccounts.values()].filter((row) => row.userId === userId);
+  }
+
+  async deleteOAuthAccount(id: string): Promise<void> {
+    this.tables.oauthAccounts.delete(id);
+    this.afterCommit();
+  }
+
+  async createPasskey(
+    data: Pick<PasskeyCredential, "userId" | "name" | "credentialId" | "publicKey" | "counter" | "transports">,
+  ): Promise<PasskeyCredential> {
+    if (await this.findPasskeyByCredentialId(data.credentialId)) {
+      throw new Error("Passkey credential already registered");
+    }
+    const now = nowIso();
+    const row: PasskeyCredential = { id: newId("pk"), createdAt: now, lastUsedAt: null, ...data };
+    this.tables.passkeys.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findPasskeyByCredentialId(credentialId: string): Promise<PasskeyCredential | null> {
+    for (const row of this.tables.passkeys.values()) {
+      if (row.credentialId === credentialId) return row;
+    }
+    return null;
+  }
+
+  async listPasskeys(userId: string): Promise<PasskeyCredential[]> {
+    return [...this.tables.passkeys.values()].filter((row) => row.userId === userId);
+  }
+
+  async updatePasskeyCounter(id: string, counter: number, lastUsedAt: string): Promise<void> {
+    const existing = this.tables.passkeys.get(id);
+    if (!existing) throw new Error(`Passkey not found: ${id}`);
+    this.tables.passkeys.set(id, { ...existing, counter, lastUsedAt });
+    this.afterCommit();
+  }
+
+  async deletePasskey(id: string): Promise<void> {
+    this.tables.passkeys.delete(id);
     this.afterCommit();
   }
 

@@ -199,8 +199,40 @@ model User {
   evidenceAuthored DeliveryEvidence[] @relation("EvidenceAuthor")
   evidenceVerified DeliveryEvidence[] @relation("EvidenceVerifier")
   apiKeys          ApiKey[]
+  oauthAccounts    OAuthAccount[]
+  passkeys         PasskeyCredential[]
 
   @@index([email])
+}
+
+model OAuthAccount {
+  id             String   @id
+  userId         String
+  provider       String
+  providerUserId String
+  email          String
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model PasskeyCredential {
+  id           String    @id
+  userId       String
+  name         String
+  credentialId String    @unique
+  publicKey    String
+  counter      Int       @default(0)
+  transports   Json      @default("[]")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Organization {

@@ -156,6 +156,29 @@ describe("prisma postgres smoke", () => {
       expect(renamedTpl.name).toBe("Smoke Website v2");
       await store.deleteScopeTemplate(scopeTpl.id);
       expect(await store.listScopeTemplates(org.id)).toHaveLength(0);
+      // OAuth links + passkeys (migration 0023) round-trip with uniqueness.
+      const link = await store.createOAuthAccount({
+        userId: user.id,
+        provider: "google",
+        providerUserId: "google-123",
+        email,
+      });
+      expect((await store.findOAuthAccount("google", "google-123"))?.id).toBe(link.id);
+      expect(await store.listOAuthAccounts(user.id)).toHaveLength(1);
+      const pk = await store.createPasskey({
+        userId: user.id,
+        name: "Smoke key",
+        credentialId: "cred-smoke-1",
+        publicKey: "cGsu",
+        counter: 0,
+        transports: ["internal"],
+      });
+      expect((await store.findPasskeyByCredentialId("cred-smoke-1"))?.id).toBe(pk.id);
+      await store.updatePasskeyCounter(pk.id, 7, new Date().toISOString());
+      expect((await store.listPasskeys(user.id))[0]?.counter).toBe(7);
+      await store.deletePasskey(pk.id);
+      await store.deleteOAuthAccount(link.id);
+      expect(await store.listPasskeys(user.id)).toHaveLength(0);
       // Allowance pools + draw-downs from migration 0005.
       const pool = await store.createAllowancePool({
         projectId: project.id,

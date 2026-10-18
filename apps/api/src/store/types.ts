@@ -119,6 +119,31 @@ export interface Session {
   ip: string | null;
 }
 
+/** OAuth provider link: created only for verified emails matching the user. */
+export interface OAuthAccount {
+  id: string;
+  userId: string;
+  provider: string;
+  providerUserId: string;
+  email: string;
+  createdAt: string;
+}
+
+/** Stored WebAuthn credential (public key material only). */
+export interface PasskeyCredential {
+  id: string;
+  userId: string;
+  name: string;
+  /** base64url credential ID. */
+  credentialId: string;
+  /** base64url COSE public key. */
+  publicKey: string;
+  counter: number;
+  transports: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface PasswordReset {
   id: string;
   userId: string;
