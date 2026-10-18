@@ -89,7 +89,7 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         input.unapprovedImplementations.length === 0
           ? "No work was marked implemented without approval."
-          : `${input.unapprovedImplementations.length} change(s) implemented without an approval decision.`,
+          : `${input.unapprovedImplementations.length} change(s) implemented or merged without an approval decision.`,
       itemIds: input.unapprovedImplementations.map((r) => r.id),
     },
     {

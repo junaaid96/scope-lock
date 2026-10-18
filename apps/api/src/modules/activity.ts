@@ -421,15 +421,42 @@ export function activityRoutes(ctx: AppContext): Router {
       if (!auth) throw DomainError.unauthorized("Authentication required");
       const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
       requireAction(access.access, "health.view");
-      const [changes, approvals] = await Promise.all([
+      const [changes, approvals, workItems, requirements] = await Promise.all([
         ctx.store.listChanges(access.project.id),
         ctx.store.listProjectApprovals(access.project.id),
+        ctx.store.listExternalWorkItems(access.project.id),
+        ctx.store.listRequirements(access.project.id),
       ]);
       const unlinked: Array<{ id: string; title: string }> = [];
       for (const c of changes.filter((x) => OPEN_STATUSES.includes(x.status))) {
         const links = await ctx.store.listChangeLinks(c.id);
         if (!links.some((l) => l.targetType === "REQUIREMENT")) unlinked.push({ id: c.id, title: `${c.number}: ${c.title}` });
       }
+      // Merged external work feeds the health signals: items that link to no
+      // request are unlinked work; items that link to undecided changes flag
+      // those changes as merged without an approval decision.
+      const changesByNumber = new Map(changes.map((c) => [c.number, c]));
+      const requirementKeys = new Set(requirements.map((r) => r.stableKey));
+      const unlinkedWork: Array<{ id: string; title: string }> = [];
+      const mergedUnapproved = new Map<string, { id: string; title: string }>();
+      for (const item of workItems.filter((w) => w.merged)) {
+        const resolvedChanges = item.refs.map((ref) => changesByNumber.get(ref)).filter((c) => c !== undefined);
+        const linked = resolvedChanges.length > 0 || item.refs.some((ref) => requirementKeys.has(ref));
+        if (!linked) {
+          unlinkedWork.push({ id: item.id, title: item.title ? `${item.externalId}: ${item.title}` : item.externalId });
+          continue;
+        }
+        for (const change of resolvedChanges) {
+          if (!change.decidedAt && !mergedUnapproved.has(change.id)) {
+            mergedUnapproved.set(change.id, { id: change.id, title: `${change.number}: ${change.title}` });
+          }
+        }
+      }
+      const unapproved = new Map<string, { id: string; title: string }>();
+      for (const c of changes.filter((x) => x.status === "IMPLEMENTED" && !x.decidedAt)) {
+        unapproved.set(c.id, { id: c.id, title: `${c.number}: ${c.title}` });
+      }
+      for (const [id, entry] of mergedUnapproved) unapproved.set(id, entry);
       const health = computeScopeHealth({
         nowIso: nowIso(),
         openRequests: changes
@@ -442,9 +469,8 @@ export function activityRoutes(ctx: AppContext): Router {
           .filter((a) => a.status === "EXPIRED")
           .map((a) => ({ id: a.id, changeTitle: a.title ?? "Review package" })),
         unlinkedRequests: unlinked,
-        unapprovedImplementations: changes
-          .filter((c) => c.status === "IMPLEMENTED" && !c.decidedAt)
-          .map((c) => ({ id: c.id, title: `${c.number}: ${c.title}` })),
+        unapprovedImplementations: [...unapproved.values()],
+        unlinkedWork,
       });
       res.json(health);
     }),
