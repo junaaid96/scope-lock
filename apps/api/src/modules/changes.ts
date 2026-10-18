@@ -181,6 +181,9 @@ export function changeRoutes(ctx: AppContext): Router {
       const input = req.body as z.infer<typeof CreateChangeSchema>;
       const access = await requireProjectAccess(ctx.store, auth.user.id, req.params.id as string);
       requireAction(access.access, "change.submit");
+      if (input.source === "INTAKE_FORM") {
+        throw DomainError.unprocessable("INTAKE_FORM is reserved for public intake submissions");
+      }
       const change = await ctx.store.createChange({
         projectId: access.project.id,
         title: input.title,
@@ -190,6 +193,9 @@ export function changeRoutes(ctx: AppContext): Router {
         classification: null,
         classificationRationale: null,
         submitterId: auth.user.id,
+        submitterName: null,
+        submitterEmail: null,
+        unverifiedSubmitter: false,
         bundleId: null,
         amendmentVersionId: null,
         drawAllowancePoolId: null,
@@ -678,7 +684,7 @@ export function changeRoutes(ctx: AppContext): Router {
         askedBy: auth.user.id,
         askedAt: nowIso(),
       });
-      const submitter = await ctx.store.findUserById(change.submitterId);
+      const submitter = change.submitterId ? await ctx.store.findUserById(change.submitterId) : null;
       if (submitter && submitter.id !== auth.user.id) {
         await notify(ctx.store, {
           userId: submitter.id,
