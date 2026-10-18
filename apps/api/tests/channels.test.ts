@@ -52,14 +52,14 @@ describe("notification preferences", () => {
     const fx = await agencyFixture(app);
     const initial = await fx.owner.agent.get("/api/v1/auth/me/preferences");
     expect(initial.status).toBe(200);
-    expect(initial.body).toEqual({ userId: fx.owner.user.id, phoneE164: null, notifyEmail: true, notifySms: true, notifyWhatsapp: true });
+    expect(initial.body).toEqual({ userId: fx.owner.user.id, phoneE164: null, notifyEmail: true, notifySms: true, notifyWhatsapp: true, locale: "en" });
 
     const updated = await fx.owner.agent.patch("/api/v1/auth/me/preferences").send({
       phoneE164: "+880 1712-345678",
       notifySms: false,
     });
     expect(updated.status).toBe(200);
-    expect(updated.body).toEqual({ userId: fx.owner.user.id, phoneE164: "+8801712345678", notifyEmail: true, notifySms: false, notifyWhatsapp: true });
+    expect(updated.body).toEqual({ userId: fx.owner.user.id, phoneE164: "+8801712345678", notifyEmail: true, notifySms: false, notifyWhatsapp: true, locale: "en" });
 
     const cleared = await fx.owner.agent.patch("/api/v1/auth/me/preferences").send({ phoneE164: null });
     expect(cleared.status).toBe(200);

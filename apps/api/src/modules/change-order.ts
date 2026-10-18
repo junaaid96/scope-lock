@@ -16,7 +16,7 @@ import { validateParams } from "../http/validate.js";
 import { rateLimit } from "../http/rate-limit.js";
 import type { ApiRequest } from "../http/types.js";
 import type { ApprovalRequest } from "../store/index.js";
-import { approverKey, decisionVote, loadTokenPackage } from "./approvals.js";
+import { approverKey, decisionVote, loadTokenPackage, resolveLocale } from "./approvals.js";
 import { qrCodePng, renderCertificatePdf } from "../lib/change-order.js";
 
 async function loadByRef(
@@ -137,6 +137,10 @@ export function changeOrderRoutes(ctx: AppContext): Router {
       const decisions = await ctx.store.listDecisions(approval.id);
       const { recomputed, match } = verifyPackageChecksum(approval.package, approval.checksum);
       const options = approval.package.options ?? [];
+      // Display language only: settings are read, never exposed.
+      const project = await ctx.store.findProjectById(approval.projectId);
+      const org = project ? await ctx.store.findOrganizationById(project.organizationId) : null;
+      const locale = project ? resolveLocale(org, project) : "en";
       res.json({
         approval: {
           id: approval.id,
@@ -157,6 +161,7 @@ export function changeOrderRoutes(ctx: AppContext): Router {
         })),
         recomputedChecksum: recomputed,
         match,
+        locale,
       });
     }),
   );

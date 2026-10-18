@@ -1,7 +1,8 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ReviewPackage } from "../lib/types.js";
+import { LocaleProvider, isLocale, useLocale } from "../lib/i18n/index.js";
 import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, statusTone } from "../components/ui.js";
 
 interface VerifyData {
@@ -24,6 +25,7 @@ interface VerifyData {
   }>;
   recomputedChecksum: string;
   match: boolean;
+  locale?: string;
 }
 
 /** Public decision-certificate page: recomputed checksum + match/mismatch, nothing beyond the package. */
@@ -34,6 +36,16 @@ export function VerifyPage(): JSX.Element {
     queryFn: () => api.get<VerifyData>(`/verify/${approvalId}`),
     retry: false,
   });
+  const locale = verify.data && isLocale(verify.data.locale) ? verify.data.locale : undefined;
+  return (
+    <LocaleProvider locale={locale}>
+      <VerifyBody verify={verify} />
+    </LocaleProvider>
+  );
+}
+
+function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Element {
+  const { t } = useLocale();
 
   if (verify.isLoading) return <Centered><Spinner /></Centered>;
   if (verify.isError || !verify.data) {
@@ -41,7 +53,7 @@ export function VerifyPage(): JSX.Element {
     return (
       <Centered>
         {notFound ? (
-          <Empty title="Certificate not found" hint="Check the link — it comes from the change-order PDF." />
+          <Empty title={t("verify.notFoundTitle")} hint={t("verify.notFoundHint")} />
         ) : (
           <ErrorBanner message={errorMessage(verify.error)} />
         )}
@@ -53,47 +65,47 @@ export function VerifyPage(): JSX.Element {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <PageTitle title="Decision certificate" subtitle={v.approval.title ?? "Review package"} />
+      <PageTitle title={t("verify.title")} subtitle={v.approval.title ?? t("verify.defaultTitle")} />
       <Card>
         <div
           role={v.match ? "status" : "alert"}
           className={`rounded-md p-3 text-sm font-medium ${v.match ? "bg-teal-50 text-teal-900" : "bg-red-50 text-red-900"}`}
         >
           {v.match
-            ? "Checksum match — this page recomputed the checksum over the stored package bytes and it matches the certificate."
-            : "Checksum MISMATCH — the stored bytes no longer match the certificate. Treat this package as suspect and contact the agency."}
+            ? t("verify.matchOk")
+            : t("verify.mismatch")}
         </div>
 
         <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-          <dt className="text-slate-500">Status</dt>
+          <dt className="text-slate-500">{t("verify.statusLabel")}</dt>
           <dd><Badge tone={statusTone(v.approval.status)}>{v.approval.status}</Badge></dd>
-          <dt className="text-slate-500">Sent</dt>
+          <dt className="text-slate-500">{t("verify.sentLabel")}</dt>
           <dd>{v.approval.sentAt}</dd>
-          <dt className="text-slate-500">Certificate checksum</dt>
+          <dt className="text-slate-500">{t("verify.certChecksumLabel")}</dt>
           <dd className="break-all font-mono text-xs">{v.approval.checksum}</dd>
-          <dt className="text-slate-500">Recomputed just now</dt>
+          <dt className="text-slate-500">{t("verify.recomputedLabel")}</dt>
           <dd className="break-all font-mono text-xs">{v.recomputedChecksum}</dd>
         </dl>
 
         {pkg.request ? (
-          <section className="mt-4" aria-label="Request">
+          <section className="mt-4" aria-label={t("verify.requestAria")}>
             <h2 className="font-medium">{pkg.request.number} {pkg.request.title}</h2>
             <p className="mt-1 text-sm text-slate-700">{pkg.request.description}</p>
           </section>
         ) : null}
 
         {pkg.impact ? (
-          <section className="mt-4" aria-label="Impact">
-            <h2 className="font-medium">Assessed impact</h2>
+          <section className="mt-4" aria-label={t("verify.impactAria")}>
+            <h2 className="font-medium">{t("verify.impactTitle")}</h2>
             <p className="mt-1 text-sm">
-              {pkg.impact.currency} {((pkg.impact.priceMinor ?? 0) / 100).toFixed(2)} · {pkg.impact.effortDays ?? "—"} days effort · {pkg.impact.timelineDays ?? "—"} days
+              {pkg.impact.currency} {((pkg.impact.priceMinor ?? 0) / 100).toFixed(2)} · {t("verify.impactEffort", { effort: pkg.impact.effortDays ?? "—", timeline: pkg.impact.timelineDays ?? "—" })}
             </p>
           </section>
         ) : null}
 
         {(pkg.options ?? []).length > 0 ? (
-          <section className="mt-4" aria-label="Proposal options">
-            <h2 className="font-medium">Proposal options</h2>
+          <section className="mt-4" aria-label={t("verify.optionsLabel")}>
+            <h2 className="font-medium">{t("verify.optionsLabel")}</h2>
             <ul className="mt-1 list-disc pl-5 text-sm">
               {(pkg.options ?? []).map((o) => (
                 <li key={o.optionId}>{o.label} — {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)}</li>
@@ -102,17 +114,17 @@ export function VerifyPage(): JSX.Element {
           </section>
         ) : null}
 
-        <section className="mt-4" aria-label="Decisions">
-          <h2 className="font-medium">Recorded decisions</h2>
+        <section className="mt-4" aria-label={t("verify.decisionsAria")}>
+          <h2 className="font-medium">{t("verify.decisionsTitle")}</h2>
           {v.decisions.length === 0 ? (
-            <p className="mt-1 text-sm text-slate-600">Awaiting decision.</p>
+            <p className="mt-1 text-sm text-slate-600">{t("verify.awaitingDecision")}</p>
           ) : (
             <ul className="mt-1 space-y-1 text-sm">
               {v.decisions.map((d, i) => (
                 <li key={i}>
                   <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
-                  <span className="ml-2">{d.typedName ?? d.approverEmail ?? "Approver"}</span>
-                  {d.optionLabel ? <span className="ml-2 font-medium">Option “{d.optionLabel}”</span> : null}
+                  <span className="ml-2">{d.typedName ?? d.approverEmail ?? t("verify.approverFallback")}</span>
+                  {d.optionLabel ? <span className="ml-2 font-medium">{t("verify.decisionOption", { label: d.optionLabel })}</span> : null}
                   <span className="ml-2 text-slate-500">{d.createdAt}</span>
                   {d.comment ? <p className="mt-0.5 text-slate-700">{d.comment}</p> : null}
                 </li>
