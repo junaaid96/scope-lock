@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll, ApiError } from "../lib/api.js";
@@ -184,6 +184,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
   onError: (m: string) => void;
 }): JSX.Element {
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
+  const [acceptanceFor, setAcceptanceFor] = useState<Revision | null>(null);
   const [busy, setBusy] = useState(false);
   const revisions = [...(version.revisions ?? [])].sort((a, b) => a.order - b.order);
   const isDraft = version.status === "DRAFT";
@@ -228,6 +229,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
     return <div className="mt-3"><Empty title="Empty draft" hint="Add at least one requirement before publishing." /></div>;
   }
   return (
+    <>
     <ul className="mt-4 space-y-3">
       {revisions.map((r) => (
         <li key={r.id} className="rounded-md border border-slate-200 p-3">
@@ -249,6 +251,11 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
             <Button variant="ghost" size="sm" onClick={() => setEvidenceFor(evidenceFor === r.requirementId ? null : r.requirementId)}>
               {evidenceFor === r.requirementId ? "Hide evidence" : "Evidence"}
             </Button>
+            {r.status === "DELIVERED" ? (
+              <Button variant="ghost" size="sm" onClick={() => setAcceptanceFor(r)}>
+                Request acceptance
+              </Button>
+            ) : null}
             {isDraft ? (
               <>
                 <Button variant="ghost" size="sm" onClick={() => onEdit(r)}>Edit</Button>
@@ -264,6 +271,82 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
         </li>
       ))}
     </ul>
+    {acceptanceFor ? (
+      <AcceptanceDialog projectId={projectId} revision={acceptanceFor} onClose={() => setAcceptanceFor(null)} />
+    ) : null}
+    </>
+  );
+}
+
+function AcceptanceDialog({ projectId, revision, onClose }: { projectId: string; revision: Revision; onClose: () => void }): JSX.Element {
+  const [error, setError] = useState<string | null>(null);
+  const [links, setLinks] = useState<string[] | null>(null);
+  const [approvers, setApprovers] = useState<string[]>([]);
+  const [extraEmails, setExtraEmails] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [policyMode, setPolicyMode] = useState("");
+  const members = useQuery({
+    queryKey: ["members", projectId],
+    queryFn: () => fetchAll<{ userId: string; role: string; user: { name: string } | null }>(`/projects/${projectId}/members`),
+  });
+  const send = useMutation({
+    mutationFn: () =>
+      api.post<{ approval: { id: string }; reviewUrls?: string[] }>(`/projects/${projectId}/acceptance-requests`, {
+        requirementIds: [revision.requirementId],
+        approverUserIds: approvers,
+        approverEmails: extraEmails.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean),
+        ...(expiry ? { expiresAt: new Date(expiry).toISOString() } : {}),
+        ...(policyMode ? { policyMode } : {}),
+      }),
+    onSuccess: (res) => setLinks(res.reviewUrls ?? []),
+    onError: (err) => setError(errorMessage(err)),
+  });
+  return (
+    <Dialog title={`Request acceptance — ${revision.stableKey ?? revision.requirementId}`} onClose={onClose}>
+      <p className="mb-3 text-sm text-slate-600">
+        This freezes “{revision.title}” and its delivery evidence into an immutable review package for the client.
+      </p>
+      {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
+        <label key={m.userId} className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
+          {m.user?.name} ({m.role})
+        </label>
+      ))}
+      <div className="mt-3">
+        <Field label="Extra approver emails (comma-separated, optional)" htmlFor="accept-emails" hint="External reviewers get a secure review link without a workspace account.">
+          <Input id="accept-emails" type="text" inputMode="email" placeholder="client@example.com" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field
+          label="Decision rule"
+          htmlFor="accept-policy"
+          hint="Amount thresholds never apply to acceptance (no price). ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+        >
+          <select id="accept-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="">Project default (any approver)</option>
+            <option value="ANY">Any approver decides</option>
+            <option value="ALL">All must approve</option>
+            <option value="SEQUENTIAL">In order</option>
+          </select>
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field label="Deadline (optional)" htmlFor="accept-expiry" hint="Leave blank to use the project's deemed-acceptance window from the Policy tab.">
+          <Input id="accept-expiry" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+        </Field>
+      </div>
+      {error ? <div className="mt-3"><ErrorBanner message={error} /></div> : null}
+      {links ? (
+        <ul className="mt-3 space-y-1 text-sm">
+          {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>Open review link</Link></li>)}
+        </ul>
+      ) : (
+        <Button className="mt-3 w-full" disabled={send.isPending || approvers.length === 0} onClick={() => send.mutate()}>
+          Send acceptance package
+        </Button>
+      )}
+    </Dialog>
   );
 }
 

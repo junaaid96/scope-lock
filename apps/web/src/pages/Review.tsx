@@ -104,6 +104,8 @@ export function ReviewPage(): JSX.Element {
               </div>
             ) : r.status === "EXPIRED" ? (
               <p>This package expired without a decision. Ask the agency to send a fresh one.</p>
+            ) : r.status === "DEEMED" ? (
+              <p>Deemed accepted by policy at the deadline — no objections were raised in time. No client decision was recorded.</p>
             ) : r.status === "INVALIDATED" ? (
               <p>Withdrawn{r.invalidatedReason ? `: ${r.invalidatedReason}` : ""}. A new package will follow if the proposal continues.</p>
             ) : null}
@@ -131,6 +133,43 @@ export function ReviewPage(): JSX.Element {
               <dt className="text-slate-500">Objection window</dt>
               <dd>{pkg.allowance.objectionWindowHours} hours after each draw</dd>
             </dl>
+          </section>
+        ) : null}
+        {pkg.acceptance ? (
+          <section className="mt-4" aria-label="Deliverables for acceptance">
+            <h2 className="font-medium">Deliverables for acceptance ({pkg.acceptance.requirements.length})</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              The agency marks this work delivered. Approving accepts it; rejecting sends it back for rework.
+            </p>
+            <ul className="mt-2 space-y-2 text-sm">
+              {pkg.acceptance.requirements.map((q) => (
+                <li key={q.requirementId} className="rounded-md border border-slate-200 p-3">
+                  <p className="font-medium">{q.stableKey} · {q.title}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-700">{q.description}</p>
+                  {q.acceptanceCriteria.length > 0 ? (
+                    <div className="mt-2">
+                      <p className="font-medium">Acceptance criteria</p>
+                      <ul className="list-disc pl-5 text-slate-700">{q.acceptanceCriteria.map((c) => <li key={c}>{c}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {q.evidence.length > 0 ? (
+                    <div className="mt-2">
+                      <p className="font-medium">Delivery evidence</p>
+                      <ul className="mt-1 space-y-1">
+                        {q.evidence.map((e) => (
+                          <li key={e.evidenceId} className="text-slate-700">
+                            <Badge tone={e.status === "ACCEPTED" ? "green" : e.status === "REVIEWED" ? "blue" : "slate"}>{e.status}</Badge>{" "}
+                            <span className="font-medium">{e.title}</span>{" "}
+                            <span className="text-xs text-slate-500">({e.type})</span>
+                            {e.url ? <> · <a className="underline" href={e.url} target="_blank" rel="noreferrer">open</a></> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
         {pkg.members.length > 0 ? (
@@ -250,7 +289,13 @@ export function ReviewPage(): JSX.Element {
       </Card>
       <Card className="mt-4">
         <h2 className="mb-1 font-medium">What happens next</h2>
-        {pkg.allowance ? (
+        {pkg.acceptance ? (
+          <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+            <li><strong>Approve</strong> — the deliverables above are accepted as done.</li>
+            <li><strong>Reject</strong> — the work goes back to the agency for rework. Your comment tells them why.</li>
+            <li><strong>Request changes</strong> — the delivery stays in place while the agency revises it.</li>
+          </ul>
+        ) : pkg.allowance ? (
           <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li><strong>Approve</strong> — the pool activates and approved changes linked to it draw from it. You are notified of every draw.</li>
             <li><strong>Reject</strong> — no pool is created; each change still needs its own approval as before.</li>
@@ -264,10 +309,10 @@ export function ReviewPage(): JSX.Element {
           </ul>
         )}
       </Card>
-      {(r.status === "SENT" || r.status === "DECIDED") ? (
+      {(r.status === "SENT" || r.status === "DECIDED" || r.status === "DEEMED") ? (
         <p className="mt-4 text-center text-sm">
           <a className="font-medium text-teal-800 underline" href={`/api/v1/approval-requests/${token}/pdf`} download>
-            Download change order (PDF)
+            Download {pkg.acceptance ? "acceptance record" : "change order"} (PDF)
           </a>
         </p>
       ) : null}

@@ -29,6 +29,7 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
   const client = useQueryClient();
   const [rules, setRules] = useState<RuleDraft[] | null>(null);
   const [stepUp, setStepUp] = useState<{ otp: boolean | null; typedName: boolean | null } | null>(null);
+  const [deemed, setDeemed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const current = rules ?? fromServer((project.settings.approvalPolicies ?? []) as Array<{ uptoMinor: number | null; mode: Mode }>);
@@ -88,6 +89,24 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
       api.patch(`/projects/${project.id}`, { settings: { stepUp: currentStepUp } }),
     onSuccess: () => {
       setStepUp(null);
+      setSaved(true);
+      void client.invalidateQueries({ queryKey: ["project", project.id] });
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+
+  const serverDeemed = project.settings.deemedAcceptanceDays ?? null;
+  const currentDeemed = deemed ?? (serverDeemed === null ? "" : String(serverDeemed));
+  const saveDeemed = useMutation({
+    mutationFn: async () => {
+      const trimmed = currentDeemed.trim();
+      if (trimmed === "") return api.patch(`/projects/${project.id}`, { settings: { deemedAcceptanceDays: null } });
+      const days = Number(trimmed);
+      if (!Number.isInteger(days) || days < 1 || days > 90) throw new Error(t("policy.deemedError"));
+      return api.patch(`/projects/${project.id}`, { settings: { deemedAcceptanceDays: days } });
+    },
+    onSuccess: () => {
+      setDeemed(null);
       setSaved(true);
       void client.invalidateQueries({ queryKey: ["project", project.id] });
     },
@@ -225,6 +244,28 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
           </div>
           <div className="mt-3">
             <Button type="button" disabled={saveStepUp.isPending} onClick={() => saveStepUp.mutate()}>
+              {t("policy.savePolicy")}
+            </Button>
+          </div>
+        </fieldset>
+      </Card>
+      <Card>
+        <fieldset>
+          <legend className="text-base font-semibold text-slate-900">{t("policy.deemedTitle")}</legend>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">{t("policy.deemedBlurb")}</p>
+          <div className="mt-3 max-w-xs">
+            <Field label={t("policy.deemedLabel")} htmlFor="policy-deemed-days">
+              <Input
+                id="policy-deemed-days"
+                inputMode="numeric"
+                placeholder={t("policy.deemedPlaceholder")}
+                value={currentDeemed}
+                onChange={(e) => { setDeemed(e.target.value); setSaved(false); setError(null); }}
+              />
+            </Field>
+          </div>
+          <div className="mt-3">
+            <Button type="button" disabled={saveDeemed.isPending} onClick={() => saveDeemed.mutate()}>
               {t("policy.savePolicy")}
             </Button>
           </div>

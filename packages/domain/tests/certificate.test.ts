@@ -30,6 +30,7 @@ const base: CertificateInput = {
   sentAt: "2026-10-18T09:00:00.000Z",
   expiresAt: null,
   verifyUrl: "http://localhost:5100/verify/apr_123",
+  deliverables: [],
 };
 
 describe("change-order certificate", () => {
@@ -91,5 +92,22 @@ describe("change-order certificate", () => {
   it("derives safe filenames from approval ids", () => {
     expect(certificateFilename("apr_Ab12Cd34")).toBe("change-order-Ab12Cd34.pdf");
     expect(certificateFilename("../../etc/passwd")).toBe("change-order-tcpasswd.pdf");
+  });
+
+  it("renders delivery acceptance with a deemed outcome and no client decision", () => {
+    const model = buildCertificateModel({
+      ...base,
+      kind: "ACCEPTANCE",
+      status: "DEEMED",
+      impact: null,
+      decisions: [],
+      deliverables: [{ stableKey: "REQ-001", title: "Homepage" }],
+    });
+    expect(model.sections.map((s) => s.heading)).toEqual(["Delivery acceptance", "Accepted deliverables", "Decision"]);
+    expect(model.sections[1]?.lines).toEqual(["REQ-001 — Homepage"]);
+    expect(model.sections.at(-1)?.lines).toEqual([
+      "Deemed accepted by policy at the deadline. No client decision was recorded.",
+    ]);
+    expect(model.standfirst).toMatch(/Record of a policy outcome/);
   });
 });

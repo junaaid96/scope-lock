@@ -31,6 +31,7 @@ export interface ProjectDetail extends ProjectListItem {
     reminderHoursBeforeExpiry: number[];
     approvalPolicies?: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
     stepUp?: { otp: boolean | null; typedName: boolean | null };
+    deemedAcceptanceDays?: number | null;
   };
   externalIntegrationsEnabled: boolean;
   client: Client | null;
@@ -305,6 +306,16 @@ export interface ReviewPackage {
     totalMinor: number | null;
     currency: string | null;
     objectionWindowHours: number;
+  } | null;
+  acceptance?: {
+    requirements: Array<{
+      requirementId: string;
+      stableKey: string;
+      title: string;
+      description: string;
+      acceptanceCriteria: string[];
+      evidence: Array<{ evidenceId: string; type: string; title: string; url: string | null; status: string }>;
+    }>;
   } | null;
 }
 

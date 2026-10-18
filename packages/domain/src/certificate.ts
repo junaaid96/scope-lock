@@ -14,7 +14,7 @@ export interface CertificateInput {
   title: string | null;
   status: string;
   checksum: string;
-  kind: "CHANGE" | "BUNDLE" | "ALLOWANCE";
+  kind: "CHANGE" | "BUNDLE" | "ALLOWANCE" | "ACCEPTANCE";
   headline: string;
   description: string | null;
   impact: {
@@ -36,6 +36,8 @@ export interface CertificateInput {
   sentAt: string;
   expiresAt: string | null;
   verifyUrl: string;
+  /** Accepted deliverables (acceptance packages only). */
+  deliverables: Array<{ stableKey: string; title: string }>;
 }
 
 export interface CertificateSection {
@@ -69,7 +71,15 @@ function money(priceMinor: number | null, currency: string | null): string {
  */
 export function buildCertificateModel(input: CertificateInput): CertificateModel {
   const sections: CertificateSection[] = [];
-  const kindLabel = input.kind === "CHANGE" ? "Change order" : input.kind === "BUNDLE" ? "Bundle change order" : "Allowance grant";
+  const kindLabel =
+    input.kind === "CHANGE"
+      ? "Change order"
+      : input.kind === "BUNDLE"
+        ? "Bundle change order"
+        : input.kind === "ALLOWANCE"
+          ? "Allowance grant"
+          : "Delivery acceptance";
+  const deemed = input.status === "DEEMED";
 
   const title = input.title ?? input.headline;
   sections.push({
@@ -107,6 +117,13 @@ export function buildCertificateModel(input: CertificateInput): CertificateModel
     });
   }
 
+  if (input.deliverables.length > 0) {
+    sections.push({
+      heading: "Accepted deliverables",
+      lines: input.deliverables.map((d) => `${d.stableKey} — ${d.title}`),
+    });
+  }
+
   sections.push({
     heading: input.decisions.length > 0 ? "Recorded decisions" : "Decision",
     lines:
@@ -116,7 +133,9 @@ export function buildCertificateModel(input: CertificateInput): CertificateModel
             ...(d.optionLabel ? [`  Option: ${d.optionLabel}`] : []),
             ...(d.comment ? [`  Comment: ${d.comment}`] : []),
           ])
-        : ["Awaiting decision."],
+        : deemed
+          ? ["Deemed accepted by policy at the deadline. No client decision was recorded."]
+          : ["Awaiting decision."],
   });
 
   return {
@@ -124,7 +143,9 @@ export function buildCertificateModel(input: CertificateInput): CertificateModel
     standfirst:
       input.decisions.length > 0
         ? "Record of a client decision on the package below. Verify it at the link on the last page."
-        : "Open review package — no decision recorded yet. Verify its contents at the link on the last page.",
+        : deemed
+          ? "Record of a policy outcome on the package below. Verify it at the link on the last page."
+          : "Open review package — no decision recorded yet. Verify its contents at the link on the last page.",
     sections,
     checksum: input.checksum,
     verifyUrl: input.verifyUrl,

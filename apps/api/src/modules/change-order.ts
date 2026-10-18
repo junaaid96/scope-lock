@@ -50,7 +50,13 @@ async function certificateInput(ctx: AppContext, approval: ApprovalRequest): Pro
           decisions.map(decisionVote),
         ).state
       : null;
-  const kind = approval.allowancePoolId ? "ALLOWANCE" : approval.bundleId ? "BUNDLE" : "CHANGE";
+  const kind = approval.allowancePoolId
+    ? "ALLOWANCE"
+    : approval.bundleId
+      ? "BUNDLE"
+      : approval.acceptanceRequirementIds.length > 0
+        ? "ACCEPTANCE"
+        : "CHANGE";
   return {
     title: approval.title,
     status: approval.status,
@@ -88,6 +94,7 @@ async function certificateInput(ctx: AppContext, approval: ApprovalRequest): Pro
     sentAt: pkg.sentAt,
     expiresAt: approval.expiresAt,
     verifyUrl: `${ctx.env.WEB_URL}/verify/${approval.id}`,
+    deliverables: (pkg.acceptance?.requirements ?? []).map((r) => ({ stableKey: r.stableKey, title: r.title })),
   };
 }
 
@@ -102,8 +109,8 @@ export function changeOrderRoutes(ctx: AppContext): Router {
     asyncHandler(async (req, res) => {
       const auth = (req as ApiRequest).auth;
       const approval = await loadByRef(ctx, auth, req.params.ref as string);
-      if (approval.status !== "SENT" && approval.status !== "DECIDED") {
-        throw DomainError.conflict(`A change order is only available for open or decided packages (this one is ${approval.status})`, {
+      if (approval.status !== "SENT" && approval.status !== "DECIDED" && approval.status !== "DEEMED") {
+        throw DomainError.conflict(`A change order is only available for open, decided, or deemed packages (this one is ${approval.status})`, {
           status: approval.status,
         });
       }

@@ -113,7 +113,13 @@
     "inherit": "Inherit workspace default",
     "on": "On",
     "off": "Off",
-    "savePolicy": "Save policy"
+    "savePolicy": "Save policy",
+    "deemedTitle": "Deemed acceptance",
+    "deemedBlurb": "Days after sending an acceptance package before silence counts as acceptance. Recorded with the policy actor — never as a client decision. Blank disables deemed acceptance (packages expire instead).",
+    "deemedLabel": "Deemed-acceptance window (days)",
+    "deemedPlaceholder": "e.g. 7 — blank disables",
+    "deemedSaved": "Deemed-acceptance window saved.",
+    "deemedError": "Enter 1–90 days, or leave blank to disable."
   },
   "options": {
     "title": "Proposal options",
