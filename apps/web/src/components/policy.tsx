@@ -273,6 +273,7 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
           </div>
         </fieldset>
       </Card>
+      <LocaleCard projectId={project.id} current={project.settings.defaultLocale ?? null} />
       <Card>
         <fieldset>
           <legend className="text-base font-semibold text-slate-900">{t("policy.deemedTitle")}</legend>
@@ -328,5 +329,44 @@ export function PolicyTab({ project }: { project: ProjectDetail }): JSX.Element 
         </fieldset>
       </Card>
     </div>
+  );
+}
+
+/** Project review-link language override (null inherits the org default). */
+function LocaleCard({ projectId, current }: { projectId: string; current: string | null }): JSX.Element {
+  const { t } = useLocale();
+  const client = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (defaultLocale: string | null) =>
+      api.patch(`/projects/${projectId}`, { settings: { defaultLocale } }),
+    onSuccess: () => {
+      setError(null);
+      void client.invalidateQueries({ queryKey: ["project", projectId] });
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+  return (
+    <Card>
+      <fieldset>
+        <legend className="text-base font-semibold text-slate-900">{t("policy.localeTitle")}</legend>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600">{t("policy.localeBlurb")}</p>
+        <div className="mt-3 max-w-xs">
+          <Field label={t("policy.localeLabel")} htmlFor="policy-locale">
+            <Select
+              id="policy-locale"
+              value={current ?? "inherit"}
+              onChange={(e) => save.mutate(e.target.value === "inherit" ? null : e.target.value)}
+              disabled={save.isPending}
+            >
+              <option value="inherit">{t("policy.localeInherit")}</option>
+              <option value="en">{t("policy.localeEnglish")}</option>
+              <option value="bn">{t("policy.localeBangla")}</option>
+            </Select>
+          </Field>
+        </div>
+        {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
+      </fieldset>
+    </Card>
   );
 }

@@ -129,7 +129,13 @@
     "escalationTargetApprover": "Undecided approvers",
     "escalationPlaceholder": "e.g. 48 — blank disables",
     "escalationError": "Enter 1–720 hours, or leave blank to disable.",
-    "saveEscalation": "Save escalation"
+    "saveEscalation": "Save escalation",
+    "localeTitle": "Review-link language",
+    "localeBlurb": "Language for logged-out client review links on this project. Inherit follows the workspace default.",
+    "localeLabel": "Language",
+    "localeInherit": "Inherit workspace default",
+    "localeEnglish": "English",
+    "localeBangla": "বাংলা (Bangla)"
   },
   "options": {
     "title": "Proposal options",

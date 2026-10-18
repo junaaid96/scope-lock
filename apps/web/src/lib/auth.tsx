@@ -7,6 +7,7 @@ export interface SessionUser {
   email: string;
   name: string;
   status: string;
+  locale: string;
   createdAt: string;
 }
 

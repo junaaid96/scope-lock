@@ -1,6 +1,8 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import en from "./messages.en.json" with { type: "json" };
+import bn from "./messages.bn.json" with { type: "json" };
 import { formatDateIntl, formatMoneyIntl, formatNumberIntl } from "./format.js";
+import { useSession } from "../auth.js";
 
 export type Messages = typeof en;
 export type MessageKey = DotPaths<Messages>;
@@ -8,13 +10,16 @@ type DotPaths<T> = {
   [K in keyof T & string]: T[K] extends string ? K : `${K}.${DotPaths<T[K]>}`;
 }[keyof T & string];
 
-/** Only English ships until Phase 6 adds Bangla; the catalog shape is final. */
-export const SUPPORTED_LOCALES = ["en"] as const;
+export const SUPPORTED_LOCALES = ["en", "bn"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
-const catalogs: Record<Locale, Messages> = { en };
+const catalogs: Record<Locale, Messages> = { en, bn: bn as Messages };
 
 export function defaultLocale(): Locale {
   return "en";
+}
+
+export function isLocale(value: unknown): value is Locale {
+  return value === "en" || value === "bn";
 }
 
 function lookup(locale: Locale, key: string): string | null {
@@ -35,7 +40,18 @@ export function translate(locale: Locale, key: MessageKey, vars?: Record<string,
 const LocaleContext = createContext<Locale>("en");
 
 export function LocaleProvider({ locale, children }: { locale?: Locale; children: ReactNode }): ReactNode {
-  return <LocaleContext.Provider value={locale ?? defaultLocale()}>{children}</LocaleContext.Provider>;
+  const resolved = locale ?? defaultLocale();
+  useEffect(() => {
+    document.documentElement.lang = resolved;
+  }, [resolved]);
+  return <LocaleContext.Provider value={resolved}>{children}</LocaleContext.Provider>;
+}
+
+/** Authenticated shell locale: the signed-in user's preference, else English. */
+export function SessionLocaleProvider({ children }: { children: ReactNode }): ReactNode {
+  const { session } = useSession();
+  const locale = session && isLocale(session.user.locale) ? session.user.locale : defaultLocale();
+  return <LocaleProvider locale={locale}>{children}</LocaleProvider>;
 }
 
 export interface LocaleApi {
@@ -46,7 +62,6 @@ export interface LocaleApi {
   number: (value: number) => string;
 }
 
-/** Per-user language plugs in here in Phase 6 (provider value from session). */
 export function useLocale(): LocaleApi {
   const locale = useContext(LocaleContext);
   return {

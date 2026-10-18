@@ -33,6 +33,7 @@ export interface ProjectDetail extends ProjectListItem {
     stepUp?: { otp: boolean | null; typedName: boolean | null };
     deemedAcceptanceDays?: number | null;
     escalation?: { afterHours: number | null; target: "SECOND_APPROVER" | "AGENCY_LEAD" };
+    defaultLocale?: string | null;
   };
   externalIntegrationsEnabled: boolean;
   client: Client | null;

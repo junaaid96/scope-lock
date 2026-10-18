@@ -2,6 +2,7 @@ import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-rou
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/query.js";
 import { AuthProvider, useSession } from "./lib/auth.js";
+import { SessionLocaleProvider } from "./lib/i18n/index.js";
 import { Centered, LoadingScreen, Shell } from "./components/layout.js";
 import { LoginPage } from "./pages/Login.js";
 import { RegisterPage } from "./pages/Register.js";
@@ -63,7 +64,9 @@ export function App(): JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <SessionLocaleProvider>
+          <RouterProvider router={router} />
+        </SessionLocaleProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

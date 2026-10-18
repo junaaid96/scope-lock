@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchAll } from "../lib/api.js";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, fetchAll } from "../lib/api.js";
 import { useLogout, useSession } from "../lib/auth.js";
 import { CommandPalette, CommandPaletteTrigger } from "./command-palette.js";
 import { CreditPill } from "./credit.js";
@@ -73,6 +73,39 @@ function SidebarNav({ badge, onNavigate }: { badge: number; onNavigate?: () => v
   );
 }
 
+/** Header language switcher: persists to the user's preferences. */
+function LanguageSwitcher({ id }: { id: string }): JSX.Element {
+  const { session } = useSession();
+  const client = useQueryClient();
+  const current = session?.user.locale === "bn" ? "bn" : "en";
+  const switchTo = async (locale: string): Promise<void> => {
+    if (locale === current) return;
+    try {
+      await api.patch("/auth/me/preferences", { locale });
+      await client.invalidateQueries({ queryKey: ["me"] });
+    } catch {
+      // Preference save failures surface on next navigation; never break the shell.
+    }
+  };
+  return (
+    <span className="inline-flex items-center gap-1">
+      <label htmlFor={id} className="sr-only">
+        Language
+      </label>
+      <select
+        id={id}
+        value={current}
+        onChange={(e) => void switchTo(e.target.value)}
+        className="rounded-md border border-slate-200 bg-white px-1 py-1 text-sm text-slate-700"
+        aria-label="Language"
+      >
+        <option value="en">English</option>
+        <option value="bn">বাংলা</option>
+      </select>
+    </span>
+  );
+}
+
 export function Shell(): JSX.Element {
   const { session } = useSession();
   const logout = useLogout();
@@ -137,6 +170,9 @@ export function Shell(): JSX.Element {
               ) : null}
             </Link>
             <span className="hidden text-slate-600 sm:inline">{session?.user.name}</span>
+            <span className="hidden sm:inline">
+              <LanguageSwitcher id="language-switcher" />
+            </span>
             <button
               type="button"
               className="hidden rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100 sm:inline"
@@ -150,6 +186,9 @@ export function Shell(): JSX.Element {
           <nav id="mobile-nav" aria-label="Primary" className="border-t border-slate-100 px-4 py-3 md:hidden">
             <SidebarNav badge={badge} onNavigate={() => setMenuOpen(false)} />
             <p className="px-3 pb-1 pt-3 text-xs text-slate-500">Signed in as {session?.user.name}</p>
+            <div className="px-3 py-1">
+              <LanguageSwitcher id="language-switcher-mobile" />
+            </div>
             <button type="button" className={cn(navClass({ isActive: false }), "w-full text-left")} onClick={onLogout}>
               Log out
             </button>

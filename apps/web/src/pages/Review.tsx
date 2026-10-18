@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, ApiError } from "../lib/api.js";
+import { LocaleProvider, isLocale } from "../lib/i18n/index.js";
 import type { ReviewPackage } from "../lib/types.js";
 import { LoadingScreen } from "../components/layout.js";
 import { Badge, Button, Card, ErrorBanner, Field, Input, Textarea, formatDate, statusTone } from "../components/ui.js";
@@ -28,6 +29,7 @@ interface ReviewData {
   branding?: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
   organizationName?: string;
   projectName?: string;
+  locale?: string;
 }
 
 const POLICY_LABEL: Record<string, string> = {
@@ -62,8 +64,10 @@ export function ReviewPage(): JSX.Element {
   const r = review.data;
   const pkg = r.package;
   const accent = r.branding?.primaryColor ?? "#0f766e";
+  const locale = isLocale(r.locale) ? r.locale : "en";
 
   return (
+    <LocaleProvider locale={locale}>
     <div className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6 flex items-center gap-3">
         {r.branding?.logoUrl ? <img src={r.branding.logoUrl} alt="" className="h-8 w-8 rounded" /> : null}
@@ -320,6 +324,7 @@ export function ReviewPage(): JSX.Element {
         You are deciding on exactly the package above (checksum {r.checksum.slice(0, 12)}…). Recorded decisions are final.
       </p>
     </div>
+    </LocaleProvider>
   );
 }
 

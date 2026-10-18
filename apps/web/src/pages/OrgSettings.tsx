@@ -39,7 +39,7 @@ interface Org {
   plan: string;
   aiEnabled: boolean;
   branding: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
-  settings?: { stepUp?: { otp?: boolean | null; typedName?: boolean | null } };
+  settings?: { stepUp?: { otp?: boolean | null; typedName?: boolean | null }; defaultLocale?: string };
   slackConfigured: boolean;
 }
 
@@ -117,6 +117,13 @@ export function OrgSettingsPage(): JSX.Element {
           <h2 className="mb-2 font-medium">Review step-up verification</h2>
           <StepUpCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
         </Card>
+
+        {canManage ? (
+          <Card>
+            <h2 className="mb-2 font-medium">Review-link language</h2>
+            <LocaleCard org={org.data} onDone={() => void client.invalidateQueries({ queryKey: ["org", orgId] })} />
+          </Card>
+        ) : null}
 
         <RateCardsCard organizationId={orgId} canManage={canManage} />
         <TemplatesCard organizationId={orgId} canManage={canManage} />
@@ -362,6 +369,34 @@ function StepUpCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Elem
           Typed name — approvers type their full name with the decision
         </label>
       </div>
+      {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
+    </div>
+  );
+}
+
+function LocaleCard({ org, onDone }: { org: Org; onDone: () => void }): JSX.Element {
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: (defaultLocale: string) => api.patch(`/organizations/${org.id}`, { defaultLocale }),
+    onSuccess: () => { setError(null); onDone(); },
+    onError: (err) => setError(errorMessage(err)),
+  });
+  return (
+    <div>
+      <p className="mb-2 text-sm text-slate-600">
+        Language for logged-out client review links. Projects may override this; signed-in users follow their own preference.
+      </p>
+      <Field label="Review-link language" htmlFor="org-locale">
+        <Select
+          id="org-locale"
+          value={org.settings?.defaultLocale ?? "en"}
+          onChange={(e) => save.mutate(e.target.value)}
+          disabled={save.isPending}
+        >
+          <option value="en">English</option>
+          <option value="bn">বাংলা (Bangla)</option>
+        </Select>
+      </Field>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
     </div>
   );
