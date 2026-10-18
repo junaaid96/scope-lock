@@ -62,3 +62,25 @@ export function rateLimit(env: Env, group: RateLimitGroup = "default") {
 export function resetRateLimits(): void {
   buckets.clear();
 }
+
+/**
+ * Per-API-key fixed window (checked inside authenticate(), after the key
+ * resolves). Returns false when the key is over its budget.
+ */
+export function checkApiKeyLimit(
+  apiKeyId: string,
+  opts: { max: number; windowMs: number } = { max: 300, windowMs: 60_000 },
+): { ok: boolean; retryAfterSec: number } {
+  const key = `apikey:${apiKeyId}`;
+  const now = Date.now();
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + opts.windowMs });
+    return { ok: true, retryAfterSec: 0 };
+  }
+  bucket.count += 1;
+  if (bucket.count > opts.max) {
+    return { ok: false, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
+  }
+  return { ok: true, retryAfterSec: 0 };
+}

@@ -3,6 +3,8 @@ import { DomainError, sha256Hex } from "@scopelock/domain";
 import type { Env } from "../env.js";
 import type { Store } from "../store/index.js";
 import { getContext } from "../context.js";
+import { sendError } from "./errors.js";
+import { checkApiKeyLimit } from "./rate-limit.js";
 import type { ApiRequest, AuthInfo } from "./types.js";
 
 const SESSION_COOKIE = "sl_session";
@@ -18,10 +20,41 @@ function bearerToken(req: ApiRequest): string | null {
  * (it never rejects); protected routes add requireAuth().
  */
 export function authenticate(store: Store) {
-  return async (req: ApiRequest, _res: Response, next: NextFunction): Promise<void> => {
+  return async (req: ApiRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const cookieToken = req.cookies?.[SESSION_COOKIE] as string | undefined;
       const bearer = bearerToken(req);
+      // API keys ride the Bearer scheme with an `sk_` prefix. A missing key
+      // falls through to the session lookup: session tokens are random, so a
+      // session token could theoretically start with `sk_` too.
+      if (bearer?.startsWith("sk_")) {
+        const key = await store.findApiKeyByHash(sha256Hex(bearer));
+        const now = new Date().toISOString();
+        const user = key ? await store.findUserById(key.userId) : null;
+        if (key && !key.revokedAt && (!key.expiresAt || key.expiresAt > now) && user && user.status === "ACTIVE") {
+          const env = req.app?.get?.("scopelock.env") as Env | undefined;
+          if (env && !env.RATE_LIMIT_DISABLED) {
+            const verdict = checkApiKeyLimit(key.id, { max: env.API_KEY_RATE_LIMIT_PER_MIN, windowMs: 60_000 });
+            if (!verdict.ok) {
+              res.setHeader("Retry-After", String(verdict.retryAfterSec));
+              sendError(res, 429, "RATE_LIMITED", "API key quota exceeded, please slow down");
+              return;
+            }
+          }
+          req.auth = { user, sessionId: `key:${key.id}`, viaCookie: false, apiKeyId: key.id, scopes: key.scopes };
+          const ctx = getContext();
+          if (ctx) {
+            ctx.userId = user.id;
+            ctx.scopes = key.scopes;
+          }
+          // Throttle last-used writes to one per minute.
+          if (!key.lastUsedAt || Date.parse(key.lastUsedAt) < Date.now() - 60_000) {
+            await store.updateApiKey(key.id, { lastUsedAt: now }).catch(() => undefined);
+          }
+          next();
+          return;
+        }
+      }
       const raw = cookieToken ?? bearer;
       if (!raw) {
         next();
@@ -38,7 +71,7 @@ export function authenticate(store: Store) {
         next();
         return;
       }
-      const auth: AuthInfo = { user, sessionId: session.id, viaCookie: cookieToken !== undefined };
+      const auth: AuthInfo = { user, sessionId: session.id, viaCookie: cookieToken !== undefined, apiKeyId: null, scopes: null };
       req.auth = auth;
       const ctx = getContext();
       if (ctx) ctx.userId = user.id;

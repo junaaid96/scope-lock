@@ -4,6 +4,8 @@ interface RequestContext {
   correlationId: string;
   userId?: string;
   ip?: string;
+  /** API-key permission scopes; absent for sessions (full policy applies). */
+  scopes?: string[];
 }
 
 const storage = new AsyncLocalStorage<RequestContext>();

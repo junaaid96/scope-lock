@@ -45,6 +45,7 @@ const EnvSchema = z.object({
     .string()
     .default("")
     .transform((v) => v === "1" || v.toLowerCase() === "true"),
+  API_KEY_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(10).max(10000).default(300),
   OUTBOX_AUTODRAIN: z
     .string()
     .default("true")

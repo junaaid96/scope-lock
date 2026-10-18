@@ -15,6 +15,7 @@ import { authRoutes, sessionMeHandler } from "./modules/auth.js";
 import { authenticate, requireAuth } from "./http/auth.js";
 import { asyncHandler } from "./http/errors.js";
 import { organizationRoutes } from "./modules/organizations.js";
+import { apiKeyRoutes } from "./modules/api-keys.js";
 import { clientRoutes } from "./modules/clients.js";
 import { projectRoutes } from "./modules/projects.js";
 import { scopeRoutes } from "./modules/scope.js";
@@ -91,6 +92,7 @@ export function createApp(ctx: AppContext): Express {
   // Plan §9 session alias: GET /me mirrors GET /auth/me.
   v1.get("/me", authenticate(ctx.store), requireAuth, asyncHandler(sessionMeHandler(ctx)));
   v1.use("/organizations", organizationRoutes(ctx));
+  v1.use("/organizations", apiKeyRoutes(ctx));
   v1.use("/clients", clientRoutes(ctx));
   v1.use("/projects", projectRoutes(ctx));
   v1.use(scopeRoutes(ctx));

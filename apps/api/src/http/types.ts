@@ -6,6 +6,9 @@ export interface AuthInfo {
   user: User;
   sessionId: string;
   viaCookie: boolean;
+  /** Set for API-key requests: the key id (for rate limits) and its scopes. */
+  apiKeyId: string | null;
+  scopes: string[] | null;
 }
 
 export interface ApiRequest extends Request {

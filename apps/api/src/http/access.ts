@@ -1,5 +1,6 @@
 import { DomainError, can, type AccessContext, type Action } from "@scopelock/domain";
 import type { Store, Organization, Project, ProjectMember, Membership } from "../store/index.js";
+import { getContext } from "../context.js";
 
 export interface OrgAccess {
   org: Organization;
@@ -40,8 +41,17 @@ export async function requireProjectAccess(
   return { org, membership, project, projectMember, access };
 }
 
-/** Enforce a policy action (403 when the role lacks the permission). */
+/**
+ * Enforce a policy action (403 when the role lacks the permission).
+ * API-key requests additionally need the action in the key's scopes ("*"
+ * allows everything the policy allows). Scopes ride the request context so
+ * every existing policy check applies to keys unchanged.
+ */
 export function requireAction(access: AccessContext, action: Action): void {
+  const scopes = getContext()?.scopes;
+  if (scopes && !scopes.includes("*") && !scopes.includes(action)) {
+    throw DomainError.forbidden(`This API key is not scoped for: ${action}`, { action });
+  }
   if (!can(access, action)) {
     throw DomainError.forbidden(`Your role does not allow: ${action}`, { action });
   }
