@@ -23,6 +23,10 @@
     {
       "name": "External integrations",
       "description": "Provider webhook intake (GitHub) and observed work identifiers."
+    },
+    {
+      "name": "Notification channels",
+      "description": "Per-user channel preferences and the org Slack connection."
     }
   ],
   "security": [
@@ -1319,6 +1323,182 @@
           }
         }
       }
+    },
+    "/auth/me/preferences": {
+      "get": {
+        "tags": [
+          "Notification channels"
+        ],
+        "summary": "Get my notification preferences",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Phone number and per-channel toggles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Notification channels"
+        ],
+        "summary": "Update my notification preferences",
+        "description": "Phone numbers must be E.164; null clears the phone.",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNotificationPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated preferences.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Phone number is not E.164.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{id}/slack": {
+      "patch": {
+        "tags": [
+          "Notification channels"
+        ],
+        "summary": "Connect or disconnect org Slack",
+        "description": "SSRF-screened incoming-webhook URL, sealed at rest; null disconnects. The URL is never returned.",
+        "security": [
+          {
+            "SessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Organization ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrgSlack"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated org (with slackConfigured flag).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or target blocked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Requires org.manage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Organization not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -1573,6 +1753,72 @@
       }
     },
     "schemas": {
+      "UpdateNotificationPreferences": {
+        "type": "object",
+        "properties": {
+          "phoneE164": {
+            "type": "string",
+            "maxLength": 20,
+            "nullable": true
+          },
+          "notifyEmail": {
+            "type": "boolean"
+          },
+          "notifySms": {
+            "type": "boolean"
+          },
+          "notifyWhatsapp": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NotificationPreferencesView": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "phoneE164": {
+            "type": "string",
+            "nullable": true
+          },
+          "notifyEmail": {
+            "type": "boolean"
+          },
+          "notifySms": {
+            "type": "boolean"
+          },
+          "notifyWhatsapp": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "userId",
+          "phoneE164",
+          "notifyEmail",
+          "notifySms",
+          "notifyWhatsapp"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateOrgSlack": {
+        "type": "object",
+        "properties": {
+          "slackWebhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "nullable": true
+          }
+        },
+        "required": [
+          "slackWebhookUrl"
+        ],
+        "additionalProperties": false
+      },
       "ExternalConnectionView": {
         "type": "object",
         "properties": {

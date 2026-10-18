@@ -16,7 +16,10 @@ import {
   CreateWebhookSchema,
   ExternalConnectionViewSchema,
   ExternalWorkItemViewSchema,
+  NotificationPreferencesViewSchema,
   UpdateExternalConnectionSchema,
+  UpdateNotificationPreferencesSchema,
+  UpdateOrgSlackSchema,
   UpdateWebhookSchema,
   WebhookDeliveryViewSchema,
   WebhookEventSchema,
@@ -166,6 +169,9 @@ const CreateExternalConnection = schemaOf(CreateExternalConnectionSchema);
 const UpdateExternalConnection = schemaOf(UpdateExternalConnectionSchema);
 const ExternalConnectionView = schemaOf(ExternalConnectionViewSchema);
 const ExternalWorkItemView = schemaOf(ExternalWorkItemViewSchema);
+const UpdateNotificationPreferences = schemaOf(UpdateNotificationPreferencesSchema);
+const NotificationPreferencesView = schemaOf(NotificationPreferencesViewSchema);
+const UpdateOrgSlack = schemaOf(UpdateOrgSlackSchema);
 const eventEnum = WebhookEventSchema.options as unknown as string[];
 
 function err(description: string): Record<string, unknown> {
@@ -201,6 +207,7 @@ const spec = {
     { name: "API keys", description: "Hashed, scoped, rotatable machine credentials." },
     { name: "Webhooks", description: "Outgoing event subscriptions with HMAC-signed deliveries." },
     { name: "External integrations", description: "Provider webhook intake (GitHub) and observed work identifiers." },
+    { name: "Notification channels", description: "Per-user channel preferences and the org Slack connection." },
   ],
   security: sessionOrKey,
   paths: {
@@ -519,6 +526,61 @@ const spec = {
         },
       },
     },
+    "/auth/me/preferences": {
+      get: {
+        tags: ["Notification channels"],
+        summary: "Get my notification preferences",
+        security: sessionOnly,
+        responses: {
+          "200": {
+            description: "Phone number and per-channel toggles.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationPreferencesView" } } },
+          },
+          "401": err("Authentication required."),
+        },
+      },
+      patch: {
+        tags: ["Notification channels"],
+        summary: "Update my notification preferences",
+        description: "Phone numbers must be E.164; null clears the phone.",
+        security: sessionOnly,
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateNotificationPreferences" } } },
+        },
+        responses: {
+          "200": {
+            description: "Updated preferences.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/NotificationPreferencesView" } } },
+          },
+          "401": err("Authentication required."),
+          "422": err("Phone number is not E.164."),
+        },
+      },
+    },
+    "/organizations/{id}/slack": {
+      patch: {
+        tags: ["Notification channels"],
+        summary: "Connect or disconnect org Slack",
+        description: "SSRF-screened incoming-webhook URL, sealed at rest; null disconnects. The URL is never returned.",
+        security: sessionOnly,
+        parameters: [orgParam()],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateOrgSlack" } } },
+        },
+        responses: {
+          "200": {
+            description: "Updated org (with slackConfigured flag).",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+          "400": err("Validation failed or target blocked."),
+          "401": err("Authentication required."),
+          "403": err("Requires org.manage."),
+          "404": err("Organization not found."),
+        },
+      },
+    },
   },
   webhooks: Object.fromEntries(
     eventEnum.map((event) => [
@@ -561,6 +623,9 @@ const spec = {
       },
     },
     schemas: {
+      UpdateNotificationPreferences,
+      NotificationPreferencesView,
+      UpdateOrgSlack,
       ExternalConnectionView,
       CreateExternalConnection,
       UpdateExternalConnection,

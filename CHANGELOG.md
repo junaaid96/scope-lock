@@ -121,6 +121,14 @@ All notable changes to ScopeLock are documented here. Format follows
   implementation + a new unlinked-work signal). External events never
   change scope state. Linear/Jira plug in behind the same provider
   interface later.
+- Notification channels: approval lifecycle events (requested, decided,
+  escalated, expired, reminders, deemed) fan out to Slack (org incoming
+  webhook, one deduped post per event), SMS, and WhatsApp (provider
+  interface with log drivers locally), all through the outbox with the
+  usual backoff. Per-user preferences (email/SMS/WhatsApp toggles +
+  E.164 phone) gate personal delivery, including existing emails; the
+  Slack URL is SSRF-screened, sealed at rest, and never returned by the
+  API. Org settings UI plus spec coverage.
 
 ## [0.1.0] - 2026-10-16
 

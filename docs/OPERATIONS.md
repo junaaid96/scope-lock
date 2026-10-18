@@ -115,6 +115,23 @@ project `settings.aiEnabled=false`.
   `external.observed`). Linear/Jira reuse the `ExternalProvider` interface
   (`apps/api/src/lib/providers/`) when they land.
 
+### Notification channels
+
+- Approval lifecycle events (`APPROVAL_REQUESTED/DECIDED/ESCALATED/EXPIRED/REMINDER`, `ACCEPTANCE_DEEMED`)
+  fan out from `notify()` and the worker's expiry/reminder/escalation/deemed flows. All other types stay
+  in-app (+realtime) only.
+- Slack: owners/admins connect one incoming webhook per org (workspace settings). The URL is
+  SSRF-screened on save and on every send, sealed at rest under `AUTH_SECRET` (rotating it invalidates
+  the connection — reconnect afterwards), and never returned by the API. One deduped post per event.
+  Non-production uses the log driver; production POSTs `{text}` to the webhook.
+- SMS/WhatsApp: per-user E.164 phone + toggles (“Your notification channels”). Without
+  `SMS_API_URL`/`SMS_API_KEY` (or the `WHATSAPP_*` pair) the log driver records sends; with them, the
+  HTTP driver POSTs `{to, body, kind}` with a bearer key (15s timeout, outbox backoff on failure).
+  Adapt `SmsDriver` in `apps/api/src/lib/sms.ts` for provider-specific shapes.
+- Email, SMS, and WhatsApp honor per-user prefs (all default on); rows whose phone/webhook vanished
+  after enqueue are dropped as SENT (config change, not provider failure). An unsealable Slack secret
+  fails loudly into the DLQ — check dead outbox rows and reconnect.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,

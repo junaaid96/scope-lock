@@ -358,6 +358,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   / `REQ-###` mentions. Only identifiers are stored, and merged work
   with no approved link surfaces on the Health page. External events
   never change scope state.
+- **Notification channels** (workspace settings) — approval events reach
+  approvers and leads on Slack (shared org channel), SMS, and WhatsApp,
+  all through the outbox. Per-user preferences with an E.164 phone;
+  providers are a pluggable interface with log drivers locally.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified
@@ -418,6 +422,7 @@ See [.env.example](.env.example) for the complete list. Highlights:
 - `MALWARE_SCANNER_URL` — optional ClamAV-style webhook for uploads
 - `PENDING_UPLOAD_TTL_HOURS` (24) / `DELETED_FILE_PURGE_DAYS` (30) — retention
 - `API_KEY_RATE_LIMIT_PER_MIN` (300) — per-key quota for machine API keys
+- `SMS_API_URL`/`SMS_API_KEY`, `WHATSAPP_API_URL`/`WHATSAPP_API_KEY` — optional SMS/WhatsApp providers (empty = log driver)
 - `RATE_LIMIT_DISABLED=1`, `OUTBOX_AUTODRAIN=false` — test/CI conveniences
 
 Never put secrets in `VITE_*` variables — the browser bundle must not contain
