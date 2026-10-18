@@ -1,4 +1,4 @@
-import { afterCursor, GENESIS_PREV_HASH, auditChainKey, chainEventHash, newId, paginate } from "@scopelock/domain";
+import { afterCursor, GENESIS_PREV_HASH, auditChainKey, chainEventHash, cosineSimilarity, newId, paginate, scoreLexical } from "@scopelock/domain";
 import type { Store } from "./store.js";
 import type {
   AIAnalysis,
@@ -22,6 +22,7 @@ import type {
   DecisionNote,
   DeliveryEvidence,
   EstimateTemplate,
+  DecisionEmbedding,
   ExternalConnection,
   ExternalLink,
   ExternalWorkItem,
@@ -36,6 +37,7 @@ import type {
   Organization,
   OutboxEvent,
   PageResult,
+  PastDecision,
   PasswordReset,
   Project,
   ProjectMember,
@@ -98,6 +100,7 @@ type Tables = {
   externalLinks: Map<string, ExternalLink>;
   externalConnections: Map<string, ExternalConnection>;
   externalWorkItems: Map<string, ExternalWorkItem>;
+  decisionEmbeddings: Map<string, DecisionEmbedding>;
   metricEvents: Map<string, MetricEvent>;
   idempotency: Map<string, IdempotencyRecord>;
   usage: Map<string, UsageCounter>;
@@ -148,6 +151,7 @@ function emptyTables(): Tables {
     externalLinks: new Map(),
     externalConnections: new Map(),
     externalWorkItems: new Map(),
+    decisionEmbeddings: new Map(),
     metricEvents: new Map(),
     idempotency: new Map(),
     usage: new Map(),
@@ -1625,6 +1629,86 @@ export class MemoryStore implements Store {
     return [...this.tables.externalWorkItems.values()]
       .filter((w) => w.projectId === projectId)
       .sort((a, b) => (a.observedAt === b.observedAt ? (a.id < b.id ? 1 : -1) : a.observedAt < b.observedAt ? 1 : -1));
+  }
+
+  private pastDecisionOf(approvalId: string): PastDecision | null {
+    const approval = this.tables.approvals.get(approvalId);
+    if (!approval || approval.status !== "DECIDED") return null;
+    const change = approval.changeRequestId ? this.tables.changes.get(approval.changeRequestId) ?? null : null;
+    const decisions = [...this.tables.decisions.values()].filter((d) => d.approvalRequestId === approvalId);
+    const values = new Set(decisions.map((d) => d.decision));
+    const outcome: PastDecision["outcome"] =
+      values.size === 0 ? "NONE" : values.size === 1 && values.has("APPROVED") ? "APPROVED" : values.size === 1 && values.has("REJECTED") ? "REJECTED" : "MIXED";
+    const title = approval.title ?? change?.title ?? "Review package";
+    const text = [title, change?.title ?? "", change?.description ?? "", ...decisions.map((d) => d.comment ?? "")].join("\n");
+    const decidedAt = decisions.map((d) => d.createdAt).sort().at(-1) ?? approval.updatedAt;
+    return {
+      approvalId: approval.id,
+      projectId: approval.projectId,
+      changeId: change?.id ?? null,
+      changeNumber: change?.number ?? null,
+      title,
+      text,
+      outcome,
+      decidedAt,
+    };
+  }
+
+  async findPastDecision(approvalId: string): Promise<PastDecision | null> {
+    return this.pastDecisionOf(approvalId);
+  }
+
+  async searchPastDecisionsLexical(projectIds: string[], query: string, limit: number): Promise<PastDecision[]> {
+    const allowed = new Set(projectIds);
+    const scored: Array<{ row: PastDecision; score: number }> = [];
+    for (const approval of this.tables.approvals.values()) {
+      if (approval.status !== "DECIDED" || !allowed.has(approval.projectId)) continue;
+      const row = this.pastDecisionOf(approval.id);
+      if (!row) continue;
+      const score = scoreLexical(query, row);
+      if (score > 0) scored.push({ row, score });
+    }
+    return scored
+      .sort((a, b) => (b.score === a.score ? (a.row.decidedAt < b.row.decidedAt ? 1 : -1) : b.score - a.score))
+      .slice(0, limit)
+      .map((s) => s.row);
+  }
+
+  async searchPastDecisionsSemantic(projectIds: string[], embedding: number[], limit: number): Promise<PastDecision[]> {
+    const allowed = new Set(projectIds);
+    const scored: Array<{ row: PastDecision; score: number }> = [];
+    for (const stored of this.tables.decisionEmbeddings.values()) {
+      const row = this.pastDecisionOf(stored.approvalId);
+      if (!row || !allowed.has(row.projectId)) continue;
+      scored.push({ row, score: cosineSimilarity(embedding, stored.embedding) });
+    }
+    return scored
+      .sort((a, b) => (b.score === a.score ? (a.row.decidedAt < b.row.decidedAt ? 1 : -1) : b.score - a.score))
+      .slice(0, limit)
+      .map((s) => s.row);
+  }
+
+  async saveDecisionEmbedding(approvalId: string, embedding: number[], model: string): Promise<void> {
+    const existing = this.tables.decisionEmbeddings.get(approvalId);
+    const row: DecisionEmbedding = {
+      id: existing?.id ?? newId("demb"),
+      approvalId,
+      embedding,
+      model,
+      createdAt: existing?.createdAt ?? nowIso(),
+    };
+    this.tables.decisionEmbeddings.set(approvalId, row);
+    this.afterCommit();
+  }
+
+  async listApprovalsWithoutEmbeddings(limit: number): Promise<string[]> {
+    const out: string[] = [];
+    for (const approval of this.tables.approvals.values()) {
+      if (approval.status !== "DECIDED" || this.tables.decisionEmbeddings.has(approval.id)) continue;
+      out.push(approval.id);
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 
   async findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null> {

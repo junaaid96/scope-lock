@@ -714,8 +714,19 @@ model ApprovalRequest {
   tokens  ApprovalToken[]
   decisions ApprovalDecision[]
   stepUpChallenges StepUpChallenge[]
+  embedding DecisionEmbedding?
 
   @@index([projectId, status])
+}
+
+model DecisionEmbedding {
+  id         String                   @id
+  approvalId String                   @unique
+  embedding  Unsupported("vector(1536)")
+  model      String
+  createdAt  DateTime                 @default(now())
+
+  approval ApprovalRequest @relation(fields: [approvalId], references: [id], onDelete: Cascade)
 }
 
 model StepUpChallenge {

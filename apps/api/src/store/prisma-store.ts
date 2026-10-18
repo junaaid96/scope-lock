@@ -38,6 +38,7 @@ import type {
   Organization,
   OutboxEvent,
   PageResult,
+  PastDecision,
   PasswordReset,
   Project,
   ProjectMember,
@@ -2248,6 +2249,117 @@ export class PrismaStore implements Store {
 
   async listExternalWorkItems(projectId: string): Promise<ExternalWorkItem[]> {
     return (await this.db.externalWorkItem.findMany({ where: { projectId }, orderBy: [{ observedAt: "desc" }, { id: "desc" }] })).map(mapExternalWorkItem);
+  }
+
+  private static pastDecisionOutcome(decisions: Array<{ decision: string }>): PastDecision["outcome"] {
+    const values = new Set(decisions.map((d) => d.decision));
+    if (values.size === 0) return "NONE";
+    if (values.size === 1 && values.has("APPROVED")) return "APPROVED";
+    if (values.size === 1 && values.has("REJECTED")) return "REJECTED";
+    return "MIXED";
+  }
+
+  async findPastDecision(approvalId: string): Promise<PastDecision | null> {
+    const approval = await this.db.approvalRequest.findUnique({
+      where: { id: approvalId },
+      include: { change: true, decisions: true },
+    });
+    if (!approval || approval.status !== "DECIDED") return null;
+    const title = approval.title ?? approval.change?.title ?? "Review package";
+    const decidedAt = approval.decisions.map((d) => iso(d.createdAt)).sort().at(-1) ?? iso(approval.updatedAt);
+    return {
+      approvalId: approval.id,
+      projectId: approval.projectId,
+      changeId: approval.change?.id ?? null,
+      changeNumber: approval.change?.number ?? null,
+      title,
+      text: [title, approval.change?.title ?? "", approval.change?.description ?? "", ...approval.decisions.map((d) => d.comment ?? "")].join("\n"),
+      outcome: PrismaStore.pastDecisionOutcome(approval.decisions),
+      decidedAt,
+    };
+  }
+
+  async searchPastDecisionsLexical(projectIds: string[], query: string, limit: number): Promise<PastDecision[]> {
+    if (projectIds.length === 0) return [];
+    const rows = await this.db.$queryRaw<Array<Record<string, unknown>>>`
+      SELECT a.id AS "approvalId", a."projectId",
+        c.id AS "changeId", c.number AS "changeNumber",
+        COALESCE(a.title, c.title, 'Review package') AS title,
+        COALESCE(a.title, '') || ' ' || COALESCE(c.title, '') || ' ' || COALESCE(c.description, '') || ' ' || COALESCE(dd.comments, '') AS text,
+        COALESCE(dd.values, '') AS "decisionValues",
+        COALESCE(dd."decidedAt", a."updatedAt") AS "decidedAt",
+        ts_rank(
+          to_tsvector('english', COALESCE(a.title, '') || ' ' || COALESCE(c.title, '') || ' ' || COALESCE(c.description, '') || ' ' || COALESCE(dd.comments, '')),
+          plainto_tsquery('english', ${query})
+        ) AS rank
+      FROM "ApprovalRequest" a
+      LEFT JOIN "ChangeRequest" c ON c.id = a."changeRequestId"
+      LEFT JOIN LATERAL (
+        SELECT string_agg(d.comment, ' ') AS comments, string_agg(d.decision::text, ',') AS values, max(d."createdAt") AS "decidedAt"
+        FROM "ApprovalDecision" d WHERE d."approvalRequestId" = a.id
+      ) dd ON true
+      WHERE a."projectId" = ANY(${projectIds}) AND a.status = 'DECIDED'
+        AND to_tsvector('english', COALESCE(a.title, '') || ' ' || COALESCE(c.title, '') || ' ' || COALESCE(c.description, '') || ' ' || COALESCE(dd.comments, '')) @@ plainto_tsquery('english', ${query})
+      ORDER BY rank DESC, "decidedAt" DESC
+      LIMIT ${limit}`;
+    return rows.map((r) => PrismaStore.mapPastDecisionRow(r));
+  }
+
+  async searchPastDecisionsSemantic(projectIds: string[], embedding: number[], limit: number): Promise<PastDecision[]> {
+    if (projectIds.length === 0 || embedding.length === 0) return [];
+    const literal = `[${embedding.join(",")}]`;
+    const rows = await this.db.$queryRaw<Array<Record<string, unknown>>>`
+      SELECT a.id AS "approvalId", a."projectId",
+        c.id AS "changeId", c.number AS "changeNumber",
+        COALESCE(a.title, c.title, 'Review package') AS title,
+        COALESCE(a.title, '') || ' ' || COALESCE(c.title, '') || ' ' || COALESCE(c.description, '') || ' ' || COALESCE(dd.comments, '') AS text,
+        COALESCE(dd.values, '') AS "decisionValues",
+        COALESCE(dd."decidedAt", a."updatedAt") AS "decidedAt"
+      FROM "DecisionEmbedding" e
+      JOIN "ApprovalRequest" a ON a.id = e."approvalId"
+      LEFT JOIN "ChangeRequest" c ON c.id = a."changeRequestId"
+      LEFT JOIN LATERAL (
+        SELECT string_agg(d.comment, ' ') AS comments, string_agg(d.decision::text, ',') AS values, max(d."createdAt") AS "decidedAt"
+        FROM "ApprovalDecision" d WHERE d."approvalRequestId" = a.id
+      ) dd ON true
+      WHERE a."projectId" = ANY(${projectIds}) AND a.status = 'DECIDED'
+      ORDER BY e.embedding <=> ${literal}::vector
+      LIMIT ${limit}`;
+    return rows.map((r) => PrismaStore.mapPastDecisionRow(r));
+  }
+
+  private static mapPastDecisionRow(r: Record<string, unknown>): PastDecision {
+    const values = String(r["decisionValues"] ?? "")
+      .split(",")
+      .filter((v) => v.length > 0)
+      .map((decision) => ({ decision }));
+    return {
+      approvalId: String(r["approvalId"]),
+      projectId: String(r["projectId"]),
+      changeId: (r["changeId"] as string | null) ?? null,
+      changeNumber: (r["changeNumber"] as string | null) ?? null,
+      title: String(r["title"]),
+      text: String(r["text"] ?? ""),
+      outcome: PrismaStore.pastDecisionOutcome(values),
+      decidedAt: r["decidedAt"] instanceof Date ? r["decidedAt"].toISOString() : String(r["decidedAt"]),
+    };
+  }
+
+  async saveDecisionEmbedding(approvalId: string, embedding: number[], model: string): Promise<void> {
+    const literal = `[${embedding.join(",")}]`;
+    await this.db.$executeRaw`
+      INSERT INTO "DecisionEmbedding" (id, "approvalId", embedding, model, "createdAt")
+      VALUES (${newId("demb")}, ${approvalId}, ${literal}::vector, ${model}, CURRENT_TIMESTAMP)
+      ON CONFLICT ("approvalId") DO UPDATE SET embedding = EXCLUDED.embedding, model = EXCLUDED.model`;
+  }
+
+  async listApprovalsWithoutEmbeddings(limit: number): Promise<string[]> {
+    const rows = await this.db.approvalRequest.findMany({
+      where: { status: "DECIDED", embedding: null },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
   }
 
   async findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null> {

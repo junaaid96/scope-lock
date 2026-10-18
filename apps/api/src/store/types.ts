@@ -845,6 +845,27 @@ export interface ExternalWorkItem {
   updatedAt: string;
 }
 
+/** One decided approval, assembled for memory search. */
+export interface PastDecision {
+  approvalId: string;
+  projectId: string;
+  changeId: string | null;
+  changeNumber: string | null;
+  title: string;
+  /** Searchable text: titles + change description + decision comments. */
+  text: string;
+  outcome: "APPROVED" | "REJECTED" | "MIXED" | "NONE";
+  decidedAt: string;
+}
+
+export interface DecisionEmbedding {
+  id: string;
+  approvalId: string;
+  embedding: number[];
+  model: string;
+  createdAt: string;
+}
+
 export interface MetricEvent {
   id: string;
   organizationId: string;

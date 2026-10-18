@@ -34,6 +34,7 @@ import type {
   Organization,
   OutboxEvent,
   PageResult,
+  PastDecision,
   PasswordReset,
   Project,
   ProjectMember,
@@ -315,6 +316,11 @@ export interface Store {
   deleteExternalConnection(id: string): Promise<void>;
   upsertExternalWorkItem(data: Omit<ExternalWorkItem, "id" | "observedAt" | "updatedAt">): Promise<ExternalWorkItem>;
   listExternalWorkItems(projectId: string): Promise<ExternalWorkItem[]>;
+  findPastDecision(approvalId: string): Promise<PastDecision | null>;
+  searchPastDecisionsLexical(projectIds: string[], query: string, limit: number): Promise<PastDecision[]>;
+  searchPastDecisionsSemantic(projectIds: string[], embedding: number[], limit: number): Promise<PastDecision[]>;
+  saveDecisionEmbedding(approvalId: string, embedding: number[], model: string): Promise<void>;
+  listApprovalsWithoutEmbeddings(limit: number): Promise<string[]>;
   findIdempotency(key: string, scope: string): Promise<IdempotencyRecord | null>;
   saveIdempotency(data: Omit<IdempotencyRecord, "id" | "createdAt">): Promise<IdempotencyRecord>;
   getUsage(organizationId: string, period: string): Promise<UsageCounter>;
