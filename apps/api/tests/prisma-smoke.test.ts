@@ -30,7 +30,7 @@ describe("prisma postgres smoke", () => {
         budgetMinor: null,
         startDate: null,
         targetDate: null,
-        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24] },
+        settings: { aiEnabled: true, reminderHoursBeforeExpiry: [48, 24], approvalPolicies: [] },
       });
       expect((await store.findProjectById(project.id))?.name).toBe("Smoke Project");
       const doc = await store.createScopeDocument(project.id, "Scope");
