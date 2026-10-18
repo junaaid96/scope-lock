@@ -58,6 +58,7 @@ enum ChangeStatus {
   PENDING_APPROVAL
   APPROVED
   REJECTED
+  PARKED
   WITHDRAWN
   IMPLEMENTED
 }
@@ -445,6 +446,7 @@ model ChangeRequest {
   project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   bundle        Bundle?         @relation(fields: [bundleId], references: [id], onDelete: SetNull)
   impacts       ChangeImpact[]
+  options       ChangeOption[]
   links         ChangeLink[]
   clarifications Clarification[]
   approvals     ApprovalRequest[]
@@ -475,6 +477,29 @@ model ChangeImpact {
   createdBy      String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+
+  change ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([changeRequestId])
+}
+
+model ChangeOption {
+  id              String   @id
+  changeRequestId String
+  label           String
+  description     String?
+  effortDays      Float?
+  priceMinor      Int?
+  currency        String?
+  timelineDays    Int?
+  milestoneEffect String?
+  risks           Json     @default("[]")
+  exclusions      Json     @default("[]")
+  notes           String?
+  version         Int      @default(0)
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   change ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
 
@@ -653,6 +678,7 @@ model ApprovalRequest {
   status          ApprovalStatus @default(DRAFT)
   approverUserIds Json           @default("[]")
   policy          Json           @default("{\"mode\":\"ANY\",\"approverOrder\":[]}")
+  chosenOptionId  String?
   expiresAt       DateTime?
   sentAt          DateTime?
   sentBy          String?
@@ -727,6 +753,7 @@ model ApprovalDecision {
   tokenId           String?
   decision          DecisionValue
   comment           String?
+  optionId          String?
   checksum          String
   ip                String?
   userAgent         String?

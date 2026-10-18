@@ -12,6 +12,7 @@ import type {
   Bundle,
   ChangeImpact,
   ChangeLink,
+  ChangeOption,
   ChangeRequest,
   ChangeStatus,
   Clarification,
@@ -63,6 +64,7 @@ type Tables = {
   changes: Map<string, ChangeRequest>;
   impacts: Map<string, ChangeImpact>;
   changeLinks: Map<string, ChangeLink>;
+  options: Map<string, ChangeOption>;
   clarifications: Map<string, Clarification>;
   rateCards: Map<string, RateCard>;
   estimateTemplates: Map<string, EstimateTemplate>;
@@ -105,6 +107,7 @@ function emptyTables(): Tables {
     changes: new Map(),
     impacts: new Map(),
     changeLinks: new Map(),
+    options: new Map(),
     clarifications: new Map(),
     rateCards: new Map(),
     estimateTemplates: new Map(),
@@ -711,6 +714,38 @@ export class MemoryStore implements Store {
 
   async deleteChangeLink(id: string): Promise<void> {
     this.tables.changeLinks.delete(id);
+    this.afterCommit();
+  }
+
+  async findOptionById(id: string): Promise<ChangeOption | null> {
+    return this.tables.options.get(id) ?? null;
+  }
+
+  async listOptionsByChange(changeRequestId: string): Promise<ChangeOption[]> {
+    return [...this.tables.options.values()]
+      .filter((o) => o.changeRequestId === changeRequestId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async createOption(data: Omit<ChangeOption, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeOption> {
+    const now = nowIso();
+    const row: ChangeOption = { id: newId("opt"), version: 0, createdAt: now, updatedAt: now, ...data };
+    this.tables.options.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async updateOption(id: string, patch: Partial<ChangeOption>): Promise<ChangeOption> {
+    const existing = this.tables.options.get(id);
+    if (!existing) throw new Error(`Option not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.options.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteOption(id: string): Promise<void> {
+    this.tables.options.delete(id);
     this.afterCommit();
   }
 

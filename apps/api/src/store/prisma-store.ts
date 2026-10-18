@@ -13,6 +13,7 @@ import type {
   Bundle,
   ChangeImpact,
   ChangeLink,
+  ChangeOption,
   ChangeRequest,
   ChangeStatus,
   Clarification,
@@ -177,6 +178,15 @@ function mapImpact(r: Prisma.ChangeImpactGetPayload<Prisma.ChangeImpactDefaultAr
     risks: json(r.risks, []),
     exclusions: json(r.exclusions, []),
     pricing: json<ImpactPricing | null>(r.pricing, null),
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapOption(r: Prisma.ChangeOptionGetPayload<Prisma.ChangeOptionDefaultArgs>): ChangeOption {
+  return {
+    ...r,
+    risks: json(r.risks, []),
+    exclusions: json(r.exclusions, []),
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -968,6 +978,62 @@ export class PrismaStore implements Store {
     await this.db.changeLink.deleteMany({ where: { id } });
   }
 
+  async findOptionById(id: string): Promise<ChangeOption | null> {
+    const r = await this.db.changeOption.findUnique({ where: { id } });
+    return r ? mapOption(r) : null;
+  }
+
+  async listOptionsByChange(changeRequestId: string): Promise<ChangeOption[]> {
+    return (await this.db.changeOption.findMany({ where: { changeRequestId }, orderBy: { createdAt: "asc" } })).map(mapOption);
+  }
+
+  async createOption(data: Omit<ChangeOption, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeOption> {
+    return mapOption(
+      await this.db.changeOption.create({
+        data: {
+          id: newId("opt"),
+          changeRequestId: data.changeRequestId,
+          label: data.label,
+          description: data.description,
+          effortDays: data.effortDays,
+          priceMinor: data.priceMinor,
+          currency: data.currency,
+          timelineDays: data.timelineDays,
+          milestoneEffect: data.milestoneEffect,
+          risks: J(data.risks),
+          exclusions: J(data.exclusions),
+          notes: data.notes,
+          createdBy: data.createdBy,
+        },
+      }),
+    );
+  }
+
+  async updateOption(id: string, patch: Partial<ChangeOption>): Promise<ChangeOption> {
+    return mapOption(
+      await this.db.changeOption.update({
+        where: { id },
+        data: {
+          ...(patch.label !== undefined ? { label: patch.label } : {}),
+          ...(patch.description !== undefined ? { description: patch.description } : {}),
+          ...(patch.effortDays !== undefined ? { effortDays: patch.effortDays } : {}),
+          ...(patch.priceMinor !== undefined ? { priceMinor: patch.priceMinor } : {}),
+          ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
+          ...(patch.timelineDays !== undefined ? { timelineDays: patch.timelineDays } : {}),
+          ...(patch.milestoneEffect !== undefined ? { milestoneEffect: patch.milestoneEffect } : {}),
+          ...(patch.risks !== undefined ? { risks: J(patch.risks) } : {}),
+          ...(patch.exclusions !== undefined ? { exclusions: J(patch.exclusions) } : {}),
+          ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+          ...(patch.version !== undefined ? { version: patch.version } : {}),
+        },
+      }),
+    );
+  }
+
+  async deleteOption(id: string): Promise<void> {
+    await this.db.changeOption.deleteMany({ where: { id } });
+  }
+
   async createClarification(data: Omit<Clarification, "id" | "createdAt" | "answeredAt" | "answeredBy" | "answer">): Promise<Clarification> {
     return mapClarification(
       await this.db.clarification.create({
@@ -1266,6 +1332,7 @@ export class PrismaStore implements Store {
           supersededBy: data.supersededBy,
           remindersSent: J(data.remindersSent),
           version: data.version,
+          chosenOptionId: data.chosenOptionId,
         },
       }),
     );
@@ -1308,6 +1375,7 @@ export class PrismaStore implements Store {
           ...(patch.supersededBy !== undefined ? { supersededBy: patch.supersededBy } : {}),
           ...(patch.remindersSent !== undefined ? { remindersSent: J(patch.remindersSent) } : {}),
           ...(patch.version !== undefined ? { version: patch.version } : {}),
+          ...(patch.chosenOptionId !== undefined ? { chosenOptionId: patch.chosenOptionId } : {}),
         },
       }),
     );
@@ -1431,6 +1499,7 @@ export class PrismaStore implements Store {
           tokenId: data.tokenId,
           decision: data.decision,
           comment: data.comment,
+          optionId: data.optionId,
           checksum: data.checksum,
           ip: data.ip,
           userAgent: data.userAgent,

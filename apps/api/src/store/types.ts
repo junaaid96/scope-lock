@@ -272,6 +272,26 @@ export interface ChangeImpact {
   updatedAt: string;
 }
 
+/** One priced alternative (full / reduced / defer) authored during estimation. */
+export interface ChangeOption {
+  id: string;
+  changeRequestId: string;
+  label: string;
+  description: string | null;
+  effortDays: number | null;
+  priceMinor: number | null;
+  currency: string | null;
+  timelineDays: number | null;
+  milestoneEffect: string | null;
+  risks: string[];
+  exclusions: string[];
+  notes: string | null;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Frozen computation snapshot: what the card/template math produced when the impact was recorded. */
 export interface ImpactPricingLine {
   label: string;
@@ -415,6 +435,20 @@ export interface Bundle {
 }
 
 /** Immutable snapshot of exactly what the client reviewed. Bound to decisions via checksum. */
+export interface OptionSnapshot {
+  optionId: string;
+  label: string;
+  description: string | null;
+  effortDays: number | null;
+  priceMinor: number | null;
+  currency: string | null;
+  timelineDays: number | null;
+  milestoneEffect: string | null;
+  risks: string[];
+  exclusions: string[];
+  notes: string | null;
+}
+
 export interface ReviewPackageSnapshot {
   title: string | null;
   changeId: string | null;
@@ -438,6 +472,8 @@ export interface ReviewPackageSnapshot {
     notes: string | null;
     confidence: ConfidenceLevel;
   } | null;
+  /** Priced alternatives; empty when the package decides the base impact directly. */
+  options: OptionSnapshot[];
   requirements: Array<{
     requirementId: string;
     stableKey: string;
@@ -482,6 +518,8 @@ export interface ApprovalRequest {
   approverUserIds: string[];
   /** Aggregation policy: how this package's approvers reach a terminal decision. */
   policy: { mode: "ANY" | "ALL" | "SEQUENTIAL"; approverOrder: string[] };
+  /** Snapshotted option id the terminal APPROVED outcome picked (null when optionless). */
+  chosenOptionId: string | null;
   expiresAt: string | null;
   sentAt: string | null;
   sentBy: string | null;
@@ -538,6 +576,8 @@ export interface ApprovalDecision {
   tokenId: string | null;
   decision: ApprovalDecisionValue;
   comment: string | null;
+  /** Snapshotted option id picked by this APPROVED vote (null when the package has no options). */
+  optionId: string | null;
   checksum: string;
   ip: string | null;
   userAgent: string | null;

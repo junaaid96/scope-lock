@@ -39,6 +39,7 @@ export const ChangeStatusSchema = z.enum([
   "PENDING_APPROVAL",
   "APPROVED",
   "REJECTED",
+  "PARKED",
   "WITHDRAWN",
   "IMPLEMENTED",
 ]);

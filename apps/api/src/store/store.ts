@@ -10,6 +10,7 @@ import type {
   Bundle,
   ChangeImpact,
   ChangeLink,
+  ChangeOption,
   ChangeRequest,
   ChangeStatus,
   Clarification,
@@ -128,6 +129,11 @@ export interface Store {
   findLatestImpact(changeRequestId: string): Promise<ChangeImpact | null>;
   listImpacts(changeRequestId: string): Promise<ChangeImpact[]>;
   createImpact(data: Omit<ChangeImpact, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeImpact>;
+  findOptionById(id: string): Promise<ChangeOption | null>;
+  listOptionsByChange(changeRequestId: string): Promise<ChangeOption[]>;
+  createOption(data: Omit<ChangeOption, "id" | "version" | "createdAt" | "updatedAt">): Promise<ChangeOption>;
+  updateOption(id: string, patch: Partial<ChangeOption>): Promise<ChangeOption>;
+  deleteOption(id: string): Promise<void>;
   createChangeLink(data: Omit<ChangeLink, "id" | "createdAt">): Promise<ChangeLink>;
   listChangeLinks(changeRequestId: string): Promise<ChangeLink[]>;
   deleteChangeLink(id: string): Promise<void>;

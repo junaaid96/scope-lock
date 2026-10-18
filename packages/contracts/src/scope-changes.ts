@@ -98,6 +98,31 @@ export const UpsertImpactSchema = z.object({
   confidence: ConfidenceSchema.default("MEDIUM"),
 });
 
+const OptionImpactFields = {
+  effortDays: z.number().min(0).max(3650).nullable().optional(),
+  priceMinor: MinorUnitsSchema.nullable().optional(),
+  currency: CurrencySchema.nullable().optional(),
+  timelineDays: z.number().int().min(0).max(3650).nullable().optional(),
+  milestoneEffect: z.string().max(2000).nullable().optional(),
+  // No defaults: PATCH reuses these fields and must distinguish absent from empty.
+  risks: z.array(z.string().min(1).max(1000)).max(50).optional(),
+  exclusions: z.array(z.string().min(1).max(1000)).max(50).optional(),
+  notes: z.string().max(8000).nullable().optional(),
+};
+
+/** One priced alternative (full / reduced / defer). Pricing completes by send time. */
+export const CreateChangeOptionSchema = z.object({
+  label: z.string().min(1).max(60),
+  description: z.string().max(4000).nullable().optional(),
+  ...OptionImpactFields,
+});
+export const UpdateChangeOptionSchema = z.object({
+  expectedVersion: z.number().int().min(0),
+  label: z.string().min(1).max(60).optional(),
+  description: z.string().max(4000).nullable().optional(),
+  ...OptionImpactFields,
+});
+
 export const CreateChangeLinkSchema = z.object({
   targetType: z.enum(["REQUIREMENT", "CHANGE"]),
   targetRequirementId: IdSchema.optional(),
@@ -150,6 +175,8 @@ export const SendApprovalSchema = z.object({
 export const DecideApprovalSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED", "CHANGES_REQUESTED"]),
   comment: z.string().max(4000).optional(),
+  /** Required on APPROVED when the package carries proposal options. */
+  optionId: IdSchema.optional(),
   /** The client must explicitly confirm the decision. */
   confirm: z.literal(true),
 });
