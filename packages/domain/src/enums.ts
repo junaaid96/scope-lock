@@ -77,7 +77,7 @@ export type ConfidenceLevel = (typeof ConfidenceLevels)[number];
 export const BundleStatuses = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED"] as const;
 export type BundleStatus = (typeof BundleStatuses)[number];
 
-export const AIKinds = ["EXTRACT", "DRIFT", "CLARIFY", "PROPOSAL", "MEMORY", "COMPARE"] as const;
+export const AIKinds = ["EXTRACT", "DRIFT", "CLARIFY", "PROPOSAL", "MEMORY", "COMPARE", "IMPORT"] as const;
 export type AIKind = (typeof AIKinds)[number];
 
 export const AIStatuses = ["PENDING", "SUCCEEDED", "FAILED", "FALLBACK"] as const;

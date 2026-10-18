@@ -19,6 +19,10 @@ export const ExtractRequirementsSchema = z.object({
   sourceText: z.string().min(20).max(60000),
   sourceLabel: z.string().min(1).max(200).default("proposal"),
 });
+export const ImportChangesSchema = z.object({
+  sourceText: z.string().min(20).max(60000),
+  sourceLabel: z.string().min(1).max(200).default("transcript"),
+});
 export const ClarifyQuestionsSchema = z.object({
   maxQuestions: z.number().int().min(1).max(10).default(5),
 });

@@ -135,6 +135,7 @@ enum AIKind {
   PROPOSAL
   MEMORY
   COMPARE
+  IMPORT
 }
 
 enum AIStatus {

@@ -4,12 +4,13 @@ import type { Env } from "../../env.js";
 import { currentPeriod, type AIAnalysis, type Project, type Store, type User } from "../../store/index.js";
 import { assertAiQuota } from "../../lib/limits.js";
 import { completeWithFailover, resolveProviders, type AiProvider } from "./providers.js";
-import { PROMPT_VERSION, SYSTEM_BASE, clarifyPrompt, comparePrompt, driftPrompt, extractPrompt, memoryPrompt, proposalPrompt } from "./prompts.js";
+import { PROMPT_VERSION, SYSTEM_BASE, clarifyPrompt, comparePrompt, driftPrompt, extractPrompt, importChangesPrompt, memoryPrompt, proposalPrompt } from "./prompts.js";
 import {
   ClarificationsResponseSchema,
   CompareResponseSchema,
   DriftAnalysisResponseSchema,
   ExtractRequirementsResponseSchema,
+  ImportChangesResponseSchema,
   MemoryResponseSchema,
   ProposalDraftResponseSchema,
 } from "./schemas.js";
@@ -91,6 +92,24 @@ export async function extractRequirements(ctx: AiContext, sourceText: string, so
     return record(ctx, "EXTRACT", { sourceLabel, chars: sourceText.length }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model });
   } catch (err) {
     return record(ctx, "EXTRACT", { sourceLabel }, {}, "FAILED", { error: String(err).slice(0, 500) });
+  }
+}
+
+/** Transcript/thread import: one draft change request per implicit ask, each with a source excerpt. A human accepts or edits each draft — nothing is created here. No deterministic fallback: manual entry is the fallback. */
+export async function importChangeDrafts(ctx: AiContext, sourceText: string, sourceLabel: string): Promise<AIAnalysis> {
+  const { providers } = await gate(ctx);
+  if (providers.length === 0) {
+    return record(ctx, "IMPORT", { sourceLabel, chars: sourceText.length }, { drafts: [] }, "FALLBACK", {
+      error: "AI provider is not configured; enter change requests manually.",
+    });
+  }
+  const started = Date.now();
+  try {
+    const result = await completeWithFailover(providers, ctx.env, { system: SYSTEM_BASE, user: importChangesPrompt(sourceLabel, sourceText), maxTokens: 4000 });
+    const output = ImportChangesResponseSchema.parse(parseJson(result.text));
+    return record(ctx, "IMPORT", { sourceLabel, chars: sourceText.length }, output, "SUCCEEDED", { latencyMs: Date.now() - started, usage: result.usage, provider: result.provider, model: result.model });
+  } catch (err) {
+    return record(ctx, "IMPORT", { sourceLabel }, {}, "FAILED", { error: String(err).slice(0, 500) });
   }
 }
 

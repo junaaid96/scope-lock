@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   ClarifyQuestionsSchema,
   ExtractRequirementsSchema,
+  ImportChangesSchema,
   ListQuerySchema,
   ProposalDraftSchema,
   ReviewAiAnalysisSchema,
@@ -24,6 +25,7 @@ import {
   draftProposal,
   extractRequirements,
   generateClarifications,
+  importChangeDrafts,
   summarizeMemory,
 } from "./ai/service.js";
 import { buildDriftCandidates } from "./scope.js";
@@ -61,6 +63,22 @@ export function aiRoutes(ctx: AppContext): Router {
       const input = req.body as z.infer<typeof ExtractRequirementsSchema>;
       const actx = await aiContext(ctx, auth, req.params.id as string);
       const analysis = await extractRequirements(actx, input.sourceText, input.sourceLabel);
+      res.json({ analysis });
+    }),
+  );
+
+  router.post(
+    "/projects/:id/ai/import-changes",
+    requireAuth,
+    rateLimit(ctx.env, "ai"),
+    validateParams(z.object({ id: z.string().min(1) })),
+    validateBody(ImportChangesSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof ImportChangesSchema>;
+      const actx = await aiContext(ctx, auth, req.params.id as string);
+      const analysis = await importChangeDrafts(actx, input.sourceText, input.sourceLabel);
       res.json({ analysis });
     }),
   );

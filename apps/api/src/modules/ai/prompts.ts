@@ -80,6 +80,10 @@ ${historyJson}
 </project-data>`;
 }
 
+export function importChangesPrompt(sourceLabel: string, sourceText: string): string {
+  return `Split the conversation below into the individual change requests it implicitly asks for — one draft per distinct ask.\n\nRespond with JSON: { "drafts": [{ "title": string, "description": string, "excerpt": string, "confidence": 0..1 }] }.\nKeep titles under 200 chars. Each description restates that ask only. Each excerpt quotes the exact source span (≤500 chars) that justifies the draft — never paraphrase as a quote. Ignore pleasantries, status updates, and anything already decided. A human reviews every draft; when in doubt, split rather than merge.\n\nSource (${sourceLabel}):\n<project-data>\n${sourceText}\n</project-data>`;
+}
+
 export function comparePrompt(diffJson: string): string {
   return `Summarize the structural scope diff below in plain language for a non-technical client.
 

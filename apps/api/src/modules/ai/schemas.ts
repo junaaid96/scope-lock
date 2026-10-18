@@ -67,3 +67,17 @@ export const CompareResponseSchema = z.object({
   highlights: z.array(z.string().min(1).max(500)).max(20).default([]),
 });
 export type CompareResponse = z.infer<typeof CompareResponseSchema>;
+
+export const ImportChangesResponseSchema = z.object({
+  drafts: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(200),
+        description: z.string().min(1).max(4000),
+        excerpt: z.string().min(1).max(2000),
+        confidence: z.number().min(0).max(1).default(0.5),
+      }),
+    )
+    .max(10),
+});
+export type ImportChangesResponse = z.infer<typeof ImportChangesResponseSchema>;
