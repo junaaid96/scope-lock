@@ -74,6 +74,24 @@ project `settings.aiEnabled=false`.
 - Payload shape per outbox row: `{ to, subject, text, organizationId?,
   projectId?, notificationType? }`. Usage counts `emailsSent` per org/period.
 
+### Inbound email
+
+- Each project gets unguessable aliases (`chg-<96-bit hex>@INBOUND_EMAIL_DOMAIN`),
+  managed from the project Intake tab (staff only).
+- Any provider works: forward delivery events to
+  `POST /api/v1/webhooks/inbound-email` in the `InboundEmailSchema` shape with
+  header `x-inbound-signature: t=<unix>,v1=<hmac-sha256(t + "." + rawBody)>`
+  using `INBOUND_EMAIL_WEBHOOK_SECRET`. Timestamps older than 5 minutes are
+  rejected (410); provider `messageId`s dedupe retries for 24h.
+- Unknown aliases are dropped + logged (200, no leak); auto-replies/loops are
+  detected via headers + subject backstop and dropped; quoted history and
+  signatures are stripped; attachments (≤5 MB each, inline base64) ride the
+  standard upload + malware pipeline before linking. Surviving mail becomes a
+  SUBMITTED `INBOUND_EMAIL` change flagged “unverified submitter”.
+- Local dev: `POST /api/v1/dev/simulate-inbound-email` (staff auth, never in
+  production) runs the same ingest without a signature — see the Intake tab
+  “Simulate email…” button.
+
 ## 4. Storage (R2 / local)
 
 - Set all of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,

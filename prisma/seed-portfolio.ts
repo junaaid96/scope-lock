@@ -934,6 +934,19 @@ async function main(): Promise<void> {
   if (intakeUrl) {
     console.log(`  Public intake form (Forgeline, no login needed): ${intakeUrl}`);
   }
+
+  // Inbound mailbox for Forgeline (resumable): forward mail to post it as email intake.
+  {
+    const labsId = projectIds.forgeline as string;
+    if ((await store.listInboundMailboxes(labsId)).length === 0) {
+      const body = (await expectOk(
+        await owner.agent.post(`/api/v1/projects/${labsId}/inbound-mailboxes`).send({ name: "Support" }),
+        "seed mailbox",
+        [201],
+      )) as { address: string };
+      console.log(`  Inbound mailbox (Forgeline): ${body.address}`);
+    }
+  }
 }
 
 void main().catch((err: unknown) => {

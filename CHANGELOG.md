@@ -49,6 +49,11 @@ All notable changes to ScopeLock are documented here. Format follows
   governing baseline in the intake form and the in-app new-change dialog,
   with optional AI refinement in-app. Advisory only (“submit anyway”);
   suggestion-vs-final-classification is logged via `scope_check.outcome`.
+- Inbound email: unguessable per-project aliases with a provider-agnostic
+  signed webhook (HMAC + 5-minute replay window, message-id dedupe).
+  Auto-replies/loops dropped, quoted history stripped, attachments scanned
+  before linking; survivors land as unverified `INBOUND_EMAIL` changes.
+  Dev simulator route + Intake tab UI included.
 
 ## [0.1.0] - 2026-10-16
 

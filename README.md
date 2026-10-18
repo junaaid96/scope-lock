@@ -327,6 +327,9 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   an advisory check compares the words against the agreed baseline and
   shows likely-covered requirements with excerpts. Never blocks; in-app
   adds optional AI refinement.
+- **Inbound email** (project → Intake) — unguessable per-project aliases;
+  forwarded mail lands as unverified `INBOUND_EMAIL` changes with quoted
+  history stripped and attachments scanned. Signed webhook + dev simulator.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
 ### Screenshots
