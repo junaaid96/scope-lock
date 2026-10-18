@@ -16,9 +16,9 @@ export interface ChatJsonResult {
 }
 
 /** @deprecated Use AiProvider via ./providers.js. Kept for the transport below. */
-export interface GroqOptions extends ChatJsonOptions {}
+export type GroqOptions = ChatJsonOptions;
 /** @deprecated Use AiProvider via ./providers.js. Kept for the transport below. */
-export interface GroqResult extends ChatJsonResult {}
+export type GroqResult = ChatJsonResult;
 
 const GROQ_DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
 export const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
