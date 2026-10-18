@@ -87,5 +87,24 @@
     "contingencyLine": "Contingency ({pct}%)",
     "taxLine": "Tax ({pct}%)",
     "total": "Total"
+  },
+  "policy": {
+    "title": "Approval policy",
+    "blurb": "Amount thresholds pick the decision rule for each package automatically. Rules are evaluated in order; the first ceiling at or above the priced impact wins. A per-send choice overrides these thresholds.",
+    "empty": "No thresholds — every package uses “any approver decides”.",
+    "upTo": "Up to",
+    "anyAmount": "Any amount",
+    "modeANY": "Any approver decides",
+    "modeALL": "All must approve",
+    "modeSEQUENTIAL": "In order",
+    "hintANY": "The first recorded vote decides the package.",
+    "hintALL": "Every approver must approve; one rejection or change request decides it.",
+    "hintSEQUENTIAL": "Approvers vote in the listed order, one at a time.",
+    "addRule": "Add rule",
+    "removeRule": "Remove rule",
+    "save": "Save thresholds",
+    "saved": "Thresholds saved.",
+    "ascendingError": "Ceilings must ascend; the last rule may cover any amount.",
+    "amountPlaceholder": "e.g. 5000.00"
   }
 }

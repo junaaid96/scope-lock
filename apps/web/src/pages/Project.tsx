@@ -9,6 +9,7 @@ import { ChangeBoard } from "../components/change-board.js";
 import { ContractTab } from "../components/contract.js";
 import { AllowanceTab } from "../components/allowance.js";
 import { IntakeTab } from "../components/intake.js";
+import { PolicyTab } from "../components/policy.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 import { ImportDialog } from "../components/import.js";
 
@@ -25,7 +26,7 @@ export function ProjectPage(): JSX.Element {
   const [showChange, setShowChange] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "policy" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -63,6 +64,7 @@ export function ProjectPage(): JSX.Element {
           { id: "contract" as const, label: "Contract" },
           { id: "allowance" as const, label: "Allowance" },
           ...(canManage ? [{ id: "intake" as const, label: "Intake" }] : []),
+          ...(canManage ? [{ id: "policy" as const, label: "Policy" }] : []),
           { id: "members" as const, label: "Members" },
           { id: "bundles" as const, label: "Bundles" },
           { id: "notes" as const, label: "Notes" },
@@ -98,6 +100,7 @@ export function ProjectPage(): JSX.Element {
       {tab === "contract" ? <ContractTab projectId={p.id} /> : null}
       {tab === "allowance" ? <AllowanceTab projectId={p.id} currency={p.currency} myRole={p.myRole} canManage={canManage} /> : null}
       {tab === "intake" && canManage ? <IntakeTab projectId={p.id} /> : null}
+      {tab === "policy" && canManage ? <PolicyTab project={p} /> : null}
       {tab === "members" ? <MembersTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}
@@ -435,11 +438,13 @@ function SendBundleForm({ projectId, bundleId, expiry, setExpiry, onDone }: { pr
   const [approvers, setApprovers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [links, setLinks] = useState<string[] | null>(null);
+  const [policyMode, setPolicyMode] = useState("");
   const send = useMutation({
     mutationFn: () =>
       api.post<{ approval: { id: string }; reviewUrls?: string[] }>(`/bundles/${bundleId}/approval-requests`, {
         approverUserIds: approvers,
         expiresAt: new Date(expiry).toISOString(),
+        ...(policyMode ? { policyMode } : {}),
       }),
     onSuccess: (res) => {
       setLinks(res.reviewUrls ?? []);
@@ -456,6 +461,18 @@ function SendBundleForm({ projectId, bundleId, expiry, setExpiry, onDone }: { pr
           {m.user?.name} ({m.role})
         </label>
       ))}
+      <Field
+        label="Decision rule"
+        htmlFor={`bundle-policy-${bundleId}`}
+        hint="Project default resolves from the amount thresholds on the Policy tab. ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+      >
+        <select id={`bundle-policy-${bundleId}`} value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+          <option value="">Project default</option>
+          <option value="ANY">Any approver decides</option>
+          <option value="ALL">All must approve</option>
+          <option value="SEQUENTIAL">In order</option>
+        </select>
+      </Field>
       <Field label="Expires at" htmlFor={`bundle-expiry-${bundleId}`}>
         <Input id={`bundle-expiry-${bundleId}`} type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
       </Field>

@@ -6,18 +6,33 @@ import type { ReviewPackage } from "../lib/types.js";
 import { LoadingScreen } from "../components/layout.js";
 import { Badge, Button, Card, ErrorBanner, Field, Textarea, formatDate, statusTone } from "../components/ui.js";
 
+interface PolicyState {
+  outcome: { state: "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"; deciding: { tokenId: string; approverKey: string; decision: string } | null };
+  yourTurn: boolean;
+  yourDecision: string | null;
+  approvers: Array<{ approverKey: string; email: string | null; decision: string | null; turn: boolean }>;
+}
+
 interface ReviewData {
   status: string;
   title: string | null;
   package: ReviewPackage;
   checksum: string;
   expiresAt: string | null;
+  policy?: { mode: "ANY" | "ALL" | "SEQUENTIAL"; approverOrder: string[] } | null;
+  policyState?: PolicyState | null;
   decisions: Array<{ decision: string; comment: string | null; approverEmail: string | null; createdAt: string }>;
   invalidatedReason: string | null;
   branding?: { displayName: string; logoUrl?: string; primaryColor?: string } | null;
   organizationName?: string;
   projectName?: string;
 }
+
+const POLICY_LABEL: Record<string, string> = {
+  ANY: "Any approver can decide this package.",
+  ALL: "Every approver must approve; the first rejection or change request decides it.",
+  SEQUENTIAL: "Approvers decide in the order shown below.",
+};
 
 export function ReviewPage(): JSX.Element {
   const { token } = useParams<{ token: string }>();
@@ -67,7 +82,18 @@ export function ReviewPage(): JSX.Element {
         {r.status !== "SENT" ? (
           <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm">
             {r.status === "DECIDED" && r.decisions.length > 0 ? (
-              <p>Decided: <strong>{r.decisions[0]?.decision}</strong>{r.decisions[0]?.comment ? ` — ${r.decisions[0]?.comment}` : ""}</p>
+              <div>
+                <p>Decided: <strong>{r.policyState?.outcome.state ?? r.decisions[0]?.decision}</strong></p>
+                {r.decisions.length > 1 ? (
+                  <ul className="mt-1 list-disc pl-5">
+                    {r.decisions.map((d, i) => (
+                      <li key={i}>{d.approverEmail ?? "Approver"} — {d.decision}{d.comment ? ` — ${d.comment}` : ""}</li>
+                    ))}
+                  </ul>
+                ) : r.decisions[0]?.comment ? (
+                  <p>{r.decisions[0]?.comment}</p>
+                ) : null}
+              </div>
             ) : r.status === "EXPIRED" ? (
               <p>This package expired without a decision. Ask the agency to send a fresh one.</p>
             ) : r.status === "INVALIDATED" ? (
@@ -167,10 +193,26 @@ export function ReviewPage(): JSX.Element {
           </section>
         ) : null}
 
+        {r.policyState && r.policyState.approvers.length > 1 ? (
+          <section className="mt-4" aria-label="Approvers">
+            <h2 className="font-medium">Approvers</h2>
+            <p className="mt-1 text-sm text-slate-600">{POLICY_LABEL[r.policy?.mode ?? "ANY"]}</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {r.policyState.approvers.map((a) => (
+                <li key={a.approverKey} className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-2 py-1.5">
+                  <span className="font-medium">{a.email ?? "Approver"}{a.turn && r.status === "SENT" ? " · deciding now" : ""}</span>
+                  <Badge tone={a.decision ? statusTone(a.decision) : "slate"}>{a.decision ?? "WAITING"}</Badge>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {r.status === "SENT" ? (
           <DecisionForm
             refParam={token as string}
             accent={accent}
+            policyState={r.policyState ?? null}
             onDecided={() => void client.invalidateQueries({ queryKey: ["review", token] })}
           />
         ) : null}
@@ -191,19 +233,41 @@ export function ReviewPage(): JSX.Element {
           </ul>
         )}
       </Card>
-      <p className="mt-4 text-center text-xs text-slate-500">
-        You are deciding on exactly the package above (checksum {r.checksum.slice(0, 12)}…). First decision is binding.
+      <p className="mt-4 text-center text-xs text-slate-600">
+        You are deciding on exactly the package above (checksum {r.checksum.slice(0, 12)}…). Recorded decisions are final.
       </p>
     </div>
   );
 }
 
-function DecisionForm({ refParam, accent, onDecided }: { refParam: string; accent: string; onDecided: () => void }): JSX.Element {
+function DecisionForm({ refParam, accent, policyState, onDecided }: { refParam: string; accent: string; policyState: PolicyState | null; onDecided: () => void }): JSX.Element {
   const [decision, setDecision] = useState("APPROVED");
   const [comment, setComment] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<{ message: string; correlationId?: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (policyState?.yourDecision) {
+    return (
+      <div className="mt-6 border-t border-slate-200 pt-4">
+        <h2 className="font-medium">Your decision</h2>
+        <p className="mt-2 rounded-md bg-slate-100 p-3 text-sm">
+          You decided <strong>{policyState.yourDecision}</strong>. {policyState.outcome.state === "PENDING" ? "Waiting on the other approvers." : ""}
+        </p>
+      </div>
+    );
+  }
+  if (policyState && !policyState.yourTurn) {
+    const current = policyState.approvers.find((a) => a.turn);
+    return (
+      <div className="mt-6 border-t border-slate-200 pt-4">
+        <h2 className="font-medium">Your decision</h2>
+        <p className="mt-2 rounded-md bg-slate-100 p-3 text-sm">
+          Approvers decide in order{current?.email ? ` — currently waiting on ${current.email}` : ""}. Your form unlocks when it is your turn.
+        </p>
+      </div>
+    );
+  }
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -242,7 +306,7 @@ function DecisionForm({ refParam, accent, onDecided }: { refParam: string; accen
       </div>
       <label className="mt-3 flex items-start gap-2 text-sm">
         <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} required className="mt-1" />
-        I confirm this decision on the exact package above. I understand the first decision is binding.
+        I confirm this decision on the exact package above. I understand recorded decisions are final.
       </label>
       {error ? <div className="mt-3"><ErrorBanner message={error.message} correlationId={error.correlationId} /></div> : null}
       <Button type="submit" disabled={saving || !confirm} className="mt-3 w-full" style={{ backgroundColor: accent }}>

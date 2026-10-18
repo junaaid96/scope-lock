@@ -26,7 +26,11 @@ export interface ProjectDetail extends ProjectListItem {
   budgetMinor: number | null;
   startDate: string | null;
   targetDate: string | null;
-  settings: { aiEnabled: boolean; reminderHoursBeforeExpiry: number[] };
+  settings: {
+    aiEnabled: boolean;
+    reminderHoursBeforeExpiry: number[];
+    approvalPolicies?: Array<{ uptoMinor: number | null; mode: "ANY" | "ALL" | "SEQUENTIAL" }>;
+  };
   externalIntegrationsEnabled: boolean;
   client: Client | null;
   counts: { openChanges: number; pendingApprovals: number; publishedSequence: number | null };

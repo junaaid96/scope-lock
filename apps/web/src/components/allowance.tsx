@@ -225,12 +225,14 @@ function GrantDialog({ pool, projectId, onClose, onDone }: { pool: AllowancePool
   const [approvers, setApprovers] = useState<string[]>([]);
   const [extraEmails, setExtraEmails] = useState("");
   const [expiry, setExpiry] = useState("");
+  const [policyMode, setPolicyMode] = useState("");
   const send = useMutation({
     mutationFn: () =>
       api.post<{ reviewUrls?: string[] }>(`/allowance-pools/${pool.id}/approval-requests`, {
         approverUserIds: approvers,
         approverEmails: extraEmails.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean),
         expiresAt: new Date(expiry).toISOString(),
+        ...(policyMode ? { policyMode } : {}),
       }),
     onSuccess: (res) => { setLinks(res.reviewUrls ?? []); onDone(); },
     onError: (err) => setError(errorMessage(err)),
@@ -249,6 +251,20 @@ function GrantDialog({ pool, projectId, onClose, onDone }: { pool: AllowancePool
       <div className="mt-3">
         <Field label="Extra approver emails (comma-separated, optional)" htmlFor="grant-emails">
           <Input id="grant-emails" type="text" inputMode="email" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field
+          label="Decision rule"
+          htmlFor="grant-policy"
+          hint="Project default resolves from the amount thresholds on the Policy tab. ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+        >
+          <select id="grant-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="">Project default</option>
+            <option value="ANY">Any approver decides</option>
+            <option value="ALL">All must approve</option>
+            <option value="SEQUENTIAL">In order</option>
+          </select>
         </Field>
       </div>
       <div className="mt-3">

@@ -665,6 +665,7 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
     queryFn: () => fetchAll<AllowancePoolView>(`/projects/${projectId}/allowance-pools`),
   });
   const [poolId, setPoolId] = useState(change.drawAllowancePoolId ?? "");
+  const [policyMode, setPolicyMode] = useState("");
   const send = useMutation({
     mutationFn: () =>
       api.post<{ approval: { id: string }; reviewUrls?: string[] }>(`/change-requests/${change.id}/approval-requests`, {
@@ -672,6 +673,7 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
         approverEmails: extraEmails.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean),
         expiresAt: new Date(expiry).toISOString(),
         allowancePoolId: poolId || null,
+        ...(policyMode ? { policyMode } : {}),
       }),
     onSuccess: (res) => {
       setLinks(res.reviewUrls ?? []);
@@ -706,6 +708,20 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
             {(pools.data ?? []).filter((p) => p.enabled && p.status === "ACTIVE").map((p) => (
               <option key={p.id} value={p.id}>{p.name} ({p.kind.toLowerCase()})</option>
             ))}
+          </select>
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field
+          label="Decision rule"
+          htmlFor="send-policy"
+          hint="Project default resolves from the amount thresholds on the Policy tab. ANY: first vote decides. ALL: every approver must approve. SEQUENTIAL: approvers vote in listed order."
+        >
+          <select id="send-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <option value="">Project default</option>
+            <option value="ANY">Any approver decides</option>
+            <option value="ALL">All must approve</option>
+            <option value="SEQUENTIAL">In order</option>
           </select>
         </Field>
       </div>
