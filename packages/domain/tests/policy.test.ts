@@ -18,9 +18,17 @@ describe("policy", () => {
       "change.send",
       "change.implement",
       "bundle.manage",
+      "acceptance.send",
     ] as const) {
       expect(can(lead, a)).toBe(true);
     }
+  });
+
+  it("restricts delivery-acceptance sends to agency leads", () => {
+    expect(can(admin, "acceptance.send")).toBe(true);
+    expect(can(clientApprover, "acceptance.send")).toBe(false);
+    expect(can(clientAdmin, "acceptance.send")).toBe(false);
+    expect(can(outsider, "acceptance.send")).toBe(false);
   });
 
   it("lets org admins act on projects without explicit membership", () => {

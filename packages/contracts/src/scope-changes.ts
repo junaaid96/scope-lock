@@ -172,6 +172,16 @@ export const SendApprovalSchema = z.object({
   /** Explicit policy mode. Absent resolves from the project's amount thresholds (default ANY). */
   policyMode: z.enum(["ANY", "ALL", "SEQUENTIAL"]).optional(),
 });
+export const SendAcceptanceSchema = z.object({
+  requirementIds: z.array(IdSchema).min(1).max(20),
+  approverUserIds: z.array(IdSchema).min(1).max(10),
+  approverEmails: z.array(z.string().email()).max(10).default([]),
+  /** Deadline; omitted defaults to the project's deemed-acceptance window. */
+  expiresAt: IsoDateSchema.optional(),
+  title: z.string().max(200).optional(),
+  /** Explicit policy mode. Absent resolves ANY (acceptance carries no price tier). */
+  policyMode: z.enum(["ANY", "ALL", "SEQUENTIAL"]).optional(),
+});
 export const DecideApprovalSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED", "CHANGES_REQUESTED"]),
   comment: z.string().max(4000).optional(),

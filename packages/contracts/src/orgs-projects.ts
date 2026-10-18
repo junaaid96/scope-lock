@@ -109,6 +109,8 @@ export const ProjectSettingsSchema = z.object({
   /** Amount thresholds for approval policy; ascending ceilings, evaluated in order. Empty = ANY always. */
   approvalPolicies: z.array(ApprovalThresholdRuleSchema).max(5).default([]),
   stepUp: StepUpSettingsSchema.default({}),
+  /** Deemed-acceptance window in days; null disables deemed acceptance. */
+  deemedAcceptanceDays: z.number().int().min(1).max(90).nullable().default(null),
 });
 export const CreateProjectSchema = z.object({
   organizationId: IdSchema,

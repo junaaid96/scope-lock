@@ -18,6 +18,7 @@ export type Action =
   | "scope.publish"
   | "requirement.status"
   | "change.submit"
+  | "acceptance.send"
   | "change.triage"
   | "change.estimate"
   | "change.send"
@@ -109,6 +110,7 @@ export function can(ctx: AccessContext, action: Action): boolean {
     case "requirement.status":
     case "change.triage":
     case "change.estimate":
+    case "acceptance.send":
     case "change.send":
     case "change.implement":
     case "change.convert":
