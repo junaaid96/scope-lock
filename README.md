@@ -130,7 +130,11 @@ npx prisma migrate deploy --schema prisma/schema.prisma
 
 The API reads `.env` itself, so once `DATABASE_URL` is set there you can drop
 the inline prefix. If you see `The table 'public.*' does not exist`, the
-migrations were never applied — run the command above.
+migrations were never applied — run the command above. Migration `0020`
+enables the `vector` extension for decision-memory search, so the Postgres
+server needs the pgvector module installed (`brew install pgvector`, the
+`pgvector/pgvector` image, or your provider's extension toggle) —
+see [docs/OPERATIONS.md](docs/OPERATIONS.md) for the lexical fallback.
 
 ### 5. Seed a demo workspace (optional, recommended)
 
@@ -376,6 +380,28 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 - **Import from text** (project header) — paste a call transcript or email
   thread; AI proposes one draft change per implicit ask with source excerpts.
   A human accepts or edits each draft; nothing is created automatically.
+- **Decision memory** (project → Activity → Search past decisions) — find
+  decided approvals by words, with pgvector semantic ranking when Postgres
+  and `OPENAI_API_KEY` are configured (lexical fallback otherwise).
+  Results are filtered by your access before ranking and quote verbatim
+  excerpts that link back to the original records — no generated conclusions.
+- **Price suggestions + actuals** (change page, project → Actuals) —
+  comparable approved changes with their real approved prices next to a new
+  estimate (no black-box number), optional actual effort/cost once
+  implemented, and an estimate-vs-actual report per project.
+- **Scope templates + CSV import** (workspace settings, scope page) — an org
+  library of starting templates with standard assumptions/exclusions that
+  instantiate into a draft scope version, plus CSV requirement import with
+  a dry-run preview and per-row errors (all rows or none).
+- **Google/GitHub sign-in + passkeys** (login page, workspace settings →
+  Security) — OAuth authorization-code + PKCE that links only to
+  provider-verified matching emails (unknown identities never mint
+  sessions), and WebAuthn passkeys with user verification. TOTP still
+  gates MFA-enabled logins; the last sign-in method cannot be removed.
+- **Bangla + per-user language** (header switcher) — the full UI in English
+  or Bangla with Intl money/date/number formatting, persisted to your
+  profile. Review links and decision certificates render in the
+  project/org default language instead.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
 ### Screenshots
@@ -403,7 +429,10 @@ Captured from the portfolio demo seed (`npm run screenshots` regenerates them):
 | `npm run seed:portfolio` | full 16-project portfolio demo workspace |
 | `npm run openapi [-- --check]` | regenerate (or freshness-check) the OpenAPI spec from Zod contracts |
 | `npm run prisma:validate` | Prisma schema validation |
+| `npm run audit:verify -- --project <id>` | recompute a project's audit hash chain outside the app |
+| `node scripts/check-i18n.mjs` | CI check: every `t()` key exists in English, and `bn` matches keys + placeholders |
 | `TEST_DATABASE_URL=… npx vitest run tests/prisma-smoke.test.ts` (in `apps/api`) | live-Postgres migration + store smoke test |
+| `TEST_DATABASE_URL=… npx vitest run tests/audit-chain-prisma.test.ts` (in `apps/api`) | live-Postgres audit-chain concurrency + same-transaction append tests |
 
 ## Environment variables
 
@@ -414,11 +443,22 @@ See [.env.example](.env.example) for the complete list. Highlights:
 - `GROQ_API_KEY` / `GROQ_MODEL` (`openai/gpt-oss-120b`) and `OPENAI_API_KEY` /
   `OPENAI_MODEL` (`gpt-4o-mini`) — server-only AI providers; `AI_PROVIDER`
   picks the primary and the other serves as failover. Empty keys =
-  deterministic fallbacks, manual workflow unaffected
+  deterministic fallbacks, manual workflow unaffected.
+  `OPENAI_BASE_URL` optionally points both chat failover and
+  decision-memory embeddings at an OpenAI-compatible endpoint
 - `AI_ENABLED` — global kill switch; organizations and projects can also opt out
+- `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`,
+  `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` — OAuth login (authorization
+  code + PKCE); leave a pair empty to disable that provider. Callback:
+  `<API_URL>/api/v1/auth/oauth/<provider>/callback`
+- `WEBAUTHN_RP_ID` (`localhost` for dev) / `WEBAUTHN_RP_NAME` — passkey
+  relying party; the browser origin must equal `WEB_URL`
 - `R2_*` — Cloudflare R2 object storage; unset = local signed-URL driver
 - `ABLY_API_KEY` — realtime fan-out; unset = REST polling stays correct
-- `EMAIL_API_KEY` + `EMAIL_FROM` — transactional email; unset = log driver
+- `EMAIL_API_KEY` + `EMAIL_FROM` (+ `EMAIL_HTTP_ENDPOINT`, Resend by
+  default) — transactional email; unset key = log driver
+- `INBOUND_EMAIL_DOMAIN` / `INBOUND_EMAIL_WEBHOOK_SECRET` — per-project
+  inbound aliases and provider webhook verification
 - `MALWARE_SCANNER_URL` — optional ClamAV-style webhook for uploads
 - `PENDING_UPLOAD_TTL_HOURS` (24) / `DELETED_FILE_PURGE_DAYS` (30) — retention
 - `API_KEY_RATE_LIMIT_PER_MIN` (300) — per-key quota for machine API keys
@@ -451,16 +491,16 @@ credentials (enforced by a security regression test).
 | Unit | `packages/domain/tests` | transitions, diff, checksum, health, money, policy |
 | API integration | `apps/api/tests` | tenant scoping, atomic workflows, presigned-URL authz |
 | Contract | `apps/api/tests/contract.test.ts` | error envelope + cursor pagination consistency |
-| E2E | `apps/web/e2e/*.spec.ts` | register → baseline → change → approval → decision, plus palette, board, timeline, and inbox-badge specs |
+| E2E | `apps/web/e2e/*.spec.ts` (31 specs) | register → baseline → change → approval → decision plus one spec per feature flow, each with axe scans |
 | Security regression | `apps/api/tests/security.test.ts` | IDOR, token expiry/reuse, CSRF, secret leaks |
 | AI evaluation | `apps/api/tests/ai.test.ts` | invented-ID rejection, fallback, injection resistance |
 | Accessibility | `apps/web/e2e/a11y.spec.ts` | axe scans (serious/critical) on login + dashboard |
 | Postgres smoke | `apps/api/tests/prisma-smoke.test.ts` | migrations apply; PrismaStore round-trips (CI + `TEST_DATABASE_URL`) |
 
-CI runs typecheck, lint, unit + API tests, contract tests, migration
-validation with drift detection against a fresh Postgres, the Postgres smoke
-test, a production build, the full Playwright suite, and an advisory
-vulnerability scan.
+CI runs typecheck, lint, unit + API tests, contract tests, the i18n
+parity check, migration validation with drift detection against a fresh
+Postgres, the Postgres store tests (smoke + audit-chain), a production
+build, the full Playwright suite, and an advisory vulnerability scan.
 
 ## Security model
 
@@ -473,7 +513,15 @@ vulnerability scan.
   EICAR + executable-magic heuristics, optional external scanner, quarantine
   on verdict; downloads via 15-minute signed URLs; private buckets only.
 - Approval review links are high-entropy, expiring, revocable, bound to an
-  immutable package checksum, rate-limited, and fully audited.
+  immutable package checksum, rate-limited, and fully audited. Optional
+  step-up (emailed OTP: hashed, expiring, attempt-limited, bound to token
+  + approver) plus typed-name confirmation is recorded with the decision —
+  an identity check, never legal e-signature.
+- OAuth links only to provider-verified emails matching the signed-in user
+  (or a prior link at login); passkeys use sealed challenge cookies and
+  user verification. API keys are shown once, stored hashed, scoped,
+  rotatable, and rate-limited; webhooks carry HMAC-SHA256 + timestamp
+  signatures with SSRF-guarded HTTPS-only targets in production.
 - Audit history is append-only; account deletion deactivates the login while
   preserving the audit trail (see `docs/OPERATIONS.md` for PII hard-delete).
 

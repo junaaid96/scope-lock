@@ -13,8 +13,8 @@ All notable changes to ScopeLock are documented here. Format follows
   postgres with healthchecks), root `npm start`, and a "Self-host in 5
   minutes" README guide with a CI smoke job for the stack.
 - Community health files: `CHANGELOG.md`, `CONTRIBUTING.md`, bug/feature
-  issue templates, and a pull-request template (`SECURITY.md` follows once
-  the maintainer contact address is confirmed).
+  issue templates, a pull-request template, and `SECURITY.md` (private
+  vulnerability reporting to the maintainer address).
 - `npm run screenshots`: portfolio-seeded Playwright captures in
   `docs/screenshots`, embedded in the README tour.
 - i18n infrastructure: English message catalog + `useLocale()` (`t()`,
