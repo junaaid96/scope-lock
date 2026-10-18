@@ -164,6 +164,9 @@ enum OutboxType {
   EMAIL
   REALTIME
   WEBHOOK
+  SLACK
+  SMS
+  WHATSAPP
 }
 
 model User {
@@ -175,6 +178,10 @@ model User {
   totpSecretEnc      String?
   mfaEnabled         Boolean  @default(false)
   mfaRecoveryHashes  String[] @default([])
+  phoneE164          String?
+  notifyEmail        Boolean  @default(true)
+  notifySms          Boolean  @default(true)
+  notifyWhatsapp     Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -203,6 +210,7 @@ model Organization {
   aiEnabled Boolean  @default(true)
   branding  Json?
   settings  Json?
+  slackWebhookUrlSealed String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -55,6 +55,11 @@ export interface User {
   mfaEnabled: boolean;
   /** SHA-256 hashes of single-use recovery codes. */
   mfaRecoveryHashes: string[];
+  /** E.164 phone for SMS/WhatsApp delivery. Null until the user sets one. */
+  phoneE164: string | null;
+  notifyEmail: boolean;
+  notifySms: boolean;
+  notifyWhatsapp: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +77,8 @@ export interface Organization {
   aiEnabled: boolean;
   branding: OrgBranding | null;
   settings: Record<string, unknown>;
+  /** AES-GCM sealed Slack incoming-webhook URL. Null until configured. */
+  slackWebhookUrlSealed: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -718,7 +725,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type OutboxType = "EMAIL" | "REALTIME" | "WEBHOOK";
+export type OutboxType = "EMAIL" | "REALTIME" | "WEBHOOK" | "SLACK" | "SMS" | "WHATSAPP";
 export type OutboxStatus = "PENDING" | "SENT" | "FAILED" | "DEAD";
 
 export interface OutboxEvent {

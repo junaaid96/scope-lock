@@ -536,7 +536,7 @@ export class PrismaStore implements Store {
 
   async updateUser(
     id: string,
-    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes">>,
+    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes" | "phoneE164" | "notifyEmail" | "notifySms" | "notifyWhatsapp">>,
   ): Promise<User> {
     return mapUser(await this.db.user.update({ where: { id }, data: patch }));
   }
@@ -613,6 +613,7 @@ export class PrismaStore implements Store {
           ...(patch.aiEnabled !== undefined ? { aiEnabled: patch.aiEnabled } : {}),
           ...(patch.branding !== undefined ? { branding: patch.branding === null ? Prisma.JsonNull : J(patch.branding) } : {}),
           ...(patch.settings !== undefined ? { settings: J(patch.settings) } : {}),
+          ...(patch.slackWebhookUrlSealed !== undefined ? { slackWebhookUrlSealed: patch.slackWebhookUrlSealed } : {}),
         },
       }),
     );

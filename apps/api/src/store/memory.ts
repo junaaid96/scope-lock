@@ -208,6 +208,10 @@ export class MemoryStore implements Store {
       totpSecretEnc: null,
       mfaEnabled: false,
       mfaRecoveryHashes: [],
+      phoneE164: null,
+      notifyEmail: true,
+      notifySms: true,
+      notifyWhatsapp: true,
       createdAt: now,
       updatedAt: now,
     };
@@ -228,7 +232,7 @@ export class MemoryStore implements Store {
 
   async updateUser(
     id: string,
-    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes">>,
+    patch: Partial<Pick<User, "name" | "passwordHash" | "status" | "totpSecretEnc" | "mfaEnabled" | "mfaRecoveryHashes" | "phoneE164" | "notifyEmail" | "notifySms" | "notifyWhatsapp">>,
   ): Promise<User> {
     const existing = this.tables.users.get(id);
     if (!existing) throw new Error(`User not found: ${id}`);
@@ -308,6 +312,7 @@ export class MemoryStore implements Store {
       aiEnabled: true,
       branding: null,
       settings: {},
+      slackWebhookUrlSealed: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1736,6 +1741,19 @@ export class MemoryStore implements Store {
       if (rec.acceptanceRequirementIds === undefined) rec.acceptanceRequirementIds = [];
       if (rec.deemedAt === undefined) rec.deemedAt = null;
       if (rec.escalatedAt === undefined) rec.escalatedAt = null;
+    }
+    // Pre-channel snapshots: users predate phone/preference columns and orgs
+    // predate the sealed Slack webhook URL.
+    for (const row of next.users.values()) {
+      const rec = row as unknown as Record<string, unknown>;
+      if (rec.phoneE164 === undefined) rec.phoneE164 = null;
+      if (rec.notifyEmail === undefined) rec.notifyEmail = true;
+      if (rec.notifySms === undefined) rec.notifySms = true;
+      if (rec.notifyWhatsapp === undefined) rec.notifyWhatsapp = true;
+    }
+    for (const row of next.organizations.values()) {
+      const rec = row as unknown as Record<string, unknown>;
+      if (rec.slackWebhookUrlSealed === undefined) rec.slackWebhookUrlSealed = null;
     }
     this.tables = next;
   }
