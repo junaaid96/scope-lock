@@ -15,6 +15,7 @@ import {
   DomainError,
   assertManualChangeTransition,
   assertTransition,
+  computeImpactPrice,
 } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
@@ -26,7 +27,7 @@ import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import { getContext } from "../context.js";
 import { notify, notifyProjectMembers } from "../lib/notify.js";
-import type { ChangeRequest, Store } from "../store/index.js";
+import type { ChangeRequest, ImpactPricing, Store } from "../store/index.js";
 import { nowIso } from "../store/index.js";
 
 const SENDABLE_FROM = ["ESTIMATING"] as const;
@@ -414,11 +415,75 @@ export function changeRoutes(ctx: AppContext): Router {
       if (input.currency && input.currency !== access.project.currency) {
         throw DomainError.unprocessable(`Impact currency must match the project currency (${access.project.currency})`);
       }
+      // Computed pricing: effort x rate-card rates, snapshot frozen on the impact.
+      let priceMinor = input.priceMinor ?? null;
+      let rateCardId: string | null = null;
+      let templateId: string | null = null;
+      let pricing: ImpactPricing | null = null;
+      let overrideReason: string | null = null;
+      if (input.pricing) {
+        if (input.priceMinor !== undefined && input.priceMinor !== null && !input.override) {
+          throw DomainError.unprocessable("Pass either a manual priceMinor or computed pricing, not both (use override to replace a computed price)");
+        }
+        requireAction({ orgRole: access.membership.role, projectRole: null }, "ratecard.view");
+        const card = await ctx.store.findRateCardById(input.pricing.rateCardId);
+        if (!card || card.organizationId !== access.org.id) throw DomainError.notFound("Rate card not found");
+        if (card.currency !== access.project.currency) {
+          throw DomainError.unprocessable(`Rate card currency (${card.currency}) must match the project currency (${access.project.currency})`);
+        }
+        const template = input.pricing.templateId
+          ? await ctx.store.findEstimateTemplateById(input.pricing.templateId)
+          : null;
+        if (input.pricing.templateId && (!template || template.organizationId !== access.org.id)) {
+          throw DomainError.notFound("Estimate template not found");
+        }
+        const lines = input.pricing.lineItems ?? template?.items ?? null;
+        if (!lines || lines.length === 0) {
+          throw DomainError.unprocessable("Provide lineItems, or a template to take them from");
+        }
+        const breakdown = computeImpactPrice({
+          lines,
+          rates: card.rates,
+          currency: access.project.currency,
+          contingencyPct: template?.contingencyPct ?? 0,
+          taxPct: template?.taxPct ?? null,
+        });
+        rateCardId = card.id;
+        templateId = template?.id ?? null;
+        const snapshot = {
+          rateCardId: card.id,
+          rateCardName: card.name,
+          templateId: template?.id ?? null,
+          templateName: template?.name ?? null,
+          currency: breakdown.currency,
+          lines: breakdown.lines,
+          subtotalMinor: breakdown.subtotalMinor,
+          contingencyPct: breakdown.contingencyPct,
+          contingencyMinor: breakdown.contingencyMinor,
+          taxPct: breakdown.taxPct,
+          taxMinor: breakdown.taxMinor,
+          computedMinor: breakdown.totalMinor,
+        };
+        if (input.override) {
+          priceMinor = input.override.priceMinor;
+          overrideReason = input.override.reason;
+          pricing = { mode: "OVERRIDE" as const, ...snapshot };
+        } else {
+          priceMinor = breakdown.totalMinor;
+          pricing = { mode: "COMPUTED" as const, ...snapshot };
+        }
+      } else if (input.override) {
+        throw DomainError.unprocessable("An override needs computed pricing to override (pass pricing alongside override)");
+      }
       const result = await ctx.store.transaction(async (tx) => {
         const impact = await tx.createImpact({
           changeRequestId: change.id,
           effortDays: input.effortDays ?? null,
-          priceMinor: input.priceMinor ?? null,
+          priceMinor,
+          rateCardId,
+          templateId,
+          pricing,
+          overrideReason,
           currency: input.currency ?? access.project.currency,
           timelineDays: input.timelineDays ?? null,
           milestoneEffect: input.milestoneEffect ?? null,
@@ -448,7 +513,14 @@ export function changeRoutes(ctx: AppContext): Router {
         action: "change.impact_recorded",
         targetType: "CHANGE",
         targetId: change.id,
-        after: { priceMinor: input.priceMinor ?? null, effortDays: input.effortDays ?? null, confidence: input.confidence },
+        after: {
+          priceMinor,
+          effortDays: input.effortDays ?? null,
+          confidence: input.confidence,
+          pricingMode: pricing?.mode ?? "MANUAL",
+          rateCardId,
+          overrideReason,
+        },
       });
       res.status(201).json(result);
     }),
