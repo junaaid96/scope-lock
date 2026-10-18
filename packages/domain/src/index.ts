@@ -12,3 +12,4 @@ export * from "./health.js";
 export * from "./ledger.js";
 export * from "./pricing.js";
 export * from "./allowance.js";
+export * from "./invoice.js";
