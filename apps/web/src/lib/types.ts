@@ -103,6 +103,9 @@ export interface Impact {
   templateId: string | null;
   pricing: ImpactPricing | null;
   overrideReason: string | null;
+  actualEffortDays: number | null;
+  actualPriceMinor: number | null;
+  actualNotes: string | null;
 }
 
 export interface ImpactPricingLine {

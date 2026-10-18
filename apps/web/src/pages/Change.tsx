@@ -9,6 +9,7 @@ import { ProjectSubnav } from "../components/layout.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, cn, formatDate, statusTone } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
 import { OptionsCard } from "../components/options.js";
+import { ActualsCard, PriceSuggestions } from "../components/actuals.js";
 
 const MANUAL_STATUSES = ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION", "ESTIMATING", "PARKED", "WITHDRAWN"];
 
@@ -121,6 +122,15 @@ export function ChangePage(): JSX.Element {
             {c.impact?.notes ? <p className="mt-2 text-sm text-slate-700">{c.impact.notes}</p> : null}
             {c.impact?.pricing ? <PricingBreakdown impact={c.impact} /> : null}
           </Card>
+
+          {c.status === "ESTIMATING" || c.status === "PENDING_APPROVAL" ? <PriceSuggestions changeId={c.id} /> : null}
+          <ActualsCard
+            changeId={c.id}
+            impact={c.impact}
+            status={c.status}
+            currency={c.impact?.currency ?? "USD"}
+            onDone={refresh}
+          />
 
           <OptionsCard
             changeId={c.id}

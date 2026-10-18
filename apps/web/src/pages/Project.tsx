@@ -7,6 +7,7 @@ import type { ChangeListItem, ProjectDetail } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
 import { ChangeBoard } from "../components/change-board.js";
 import { ContractTab } from "../components/contract.js";
+import { EstimateVsActual } from "../components/actuals.js";
 import { AllowanceTab } from "../components/allowance.js";
 import { IntakeTab } from "../components/intake.js";
 import { PolicyTab } from "../components/policy.js";
@@ -28,7 +29,7 @@ export function ProjectPage(): JSX.Element {
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [parkedOnly, setParkedOnly] = useState(false);
-  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "policy" | "integrations" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "actuals" | "intake" | "policy" | "integrations" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -65,6 +66,7 @@ export function ProjectPage(): JSX.Element {
           { id: "board" as const, label: "Board" },
           { id: "contract" as const, label: "Contract" },
           { id: "allowance" as const, label: "Allowance" },
+          { id: "actuals" as const, label: "Actuals" },
           ...(canManage ? [{ id: "intake" as const, label: "Intake" }] : []),
           ...(canManage ? [{ id: "policy" as const, label: "Policy" }] : []),
           { id: "integrations" as const, label: "Integrations" },
@@ -112,6 +114,7 @@ export function ProjectPage(): JSX.Element {
       {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}
       {tab === "contract" ? <ContractTab projectId={p.id} /> : null}
       {tab === "allowance" ? <AllowanceTab projectId={p.id} currency={p.currency} myRole={p.myRole} canManage={canManage} /> : null}
+      {tab === "actuals" ? <EstimateVsActual projectId={p.id} /> : null}
       {tab === "intake" && canManage ? <IntakeTab projectId={p.id} /> : null}
       {tab === "policy" && canManage ? <PolicyTab project={p} /> : null}
       {tab === "integrations" ? <IntegrationsTab project={p} canManage={canManage} /> : null}
