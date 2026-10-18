@@ -17,8 +17,10 @@ import type {
   Client,
   DecisionNote,
   DeliveryEvidence,
+  EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
+  ImpactPricing,
   Invitation,
   ListQuery,
   Membership,
@@ -30,6 +32,7 @@ import type {
   PasswordReset,
   Project,
   ProjectMember,
+  RateCard,
   Requirement,
   RequirementRevision,
   ScopeDocument,
@@ -165,6 +168,30 @@ function mapImpact(r: Prisma.ChangeImpactGetPayload<Prisma.ChangeImpactDefaultAr
     ...r,
     risks: json(r.risks, []),
     exclusions: json(r.exclusions, []),
+    pricing: json<ImpactPricing | null>(r.pricing, null),
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapRateCard(
+  r: Prisma.RateCardGetPayload<{ include: { rates: true } }>,
+): RateCard {
+  return {
+    id: r.id,
+    organizationId: r.organizationId,
+    name: r.name,
+    currency: r.currency,
+    isDefault: r.isDefault,
+    rates: r.rates.map((e) => ({ id: e.id, rateCardId: e.rateCardId, role: e.role, hourlyRateMinor: e.hourlyRateMinor })),
+    createdBy: r.createdBy,
+    createdAt: iso(r.createdAt),
+    updatedAt: iso(r.updatedAt),
+  };
+}
+function mapEstimateTemplate(r: Prisma.EstimateTemplateGetPayload<Prisma.EstimateTemplateDefaultArgs>): EstimateTemplate {
+  return {
+    ...r,
+    items: json(r.items, []),
     createdAt: iso(r.createdAt),
     updatedAt: iso(r.updatedAt),
   };
@@ -855,6 +882,10 @@ export class PrismaStore implements Store {
           exclusions: J(data.exclusions),
           notes: data.notes,
           confidence: data.confidence,
+          rateCardId: data.rateCardId,
+          templateId: data.templateId,
+          pricing: data.pricing === null ? Prisma.JsonNull : J(data.pricing),
+          overrideReason: data.overrideReason,
           createdBy: data.createdBy,
         },
       }),
@@ -907,6 +938,118 @@ export class PrismaStore implements Store {
     return mapClarification(
       await this.db.clarification.update({ where: { id }, data: { answer, answeredBy, answeredAt: asDate(answeredAt) } }),
     );
+  }
+
+  // ----- Rate cards / estimate templates -----
+  async createRateCard(data: {
+    organizationId: string;
+    name: string;
+    currency: string;
+    isDefault: boolean;
+    createdBy: string;
+    rates: Array<{ role: string; hourlyRateMinor: number }>;
+  }): Promise<RateCard> {
+    return mapRateCard(
+      await this.db.rateCard.create({
+        data: {
+          id: newId("rc"),
+          organizationId: data.organizationId,
+          name: data.name,
+          currency: data.currency,
+          isDefault: data.isDefault,
+          createdBy: data.createdBy,
+          rates: { create: data.rates.map((r) => ({ id: newId("rce"), role: r.role, hourlyRateMinor: r.hourlyRateMinor })) },
+        },
+        include: { rates: true },
+      }),
+    );
+  }
+
+  async findRateCardById(id: string): Promise<RateCard | null> {
+    const row = await this.db.rateCard.findUnique({ where: { id }, include: { rates: true } });
+    return row ? mapRateCard(row) : null;
+  }
+
+  async listRateCards(organizationId: string): Promise<RateCard[]> {
+    const rows = await this.db.rateCard.findMany({ where: { organizationId }, include: { rates: true } });
+    return rows.map(mapRateCard);
+  }
+
+  async updateRateCard(
+    id: string,
+    patch: Partial<Pick<RateCard, "name" | "currency" | "isDefault">> & { rates?: Array<{ role: string; hourlyRateMinor: number }> },
+  ): Promise<RateCard> {
+    if (patch.rates !== undefined) {
+      await this.db.rateCardEntry.deleteMany({ where: { rateCardId: id } });
+    }
+    return mapRateCard(
+      await this.db.rateCard.update({
+        where: { id },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
+          ...(patch.isDefault !== undefined ? { isDefault: patch.isDefault } : {}),
+          ...(patch.rates !== undefined
+            ? { rates: { create: patch.rates.map((r) => ({ id: newId("rce"), role: r.role, hourlyRateMinor: r.hourlyRateMinor })) } }
+            : {}),
+        },
+        include: { rates: true },
+      }),
+    );
+  }
+
+  async deleteRateCard(id: string): Promise<void> {
+    await this.db.rateCard.delete({ where: { id } });
+  }
+
+  async createEstimateTemplate(data: {
+    organizationId: string;
+    name: string;
+    items: EstimateTemplate["items"];
+    contingencyPct: number;
+    taxPct: number | null;
+    createdBy: string;
+  }): Promise<EstimateTemplate> {
+    return mapEstimateTemplate(
+      await this.db.estimateTemplate.create({
+        data: { id: newId("et"), organizationId: data.organizationId, name: data.name, items: J(data.items), contingencyPct: data.contingencyPct, taxPct: data.taxPct, createdBy: data.createdBy },
+      }),
+    );
+  }
+
+  async findEstimateTemplateById(id: string): Promise<EstimateTemplate | null> {
+    const row = await this.db.estimateTemplate.findUnique({ where: { id } });
+    return row ? mapEstimateTemplate(row) : null;
+  }
+
+  async listEstimateTemplates(organizationId: string): Promise<EstimateTemplate[]> {
+    const rows = await this.db.estimateTemplate.findMany({ where: { organizationId } });
+    return rows.map(mapEstimateTemplate);
+  }
+
+  async updateEstimateTemplate(
+    id: string,
+    patch: Partial<Pick<EstimateTemplate, "name" | "items" | "contingencyPct" | "taxPct">>,
+  ): Promise<EstimateTemplate> {
+    return mapEstimateTemplate(
+      await this.db.estimateTemplate.update({
+        where: { id },
+        data: {
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.items !== undefined ? { items: J(patch.items) } : {}),
+          ...(patch.contingencyPct !== undefined ? { contingencyPct: patch.contingencyPct } : {}),
+          ...(patch.taxPct !== undefined ? { taxPct: patch.taxPct } : {}),
+        },
+      }),
+    );
+  }
+
+  async deleteEstimateTemplate(id: string): Promise<void> {
+    await this.db.estimateTemplate.delete({ where: { id } });
+  }
+
+  async countImpactsByRateCard(rateCardId: string): Promise<number> {
+    return this.db.changeImpact.count({ where: { rateCardId } });
   }
 
   // ----- Bundles -----

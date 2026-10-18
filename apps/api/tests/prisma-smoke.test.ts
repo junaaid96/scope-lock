@@ -66,6 +66,72 @@ describe("prisma postgres smoke", () => {
       const updated = await store.updateUser(user.id, { mfaEnabled: true, mfaRecoveryHashes: ["abc"] });
       expect(updated.mfaEnabled).toBe(true);
       expect(updated.mfaRecoveryHashes).toEqual(["abc"]);
+      // Rate cards, templates, and priced impacts from migration 0004.
+      const card = await store.createRateCard({
+        organizationId: org.id,
+        name: "Smoke Card",
+        currency: "USD",
+        isDefault: true,
+        createdBy: user.id,
+        rates: [{ role: "Senior Engineer", hourlyRateMinor: 8000 }],
+      });
+      expect((await store.findRateCardById(card.id))?.rates).toHaveLength(1);
+      expect(await store.listRateCards(org.id)).toHaveLength(1);
+      const renamed = await store.updateRateCard(card.id, { name: "Smoke Card v2" });
+      expect(renamed.name).toBe("Smoke Card v2");
+      const template = await store.createEstimateTemplate({
+        organizationId: org.id,
+        name: "Smoke Template",
+        items: [{ label: "Build", role: "Senior Engineer", hours: 10 }],
+        contingencyPct: 10,
+        taxPct: 5,
+        createdBy: user.id,
+      });
+      expect((await store.listEstimateTemplates(org.id)).map((tpl) => tpl.name)).toEqual(["Smoke Template"]);
+      const impact = await store.createImpact({
+        changeRequestId: change.id,
+        effortDays: 2,
+        priceMinor: 115500,
+        currency: "USD",
+        timelineDays: null,
+        milestoneEffect: null,
+        risks: [],
+        exclusions: [],
+        notes: null,
+        confidence: "HIGH",
+        rateCardId: card.id,
+        templateId: template.id,
+        pricing: {
+          mode: "COMPUTED",
+          rateCardId: card.id,
+          rateCardName: card.name,
+          templateId: template.id,
+          templateName: template.name,
+          currency: "USD",
+          lines: [{ label: "Build", role: "Senior Engineer", hours: 10, hourlyRateMinor: 8000, lineMinor: 80000 }],
+          subtotalMinor: 80000,
+          contingencyPct: 10,
+          contingencyMinor: 8000,
+          taxPct: 5,
+          taxMinor: 4400,
+          computedMinor: 92400,
+        },
+        overrideReason: null,
+        createdBy: user.id,
+      });
+      expect(impact.pricing?.computedMinor).toBe(92400);
+      expect((await store.findLatestImpact(change.id))?.overrideReason).toBeNull();
+      expect(await store.countImpactsByRateCard(card.id)).toBe(1);
+      await store.deleteEstimateTemplate(template.id);
+      expect(await store.listEstimateTemplates(org.id)).toHaveLength(0);
+      // Roll back: a failed transaction leaves no card behind.
+      await expect(
+        store.transaction(async (tx) => {
+          await tx.createRateCard({ organizationId: org.id, name: "Doomed", currency: "USD", isDefault: false, createdBy: user.id, rates: [] });
+          throw new Error("boom");
+        }),
+      ).rejects.toThrow("boom");
+      expect((await store.listRateCards(org.id)).map((c) => c.name)).toEqual(["Smoke Card v2"]);
     } finally {
       await store.disconnect();
     }

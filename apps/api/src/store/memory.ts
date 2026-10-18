@@ -16,6 +16,7 @@ import type {
   Client,
   DecisionNote,
   DeliveryEvidence,
+  EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
   Invitation,
@@ -29,6 +30,8 @@ import type {
   PasswordReset,
   Project,
   ProjectMember,
+  RateCard,
+  RateCardEntry,
   Requirement,
   RequirementRevision,
   ScopeDocument,
@@ -57,6 +60,8 @@ type Tables = {
   impacts: Map<string, ChangeImpact>;
   changeLinks: Map<string, ChangeLink>;
   clarifications: Map<string, Clarification>;
+  rateCards: Map<string, RateCard>;
+  estimateTemplates: Map<string, EstimateTemplate>;
   bundles: Map<string, Bundle>;
   approvals: Map<string, ApprovalRequest>;
   approvalTokens: Map<string, ApprovalToken>;
@@ -93,6 +98,8 @@ function emptyTables(): Tables {
     impacts: new Map(),
     changeLinks: new Map(),
     clarifications: new Map(),
+    rateCards: new Map(),
+    estimateTemplates: new Map(),
     bundles: new Map(),
     approvals: new Map(),
     approvalTokens: new Map(),
@@ -716,6 +723,114 @@ export class MemoryStore implements Store {
     this.tables.clarifications.set(id, updated);
     this.afterCommit();
     return updated;
+  }
+
+  // ----- Rate cards / estimate templates -----
+  async createRateCard(data: {
+    organizationId: string;
+    name: string;
+    currency: string;
+    isDefault: boolean;
+    createdBy: string;
+    rates: Array<{ role: string; hourlyRateMinor: number }>;
+  }): Promise<RateCard> {
+    const now = nowIso();
+    const id = newId("rc");
+    const row: RateCard = {
+      id,
+      organizationId: data.organizationId,
+      name: data.name,
+      currency: data.currency,
+      isDefault: data.isDefault,
+      rates: data.rates.map(
+        (r): RateCardEntry => ({ id: newId("rce"), rateCardId: id, role: r.role, hourlyRateMinor: r.hourlyRateMinor }),
+      ),
+      createdBy: data.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.tables.rateCards.set(id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findRateCardById(id: string): Promise<RateCard | null> {
+    return this.tables.rateCards.get(id) ?? null;
+  }
+
+  async listRateCards(organizationId: string): Promise<RateCard[]> {
+    return [...this.tables.rateCards.values()].filter((c) => c.organizationId === organizationId);
+  }
+
+  async updateRateCard(
+    id: string,
+    patch: Partial<Pick<RateCard, "name" | "currency" | "isDefault">> & { rates?: Array<{ role: string; hourlyRateMinor: number }> },
+  ): Promise<RateCard> {
+    const existing = this.tables.rateCards.get(id);
+    if (!existing) throw new Error(`Rate card not found: ${id}`);
+    const updated: RateCard = {
+      ...existing,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
+      ...(patch.isDefault !== undefined ? { isDefault: patch.isDefault } : {}),
+      ...(patch.rates !== undefined
+        ? { rates: patch.rates.map((r): RateCardEntry => ({ id: newId("rce"), rateCardId: id, role: r.role, hourlyRateMinor: r.hourlyRateMinor })) }
+        : {}),
+      id,
+      updatedAt: nowIso(),
+    };
+    this.tables.rateCards.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteRateCard(id: string): Promise<void> {
+    this.tables.rateCards.delete(id);
+    this.afterCommit();
+  }
+
+  async createEstimateTemplate(data: {
+    organizationId: string;
+    name: string;
+    items: EstimateTemplate["items"];
+    contingencyPct: number;
+    taxPct: number | null;
+    createdBy: string;
+  }): Promise<EstimateTemplate> {
+    const now = nowIso();
+    const row: EstimateTemplate = { id: newId("et"), createdAt: now, updatedAt: now, ...data };
+    this.tables.estimateTemplates.set(row.id, row);
+    this.afterCommit();
+    return row;
+  }
+
+  async findEstimateTemplateById(id: string): Promise<EstimateTemplate | null> {
+    return this.tables.estimateTemplates.get(id) ?? null;
+  }
+
+  async listEstimateTemplates(organizationId: string): Promise<EstimateTemplate[]> {
+    return [...this.tables.estimateTemplates.values()].filter((tpl) => tpl.organizationId === organizationId);
+  }
+
+  async updateEstimateTemplate(
+    id: string,
+    patch: Partial<Pick<EstimateTemplate, "name" | "items" | "contingencyPct" | "taxPct">>,
+  ): Promise<EstimateTemplate> {
+    const existing = this.tables.estimateTemplates.get(id);
+    if (!existing) throw new Error(`Estimate template not found: ${id}`);
+    const updated = { ...existing, ...patch, id, updatedAt: nowIso() };
+    this.tables.estimateTemplates.set(id, updated);
+    this.afterCommit();
+    return updated;
+  }
+
+  async deleteEstimateTemplate(id: string): Promise<void> {
+    this.tables.estimateTemplates.delete(id);
+    this.afterCommit();
+  }
+
+  async countImpactsByRateCard(rateCardId: string): Promise<number> {
+    return [...this.tables.impacts.values()].filter((i) => i.rateCardId === rateCardId).length;
   }
 
   // ----- Bundles -----

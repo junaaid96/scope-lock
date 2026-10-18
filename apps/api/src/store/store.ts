@@ -14,6 +14,7 @@ import type {
   Client,
   DecisionNote,
   DeliveryEvidence,
+  EstimateTemplate,
   ExternalLink,
   IdempotencyRecord,
   Invitation,
@@ -27,6 +28,7 @@ import type {
   PasswordReset,
   Project,
   ProjectMember,
+  RateCard,
   Requirement,
   RequirementRevision,
   ScopeDocument,
@@ -128,6 +130,37 @@ export interface Store {
   createClarification(data: Omit<Clarification, "id" | "createdAt" | "answeredAt" | "answeredBy" | "answer">): Promise<Clarification>;
   listClarifications(changeRequestId: string): Promise<Clarification[]>;
   answerClarification(id: string, answer: string, answeredBy: string, answeredAt: string): Promise<Clarification>;
+
+  // ----- Rate cards / estimate templates -----
+  createRateCard(data: {
+    organizationId: string;
+    name: string;
+    currency: string;
+    isDefault: boolean;
+    createdBy: string;
+    rates: Array<{ role: string; hourlyRateMinor: number }>;
+  }): Promise<RateCard>;
+  findRateCardById(id: string): Promise<RateCard | null>;
+  listRateCards(organizationId: string): Promise<RateCard[]>;
+  updateRateCard(
+    id: string,
+    patch: Partial<Pick<RateCard, "name" | "currency" | "isDefault">> & { rates?: Array<{ role: string; hourlyRateMinor: number }> },
+  ): Promise<RateCard>;
+  deleteRateCard(id: string): Promise<void>;
+  createEstimateTemplate(data: {
+    organizationId: string;
+    name: string;
+    items: EstimateTemplate["items"];
+    contingencyPct: number;
+    taxPct: number | null;
+    createdBy: string;
+  }): Promise<EstimateTemplate>;
+  findEstimateTemplateById(id: string): Promise<EstimateTemplate | null>;
+  listEstimateTemplates(organizationId: string): Promise<EstimateTemplate[]>;
+  updateEstimateTemplate(id: string, patch: Partial<Pick<EstimateTemplate, "name" | "items" | "contingencyPct" | "taxPct">>): Promise<EstimateTemplate>;
+  deleteEstimateTemplate(id: string): Promise<void>;
+  /** Impacts referencing a card (delete/rate-change guards). */
+  countImpactsByRateCard(rateCardId: string): Promise<number>;
 
   // ----- Bundles -----
   createBundle(data: Pick<Bundle, "projectId" | "name" | "adjustmentMinor" | "adjustmentNote" | "createdBy">): Promise<Bundle>;
