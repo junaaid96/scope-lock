@@ -32,6 +32,16 @@ import { nowIso } from "../store/index.js";
 
 const SENDABLE_FROM = ["ESTIMATING"] as const;
 
+/** Suggested IDs must cite real project requirements (rejects invented IDs). */
+export async function validatedSuggestionIds(store: Store, projectId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const requirements = await store.listRequirements(projectId);
+  const valid = new Set(requirements.map((r) => r.id));
+  const unknown = [...new Set(ids)].filter((id) => !valid.has(id));
+  if (unknown.length > 0) throw DomainError.unprocessable(`Unknown requirement suggestions: ${unknown.join(", ")}`);
+  return [...new Set(ids)];
+}
+
 /** Unsatisfied DEPENDS_ON prerequisites (empty = clear). Re-checked at decision time. */
 export async function getDependencyBlockers(store: Store, change: ChangeRequest): Promise<string[]> {
   const blockers: string[] = [];
@@ -184,6 +194,7 @@ export function changeRoutes(ctx: AppContext): Router {
       if (input.source === "INTAKE_FORM") {
         throw DomainError.unprocessable("INTAKE_FORM is reserved for public intake submissions");
       }
+      const suggestedIds = await validatedSuggestionIds(ctx.store, access.project.id, input.suggestedRequirementIds);
       const change = await ctx.store.createChange({
         projectId: access.project.id,
         title: input.title,
@@ -196,6 +207,7 @@ export function changeRoutes(ctx: AppContext): Router {
         submitterName: null,
         submitterEmail: null,
         unverifiedSubmitter: false,
+        scopeCheckSuggestedIds: suggestedIds,
         bundleId: null,
         amendmentVersionId: null,
         drawAllowancePoolId: null,
@@ -367,6 +379,21 @@ export function changeRoutes(ctx: AppContext): Router {
         before,
         after: { status: updated.status, title: updated.title, classification: updated.classification },
       });
+      // Suggestion-vs-final metric: the triager's classification closes the
+      // loop on whatever the pre-submission scope check suggested.
+      if (input.classification !== undefined && change.scopeCheckSuggestedIds.length > 0) {
+        await ctx.store.recordMetric({
+          organizationId: access.org.id,
+          projectId: access.project.id,
+          name: "scope_check.outcome",
+          properties: {
+            changeId: change.id,
+            suggestedIds: change.scopeCheckSuggestedIds,
+            classification: input.classification,
+          },
+          actorId: auth.user.id,
+        });
+      }
       res.json(updated);
     }),
   );

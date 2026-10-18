@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { CreateIntakeLinkSchema, IntakeSubmitSchema } from "@scopelock/contracts";
-import { DomainError, newToken, sha256Hex } from "@scopelock/domain";
+import { CreateIntakeLinkSchema, IntakeSubmitSchema, ScopeCheckSchema } from "@scopelock/contracts";
+import { DomainError, detectDrift, newToken, sha256Hex } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
 import { asyncHandler } from "../http/errors.js";
 import { authenticate, requireAuth } from "../http/auth.js";
@@ -12,6 +12,8 @@ import type { ApiRequest } from "../http/types.js";
 import { audit } from "../lib/audit.js";
 import { notifyProjectMembers } from "../lib/notify.js";
 import { getContext } from "../context.js";
+import { validatedSuggestionIds } from "./changes.js";
+import { buildDriftCandidates } from "./scope.js";
 import { nowIso, type IntakeLink, type Store } from "../store/index.js";
 
 /** Resolve a live intake link or throw a public-safe error. */
@@ -133,6 +135,28 @@ export function intakeRoutes(ctx: AppContext): Router {
     }),
   );
 
+  // Public pre-submission check: deterministic lexical matching only.
+  // Anonymous callers cannot be quota-attributed, so no AI refinement runs
+  // here; the in-app check adds AI for authenticated users. Advisory only.
+  router.post(
+    "/intake/:token/scope-check",
+    rateLimit(ctx.env, "token"),
+    validateParams(z.object({ token: z.string().min(1) })),
+    validateBody(ScopeCheckSchema),
+    asyncHandler(async (req, res) => {
+      const input = req.body as z.infer<typeof ScopeCheckSchema>;
+      const { link } = await loadIntakeLink(ctx.store, req.params.token as string);
+      const project = await ctx.store.findProjectById(link.projectId);
+      if (!project) throw DomainError.notFound("Intake form not found");
+      const { version, candidates } = await buildDriftCandidates(ctx.store, project.id);
+      const deterministic = detectDrift(`${input.title}\n\n${input.description}`, candidates);
+      res.json({
+        deterministic,
+        baseline: version ? { sequence: version.sequence } : null,
+      });
+    }),
+  );
+
   router.post(
     "/intake/:token/submit",
     rateLimit(ctx.env, "token"),
@@ -159,6 +183,7 @@ export function intakeRoutes(ctx: AppContext): Router {
       }
 
       const email = input.submitterEmail && input.submitterEmail.length > 0 ? input.submitterEmail : null;
+      const suggestedIds = await validatedSuggestionIds(ctx.store, project.id, input.suggestedRequirementIds);
       const change = await ctx.store.transaction(async (tx) => {
         const created = await tx.createChange({
           projectId: project.id,
@@ -172,6 +197,7 @@ export function intakeRoutes(ctx: AppContext): Router {
           submitterName: input.submitterName ?? null,
           submitterEmail: email,
           unverifiedSubmitter: true,
+          scopeCheckSuggestedIds: suggestedIds,
           bundleId: null,
           amendmentVersionId: null,
           drawAllowancePoolId: null,

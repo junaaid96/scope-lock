@@ -6,6 +6,7 @@ import {
   ListQuerySchema,
   ProposalDraftSchema,
   ReviewAiAnalysisSchema,
+  ScopeCheckSchema,
 } from "@scopelock/contracts";
 import { DomainError } from "@scopelock/domain";
 import type { AppContext } from "../app-context.js";
@@ -25,7 +26,7 @@ import {
   generateClarifications,
   summarizeMemory,
 } from "./ai/service.js";
-import { getGoverningVersion } from "./scope.js";
+import { buildDriftCandidates } from "./scope.js";
 
 async function aiContext(ctx: AppContext, auth: { user: { id: string } }, projectId: string): Promise<AiContext & { projectId: string }> {
   const access = await requireProjectAccess(ctx.store, auth.user.id, projectId);
@@ -76,17 +77,7 @@ export function aiRoutes(ctx: AppContext): Router {
       if (!change) throw DomainError.notFound("Change request not found");
       const actx = await aiContext(ctx, auth, change.projectId);
       // Only authorized project records enter the prompt: governing revisions + the request text.
-      const governing = await getGoverningVersion(ctx.store, change.projectId);
-      const revisions = governing ? await ctx.store.listRevisionsByVersion(governing.id) : [];
-      const requirements = await ctx.store.listRequirements(change.projectId);
-      const keyById = new Map(requirements.map((r) => [r.id, r.stableKey]));
-      const candidates = revisions.map((r) => ({
-        requirementId: r.requirementId,
-        stableKey: keyById.get(r.requirementId) ?? "?",
-        title: r.title,
-        description: r.description,
-        acceptanceCriteria: r.acceptanceCriteria,
-      }));
+      const { candidates } = await buildDriftCandidates(ctx.store, change.projectId);
       const { analysis, deterministic } = await analyzeScopeDrift(
         actx,
         change.id,
@@ -94,6 +85,33 @@ export function aiRoutes(ctx: AppContext): Router {
         candidates,
       );
       res.json({ analysis, deterministic });
+    }),
+  );
+
+  // Pre-submission scope check: advisory only, never blocks creation.
+  router.post(
+    "/projects/:id/ai/scope-check",
+    requireAuth,
+    rateLimit(ctx.env, "ai"),
+    validateParams(z.object({ id: z.string().min(1) })),
+    validateBody(ScopeCheckSchema),
+    asyncHandler(async (req, res) => {
+      const auth = (req as ApiRequest).auth;
+      if (!auth) throw DomainError.unauthorized("Authentication required");
+      const input = req.body as z.infer<typeof ScopeCheckSchema>;
+      const actx = await aiContext(ctx, auth, req.params.id as string);
+      const { version, candidates } = await buildDriftCandidates(ctx.store, actx.projectId);
+      const { analysis, deterministic } = await analyzeScopeDrift(
+        actx,
+        null,
+        `${input.title}\n\n${input.description}`,
+        candidates,
+      );
+      res.json({
+        analysis,
+        deterministic,
+        baseline: version ? { id: version.id, sequence: version.sequence } : null,
+      });
     }),
   );
 

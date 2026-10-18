@@ -32,6 +32,40 @@ export async function getGoverningVersion(store: Store, projectId: string): Prom
   return published.sort((a, b) => b.sequence - a.sequence)[0] ?? null;
 }
 
+export interface DriftCandidateRow {
+  requirementId: string;
+  stableKey: string;
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+}
+
+/**
+ * Lexical-match candidates from the governing baseline (published only).
+ * Shared by the in-app scope check, the public intake check, and the
+ * post-submission drift analysis so all three read the same baseline.
+ */
+export async function buildDriftCandidates(
+  store: Store,
+  projectId: string,
+): Promise<{ version: ScopeVersion | null; candidates: DriftCandidateRow[] }> {
+  const governing = await getGoverningVersion(store, projectId);
+  if (!governing) return { version: null, candidates: [] };
+  const revisions = await store.listRevisionsByVersion(governing.id);
+  const requirements = await store.listRequirements(projectId);
+  const keyById = new Map(requirements.map((r) => [r.id, r.stableKey]));
+  return {
+    version: governing,
+    candidates: revisions.map((r) => ({
+      requirementId: r.requirementId,
+      stableKey: keyById.get(r.requirementId) ?? "?",
+      title: r.title,
+      description: r.description,
+      acceptanceCriteria: r.acceptanceCriteria,
+    })),
+  };
+}
+
 function assertDraft(version: ScopeVersion): void {
   if (version.status !== "DRAFT") {
     throw DomainError.conflict(`Scope version ${version.sequence} is ${version.status} and immutable. Create a new draft to change it.`);

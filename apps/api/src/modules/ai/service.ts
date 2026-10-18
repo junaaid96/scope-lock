@@ -99,10 +99,10 @@ export interface DriftResult {
   deterministic: ReturnType<typeof detectDrift>;
 }
 
-/** Scope-drift analysis: deterministic links always; AI refines when available. */
+/** Scope-drift analysis: deterministic links always; AI refines when available. Null changeId = pre-submission check. */
 export async function analyzeScopeDrift(
   ctx: AiContext,
-  changeId: string,
+  changeId: string | null,
   requestText: string,
   candidates: Array<{ requirementId: string; stableKey: string; title: string; description: string; acceptanceCriteria: string[] }>,
 ): Promise<DriftResult> {
