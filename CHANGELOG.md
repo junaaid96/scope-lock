@@ -151,6 +151,14 @@ All notable changes to ScopeLock are documented here. Format follows
   dependency-free parser, previews via dry run with per-row errors, and
   imports atomically (all rows or none; failures ride the error envelope).
   Settings UI, scope-page dialogs, and migration 0022.
+- Google/GitHub OAuth + passkeys: authorization-code + PKCE login via
+  `openid-client` (pinned) with hardened linking — links only for
+  provider-verified emails matching the signed-in user, login only through
+  a prior link, unknown identities never mint sessions, and TOTP still
+  gates MFA-enabled OAuth logins. Passkeys via SimpleWebAuthn (pinned)
+  with sealed challenge cookies and UV-gated MFA bypass; last-method
+  deletion/unlink is refused. Login page, security settings, virtual
+  authenticator e2e, migration 0023.
 
 ## [0.1.0] - 2026-10-16
 

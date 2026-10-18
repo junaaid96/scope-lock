@@ -223,12 +223,12 @@ export function LoginPage(): JSX.Element {
                 )}
                 <div className="mt-3 flex gap-2">
                   <div className="flex-1">
-                    <label htmlFor="pk-email" className="sr-only">Email for passkey login (optional)</label>
+                    <label htmlFor="pk-email" className="sr-only">Account address for passkey sign-in (optional)</label>
                     <Input
                       id="pk-email"
                       type="email"
                       autoComplete="email webauthn"
-                      placeholder="Email (optional)"
+                      placeholder="Account (optional)"
                       value={pkEmail}
                       onChange={(e) => setPkEmail(e.target.value)}
                     />

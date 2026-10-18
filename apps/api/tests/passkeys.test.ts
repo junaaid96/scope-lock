@@ -12,7 +12,7 @@ describe("passkeys", () => {
     expect(start.status).toBe(200);
     expect(start.body.challenge).toBeTruthy();
     expect(start.body.rp).toMatchObject({ name: "ScopeLock", id: "localhost" });
-    expect(start.headers["set-cookie"]?.join(";")).toContain("webauthn_challenge");
+    expect(String(start.headers["set-cookie"] ?? "")).toContain("webauthn_challenge");
 
     // Bogus credential with a live challenge cookie fails verification, not auth.
     const bogus = await fx.owner.agent.post("/api/v1/auth/passkeys/register/finish").send({

@@ -240,6 +240,15 @@ to disable):
 - Owners/admins should enable TOTP MFA (workspace settings → sign-in
   security). Secrets are AES-256-GCM-sealed with a key derived from
   `AUTH_SECRET`; recovery codes are single-use and stored hashed.
+- OAuth login (Google/GitHub): set the `*_CLIENT_ID/SECRET` pair and register
+  `<API_URL>/api/v1/auth/oauth/<provider>/callback` at the provider. Links
+  require a provider-verified email matching the signed-in user; login
+  requires a prior link; MFA-enabled users still complete TOTP after the
+  provider round-trip. Leave a pair empty to disable that provider.
+- Passkeys: set `WEBAUTHN_RP_ID` to the registrable host (`localhost` for
+  dev) and keep the browser origin equal to `WEB_URL`, or ceremonies fail
+  verification. Only public-key material is stored; a UV-verified assertion
+  satisfies MFA. Users cannot delete/unlink their last login method.
 - `GET /api/v1/auth/me/export` returns a portable copy of identity,
   memberships, project roles, and notifications for data-portability requests.
 - `DELETE /api/v1/auth/me` (password-confirmed) deactivates the login,

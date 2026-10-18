@@ -794,7 +794,7 @@ One `feat/<slug>` branch per feature, small conventional commits, Definition-of-
 | # | Feature | Status | Notes |
 | --- | --- | --- | --- |
 | 22 | Scope templates + CSV import | Done (`feat/scope-templates`) | Org library (assumptions/exclusions/items per project type, staff-only) instantiating into a draft in one tx + audit; dependency-free CSV parser, dry-run preview with per-row errors, atomic import via error envelope; settings UI + scope dialogs; `template.*` policy actions + key scopes; migration 0022 |
-| 23 | OAuth + passkeys | Missing | Google/GitHub code+PKCE (verified-email link only), WebAuthn via maintained libs; MFA policy still enforced |
+| 23 | OAuth + passkeys | Done (`feat/oauth-passkeys`) | Google/GitHub code+PKCE via pinned openid-client (arctic deprecated); verified-email match linking, prior-link login, TOTP still enforced; WebAuthn via pinned SimpleWebAuthn with sealed challenges + UV-gated MFA; last-method guards; migration 0023 |
 | 24 | i18n | Partial | Infra shipped (catalog, `useLocale()`, CI check); remaining: full string extraction, Bangla (`bn`), per-user language, review-link org/project default |
 | — | `SECURITY.md` | Missing | Contact confirmed (`codejborg@junaidul.pro.bd`); to be written with the Phase 6 close-out + final report |
 

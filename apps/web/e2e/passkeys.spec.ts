@@ -50,7 +50,7 @@ test("passkeys: register with a virtual authenticator, then log in with it", asy
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue with Google" })).toHaveCount(0);
-  await page.getByLabel("Email for passkey login (optional)").fill(email);
+  await page.getByLabel("Account address for passkey sign-in (optional)").fill(email);
   await page.getByRole("button", { name: "Passkey", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 

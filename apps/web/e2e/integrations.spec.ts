@@ -55,7 +55,10 @@ test("integrations: API key lifecycle and webhook CRUD on org settings", async (
   await page.getByRole("dialog", { name: "Copy your secret now" }).getByRole("button", { name: "Close", exact: true }).click();
   await keyItem.getByRole("button", { name: "Revoke" }).click();
   await keyItem.getByRole("button", { name: "Revoke", exact: true }).click();
-  await expect(keyItem.getByText("Revoked")).toBeVisible();
+  // Rotate leaves the revoked predecessor listed under the same name, so pin
+  // the assertion to the rotated key's row via its unique prefix.
+  const rotatedRow = page.locator("li", { hasText: rotated.slice(0, 11) });
+  await expect(rotatedRow.getByText("Revoked")).toBeVisible();
 
   // Webhook CRUD with an HMAC signing secret shown once.
   await page.getByRole("button", { name: "New webhook" }).click();
