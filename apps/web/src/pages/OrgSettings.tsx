@@ -5,6 +5,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
 import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner } from "../components/ui.js";
 import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
+import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
 
 interface Member {
   id: string;
@@ -112,6 +113,8 @@ export function OrgSettingsPage(): JSX.Element {
 
         <RateCardsCard organizationId={orgId} canManage={canManage} />
         <TemplatesCard organizationId={orgId} canManage={canManage} />
+        <ApiKeysCard organizationId={orgId} canManage={canManage} />
+        <WebhooksCard organizationId={orgId} canManage={canManage} />
         <Card>
           <h2 className="mb-2 font-medium">Usage ({usage.data?.period ?? "—"})</h2>
           {usage.isLoading ? <Spinner /> : usage.isError ? (

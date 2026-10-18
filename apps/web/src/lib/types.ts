@@ -469,3 +469,37 @@ export interface OrgContractRollup {
     pendingExposureMinor: number;
   }>;
 }
+
+export interface ApiKeyView {
+  id: string;
+  organizationId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface WebhookView {
+  id: string;
+  organizationId: string;
+  url: string;
+  events: string[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryView {
+  id: string;
+  subscriptionId: string;
+  event: string;
+  status: "PENDING" | "SENT" | "FAILED" | "DEAD";
+  attempts: number;
+  responseStatus: number | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
