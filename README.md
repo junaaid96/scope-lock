@@ -323,6 +323,10 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified
   submitter”; honeypot + rate limits blunt bots.
+- **Scope check** — before submitting (intake form or new-change dialog),
+  an advisory check compares the words against the agreed baseline and
+  shows likely-covered requirements with excerpts. Never blocks; in-app
+  adds optional AI refinement.
 - Fully navigable on mobile (hamburger menu, responsive tables and dialogs).
 
 ### Screenshots

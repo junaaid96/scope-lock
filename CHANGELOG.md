@@ -45,6 +45,10 @@ All notable changes to ScopeLock are documented here. Format follows
   page, rate limits, honeypot, and size caps. Submissions create SUBMITTED
   `INTAKE_FORM` changes flagged “unverified submitter” and notify the
   project team; staff manage links from the project Intake tab.
+- Pre-submission scope check: deterministic lexical matching against the
+  governing baseline in the intake form and the in-app new-change dialog,
+  with optional AI refinement in-app. Advisory only (“submit anyway”);
+  suggestion-vs-final-classification is logged via `scope_check.outcome`.
 
 ## [0.1.0] - 2026-10-16
 
