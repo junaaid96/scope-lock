@@ -3,9 +3,12 @@ import {
   POLICY_ACTOR,
   RequirementTransitions,
   assertTransition,
+  currentTurn,
   deemedAcceptanceDays,
+  escalationTarget,
   isAcceptancePackage,
   isDeemedDue,
+  isEscalationDue,
 } from "@scopelock/domain";
 import type { Env } from "../env.js";
 import type { RealtimeDriver } from "./realtime.js";
@@ -66,13 +69,23 @@ async function deliverOutbox(deps: WorkerDeps): Promise<{ delivered: number; fai
   return { delivered, failed };
 }
 
-/** Expire overdue SENT approvals, deem overdue acceptance, and queue reminders per project settings. */
-async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: number; deemed: number; reminders: number }> {
+/** Expire overdue SENT approvals, deem overdue acceptance, escalate stalled packages, and queue reminders per project settings. */
+async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: number; deemed: number; escalated: number; reminders: number }> {
   const { store } = deps;
   const now = nowIso();
   let expired = 0;
   let deemed = 0;
+  let escalated = 0;
   let reminders = 0;
+
+  for (const approval of await store.listUnescalatedSentApprovals()) {
+    const project = await store.findProjectById(approval.projectId);
+    if (!project) continue;
+    if (!isEscalationDue({ status: approval.status, escalatedAt: approval.escalatedAt, sentAt: approval.sentAt, nowIso: now, settings: project.settings })) {
+      continue;
+    }
+    if (await escalateApproval(deps, approval.id, now)) escalated++;
+  }
 
   for (const approval of await store.listExpiredPendingApprovals(now)) {
     // Acceptance past its deadline with a configured window is deemed
@@ -203,7 +216,119 @@ async function processApprovalDeadlines(deps: WorkerDeps): Promise<{ expired: nu
       reminders++;
     });
   }
-  return { expired, deemed, reminders };
+  return { expired, deemed, escalated, reminders };
+}
+
+/** Canonical approver identity (mirrors the review-link layer): user id when known, else lowercased email. */
+function escKey(userId: string | null, email: string | null): string {
+  return userId ?? (email ?? "").toLowerCase();
+}
+
+/**
+ * Escalate a stalled package exactly once: nudge whoever still owes a vote,
+ * or hand the stall to the agency leads — per the project's target.
+ */
+async function escalateApproval(deps: WorkerDeps, approvalId: string, now: string): Promise<boolean> {
+  const { store } = deps;
+  return store.transaction(async (tx) => {
+    const fresh = await tx.findApprovalById(approvalId);
+    if (!fresh || fresh.status !== "SENT" || fresh.escalatedAt !== null) return false;
+    const project = await tx.findProjectById(fresh.projectId);
+    if (!project || !isEscalationDue({ status: fresh.status, escalatedAt: fresh.escalatedAt, sentAt: fresh.sentAt, nowIso: now, settings: project.settings })) {
+      return false;
+    }
+    const target = escalationTarget(project.settings);
+    const hoursSinceSent = Math.round(((Date.parse(now) - Date.parse(fresh.sentAt as string)) / 3_600_000) * 10) / 10;
+    const tokens = await tx.listApprovalTokens(fresh.id);
+    const decisions = await tx.listDecisions(fresh.id);
+    const voted = new Set(decisions.map((d) => escKey(d.approverUserId, d.approverEmail)));
+    const policy = fresh.policy ?? { mode: "ANY" as const, approverOrder: [] as string[] };
+    const keys = tokens.map((t) => escKey(t.approverUserId, t.approverEmail));
+    const turn = target === "SECOND_APPROVER" && policy.mode === "SEQUENTIAL"
+      ? currentTurn(policy, keys, decisions.map((d) => ({ tokenId: d.tokenId, approverKey: escKey(d.approverUserId, d.approverEmail), decision: d.decision })))
+      : null;
+    const escalatedAt = nowIso();
+    await tx.updateApproval(fresh.id, { escalatedAt, version: fresh.version + 1 });
+    const notified: string[] = [];
+    if (target === "AGENCY_LEAD") {
+      for (const m of await tx.listProjectMembers(fresh.projectId)) {
+        if (m.role !== "LEAD") continue;
+        const user = await tx.findUserById(m.userId);
+        if (!user) continue;
+        const body = `“${fresh.title ?? "Review package"}” has awaited a decision for ${hoursSinceSent}h. It was escalated to you as the agency lead.`;
+        await tx.createNotification({
+          userId: user.id,
+          projectId: fresh.projectId,
+          type: "APPROVAL_ESCALATED",
+          title: "Stalled approval escalated to you",
+          body,
+          link: fresh.changeRequestId ? `/projects/${fresh.projectId}/changes/${fresh.changeRequestId}` : `/projects/${fresh.projectId}`,
+        });
+        await tx.enqueueOutbox({
+          type: "EMAIL",
+          payload: {
+            to: user.email,
+            subject: "Stalled approval escalated to you",
+            text: body,
+            organizationId: project.organizationId,
+            projectId: fresh.projectId,
+            notificationType: "APPROVAL_ESCALATED",
+          },
+          idempotencyKey: `escalated:${fresh.id}:${user.id}`,
+        });
+        notified.push(user.email);
+      }
+    } else {
+      for (const token of tokens) {
+        if (token.revokedAt) continue;
+        const key = escKey(token.approverUserId, token.approverEmail);
+        if (voted.has(key)) continue;
+        if (turn !== null && turn !== key) continue;
+        const recipient = token.approverUserId ? await tx.findUserById(token.approverUserId) : null;
+        const email = recipient?.email ?? token.approverEmail;
+        const body = `“${fresh.title ?? "Review package"}” has awaited a decision for ${hoursSinceSent}h. This is an escalation: please decide now.`;
+        if (recipient) {
+          await tx.createNotification({
+            userId: recipient.id,
+            projectId: fresh.projectId,
+            type: "APPROVAL_ESCALATED",
+            title: "Escalated: your decision is overdue",
+            body,
+            link: "/inbox",
+          });
+        }
+        if (email) {
+          await tx.enqueueOutbox({
+            type: "EMAIL",
+            payload: {
+              to: email,
+              subject: "Escalated: your decision is overdue",
+              text: `${body}\n\nReview: ${deps.env.WEB_URL}/inbox`,
+              organizationId: project.organizationId,
+              projectId: fresh.projectId,
+              notificationType: "APPROVAL_ESCALATED",
+            },
+            idempotencyKey: `escalated:${fresh.id}:${key}`,
+          });
+        }
+        notified.push(email ?? key);
+      }
+    }
+    await tx.appendAuditEvent({
+      organizationId: project.organizationId,
+      projectId: fresh.projectId,
+      actorId: null,
+      actorEmail: null,
+      action: "approval.escalated",
+      targetType: "APPROVAL",
+      targetId: fresh.id,
+      before: { status: "SENT" },
+      after: { status: "SENT", escalatedAt, target, hoursSinceSent, notified },
+      correlationId: `worker-${Date.now()}`,
+      ip: null,
+    });
+    return true;
+  });
 }
 
 /**
