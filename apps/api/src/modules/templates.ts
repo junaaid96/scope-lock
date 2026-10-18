@@ -355,17 +355,32 @@ export function templateRoutes(ctx: AppContext): Router {
       }
       const badRows = new Set(parsed.errors.map((e) => e.row));
       const valid = parsed.rows.filter((r) => !badRows.has(r.row));
-      if (input.dryRun || parsed.errors.length > 0) {
-        const preview = CsvImportResponseSchema.parse({
-          dryRun: true,
-          totalRows: parsed.totalRows,
-          validRows: valid.length,
-          imported: 0,
-          errors: parsed.errors,
-          stableKeys: [],
-        });
-        res.status(input.dryRun ? 200 : 422).json(preview);
+      if (input.dryRun) {
+        res.json(
+          CsvImportResponseSchema.parse({
+            dryRun: true,
+            totalRows: parsed.totalRows,
+            validRows: valid.length,
+            imported: 0,
+            errors: parsed.errors,
+            stableKeys: [],
+          }),
+        );
         return;
+      }
+      if (parsed.errors.length > 0) {
+        // Atomic import: nothing is written; the per-row report rides the
+        // standard error envelope so clients keep one error shape.
+        throw DomainError.unprocessable("CSV has row errors; nothing was imported", {
+          report: CsvImportResponseSchema.parse({
+            dryRun: true,
+            totalRows: parsed.totalRows,
+            validRows: valid.length,
+            imported: 0,
+            errors: parsed.errors,
+            stableKeys: [],
+          }),
+        });
       }
       const stableKeys = await ctx.store.transaction(async (tx: Store) => {
         const keys: string[] = [];

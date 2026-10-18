@@ -7,6 +7,7 @@ import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spin
 import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
 import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
 import { PreferencesCard, SlackCard } from "../components/channels.js";
+import { ScopeTemplatesCard } from "../components/templates.js";
 
 interface Member {
   id: string;
@@ -115,6 +116,7 @@ export function OrgSettingsPage(): JSX.Element {
 
         <RateCardsCard organizationId={orgId} canManage={canManage} />
         <TemplatesCard organizationId={orgId} canManage={canManage} />
+        <ScopeTemplatesCard organizationId={orgId} canManage={canManage} />
         <ApiKeysCard organizationId={orgId} canManage={canManage} />
         <WebhooksCard organizationId={orgId} canManage={canManage} />
         <PreferencesCard />

@@ -3,8 +3,9 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll, ApiError } from "../lib/api.js";
-import type { AttachmentRow, EvidenceRow, RequirementRow, Revision, ScopeVersion } from "../lib/types.js";
+import type { AttachmentRow, EvidenceRow, ProjectDetail, RequirementRow, Revision, ScopeVersion } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
+import { CsvImportDialog, TemplateDialog } from "../components/templates.js";
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Textarea, formatDate, statusTone } from "../components/ui.js";
 
 interface Diff {
@@ -36,6 +37,12 @@ export function ScopePage(): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [compareId, setCompareId] = useState<string | null>(null);
   const [showDraft, setShowDraft] = useState(false);
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const project = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => api.get<ProjectDetail>(`/projects/${projectId}`),
+  });
   const [showRequirement, setShowRequirement] = useState(false);
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [showExtract, setShowExtract] = useState(false);
@@ -76,7 +83,12 @@ export function ScopePage(): JSX.Element {
       <PageTitle
         title="Scope ledger"
         subtitle="The versioned record of what was agreed. Published versions are immutable."
-        actions={!draft ? <Button size="sm" onClick={() => setShowDraft(true)}>New draft</Button> : null}
+        actions={!draft ? (
+          <>
+            <Button size="sm" variant="secondary" onClick={() => setShowTemplate(true)}>From template…</Button>
+            <Button size="sm" onClick={() => setShowDraft(true)}>New draft</Button>
+          </>
+        ) : null}
       />
       <ProjectSubnav projectId={projectId} />
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
@@ -131,6 +143,7 @@ export function ScopePage(): JSX.Element {
               {detail.data.status === "DRAFT" ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => setShowRequirement(true)}>Add requirement</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setShowImport(true)}>Import CSV…</Button>
                   <Button size="sm" variant="secondary" onClick={() => setShowExtract(true)}>Extract from proposal…</Button>
                   <Button size="sm" variant="secondary" onClick={() => setShowAssumptions(true)}>Edit assumptions…</Button>
                   <Button size="sm" variant="secondary" disabled={publish.isPending} onClick={() => publish.mutate()}>
@@ -160,6 +173,30 @@ export function ScopePage(): JSX.Element {
         </div>
       </div>
       {showDraft ? <DraftDialog projectId={projectId} versions={list} onClose={() => setShowDraft(false)} onCreated={setSelectedId} /> : null}
+      {showTemplate && project.data ? (
+        <TemplateDialog
+          projectId={projectId}
+          organizationId={project.data.organizationId}
+          onClose={() => setShowTemplate(false)}
+          onCreated={(draftId) => {
+            setSelectedId(draftId);
+            void client.invalidateQueries({ queryKey: ["versions", projectId] });
+            void client.invalidateQueries({ queryKey: ["requirements", projectId] });
+          }}
+        />
+      ) : null}
+      {showImport && draft ? (
+        <CsvImportDialog
+          projectId={projectId}
+          draftId={draft.id}
+          onClose={() => {
+            setShowImport(false);
+            void client.invalidateQueries({ queryKey: ["version"] });
+            void client.invalidateQueries({ queryKey: ["versions", projectId] });
+            void client.invalidateQueries({ queryKey: ["requirements", projectId] });
+          }}
+        />
+      ) : null}
       {showRequirement && draft ? (
         <RequirementDialog projectId={projectId} draftId={draft.id} onClose={() => setShowRequirement(false)} />
       ) : null}

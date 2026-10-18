@@ -157,9 +157,11 @@ describe("CSV requirement import", () => {
       ].join("\n"),
     });
     expect(bad.status).toBe(422);
-    expect(CsvImportResponseSchema.safeParse(bad.body).success).toBe(true);
-    expect(bad.body.imported).toBe(0);
-    expect(bad.body.errors).toEqual(
+    expect(bad.body.error.code).toBe("UNPROCESSABLE");
+    const report = (bad.body.error.details as { report: unknown }).report;
+    expect(CsvImportResponseSchema.safeParse(report).success).toBe(true);
+    expect(report).toMatchObject({ imported: 0 });
+    expect((report as { errors: unknown[] }).errors).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ row: 1, field: "title" }),
         expect.objectContaining({ row: 3, field: "stableKey" }),
