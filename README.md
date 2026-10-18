@@ -341,6 +341,11 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   its predecessor by SHA-256. Recompute the chain in one click (or
   `npm run audit:verify -- --project <id>`) to prove history was not
   edited, deleted, or reordered.
+- **Delivery acceptance** (scope → Request acceptance) — the client
+  accepts delivered requirements over the same review links, with
+  criteria and evidence snapshotted into the package. A configurable
+  deemed window (Policy tab) accepts by policy at the deadline when
+  nobody objects — recorded as policy, never as a client decision.
 - **Intake forms** (project → Intake, staff only) — revocable public links
   (embeddable via iframe) that accept requests without an account.
   Submissions land SUBMITTED with source `INTAKE_FORM`, flagged “unverified

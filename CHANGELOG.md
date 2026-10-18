@@ -89,6 +89,13 @@ All notable changes to ScopeLock are documented here. Format follows
   `GET /projects/:id/audit/verify`, an Activity-tab integrity card, and
   `npm run audit:verify` recompute the chain; pre-chain events verify as
   explicit legacy rows.
+- Delivery acceptance: clients accept delivered requirements over review
+  links (criteria + evidence snapshotted; verdicts move requirements to
+  ACCEPTED, back to IN_PROGRESS, or leave them DELIVERED), with status,
+  evidence, and publish edits invalidating pending packages. A
+  configurable per-project deemed window (Policy tab) accepts overdue
+  packages by policy — actor `policy`, no client decision row — with
+  acceptance-aware reminders and an acceptance-record PDF.
 
 ## [0.1.0] - 2026-10-16
 

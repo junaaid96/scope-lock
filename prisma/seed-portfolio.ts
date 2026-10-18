@@ -24,6 +24,7 @@ import { getEnv } from "../apps/api/src/env.js";
 import { createEmailDriver } from "../apps/api/src/lib/email.js";
 import { createRealtimeDriver } from "../apps/api/src/lib/realtime.js";
 import { createStorageDriver } from "../apps/api/src/lib/storage.js";
+import { drainOnce } from "../apps/api/src/lib/worker.js";
 import { createStore, nowIso } from "../apps/api/src/store/index.js";
 import type { Store } from "../apps/api/src/store/index.js";
 
@@ -1002,6 +1003,69 @@ async function main(): Promise<void> {
       v = await transition(ch.id, slug, "PARKED", v);
       void v;
       console.log("showcase: intered change parked (revive from the Parked board column)");
+    }
+  }
+
+  // Delivery-acceptance showcase on Haat: a 7-day deemed window, one
+  // acceptance package left pending for the demo, and one deemed by policy
+  // after its deadline passed (resumable).
+  {
+    const slug = "haat-marketplace";
+    const projectId = projectIds[slug] as string;
+    const haat = clientLogins.haat as { userId: string };
+    const existing = await store.listProjectApprovals(projectId);
+    if (!existing.some((a) => a.acceptanceRequirementIds.length > 0)) {
+      await expectOk(
+        await owner.agent.patch(`/api/v1/projects/${projectId}`).send({ settings: { deemedAcceptanceDays: 7 } }),
+        "seed deemed window",
+      );
+      const reqList = (await expectOk(
+        await owner.agent.get(`/api/v1/projects/${projectId}/requirements`),
+        "seed list requirements",
+      )) as { data: Array<{ id: string; stableKey: string; status: string }> };
+      const candidates = reqList.data.filter((r) => r.status === "AGREED").slice(0, 2);
+      if (candidates.length < 2 || !candidates[0] || !candidates[1]) throw new Error("seed needs two agreed Haat requirements");
+      for (const candidate of candidates) {
+        for (const status of ["IN_PROGRESS", "DELIVERED"]) {
+          await expectOk(await owner.agent.patch(`/api/v1/requirements/${candidate.id}`).send({ status }), `seed deliver ${candidate.stableKey}`);
+        }
+        await expectOk(
+          await owner.agent.post(`/api/v1/requirements/${candidate.id}/evidence`).send({
+            type: "NOTE",
+            title: "Demo walkthrough",
+            note: "Walked through on staging with the Haat team.",
+          }),
+          `seed evidence ${candidate.stableKey}`,
+        );
+      }
+      const pending = (await expectOk(
+        await owner.agent.post(`/api/v1/projects/${projectId}/acceptance-requests`).send({
+          requirementIds: [candidates[0].id],
+          approverUserIds: [haat.userId],
+        }),
+        "seed acceptance send",
+        [201],
+      )) as { approval: { expiresAt: string }; reviewUrls: string[] };
+      const days = (Date.parse(pending.approval.expiresAt) - Date.now()) / 86_400_000;
+      if (days < 6.9 || days > 7.1) throw new Error("seed acceptance did not default to the 7-day window");
+      await expectOk(
+        await owner.agent.post(`/api/v1/projects/${projectId}/acceptance-requests`).send({
+          requirementIds: [candidates[1].id],
+          approverUserIds: [haat.userId],
+          expiresAt: new Date(Date.now() + 1000).toISOString(),
+        }),
+        "seed acceptance short send",
+        [201],
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await drainOnce({ store: ctx.store, env: ctx.env, email: ctx.email, realtime: ctx.realtime });
+      const deemed = (await store.listProjectApprovals(projectId)).find((a) =>
+        a.acceptanceRequirementIds.includes(candidates[1]?.id as string),
+      );
+      if (deemed?.status !== "DEEMED") throw new Error("seed deemed sweep did not fire");
+      await sweepOutbox(store);
+      console.log(`showcase: haat acceptance pending ${(pending.reviewUrls[0] as string).replace(/^https?:\/\/[^/]+/, "")} (7-day deemed window)`);
+      console.log("showcase: haat delivery deemed accepted by policy (no client decision recorded)");
     }
   }
 
