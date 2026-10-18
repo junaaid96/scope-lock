@@ -164,7 +164,10 @@ export interface ChangeDetail extends ChangeListItem {
   description: string;
   source: string;
   classificationRationale: string | null;
-  submitterId: string;
+  submitterId: string | null;
+  submitterName: string | null;
+  submitterEmail: string | null;
+  unverifiedSubmitter: boolean;
   bundleId: string | null;
   decidedAt: string | null;
   impacts: Impact[];

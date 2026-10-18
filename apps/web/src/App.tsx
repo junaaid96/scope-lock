@@ -14,6 +14,7 @@ import { ChangePage } from "./pages/Change.js";
 import { InboxPage } from "./pages/Inbox.js";
 import { TimelinePage } from "./pages/Timeline.js";
 import { ReviewPage } from "./pages/Review.js";
+import { IntakePage } from "./pages/Intake.js";
 import { ActivityPage } from "./pages/Activity.js";
 import { HealthPage } from "./pages/Health.js";
 import { OrgSettingsPage } from "./pages/OrgSettings.js";
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
   { path: "/accept-invite/:token", element: <Centered><AcceptInvitePage /></Centered> },
   { path: "/reset-password", element: <Centered><ResetPasswordPage /></Centered> },
   { path: "/review/:token", element: <ReviewPage /> },
+  { path: "/intake/:token", element: <IntakePage /> },
   {
     element: <RequireAuth />,
     children: [

@@ -8,6 +8,7 @@ import { ProjectSubnav } from "../components/layout.js";
 import { ChangeBoard } from "../components/change-board.js";
 import { ContractTab } from "../components/contract.js";
 import { AllowanceTab } from "../components/allowance.js";
+import { IntakeTab } from "../components/intake.js";
 
 import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
@@ -21,7 +22,7 @@ export function ProjectPage(): JSX.Element {
   });
   const [showChange, setShowChange] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "members" | "bundles" | "notes">("changes");
+  const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "intake" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <Spinner />;
   if (project.isError || !project.data) return <ErrorBanner message={errorMessage(project.error)} />;
@@ -57,6 +58,7 @@ export function ProjectPage(): JSX.Element {
           { id: "board" as const, label: "Board" },
           { id: "contract" as const, label: "Contract" },
           { id: "allowance" as const, label: "Allowance" },
+          ...(canManage ? [{ id: "intake" as const, label: "Intake" }] : []),
           { id: "members" as const, label: "Members" },
           { id: "bundles" as const, label: "Bundles" },
           { id: "notes" as const, label: "Notes" },
@@ -91,6 +93,7 @@ export function ProjectPage(): JSX.Element {
       {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}
       {tab === "contract" ? <ContractTab projectId={p.id} /> : null}
       {tab === "allowance" ? <AllowanceTab projectId={p.id} currency={p.currency} myRole={p.myRole} canManage={canManage} /> : null}
+      {tab === "intake" && canManage ? <IntakeTab projectId={p.id} /> : null}
       {tab === "members" ? <MembersTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "bundles" ? <BundlesTab projectId={p.id} canManage={canManage} /> : null}
       {tab === "notes" ? <NotesTab projectId={p.id} /> : null}

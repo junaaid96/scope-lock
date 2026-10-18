@@ -72,7 +72,15 @@ export function ChangePage(): JSX.Element {
         <Badge tone={statusTone(c.status)}>{c.status}</Badge>
         {c.classification ? <Badge>{c.classification}</Badge> : null}
         <Badge>Source: {c.source}</Badge>
+        {c.unverifiedSubmitter ? <Badge tone="amber">Unverified submitter</Badge> : null}
       </div>
+      {c.unverifiedSubmitter ? (
+        <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          This arrived through a public intake form — the submitter never logged in.
+          {c.submitterName || c.submitterEmail ? ` Self-declared contact: ${[c.submitterName, c.submitterEmail].filter(Boolean).join(" · ")} (unverified).` : " No contact details were left."}
+          {" "}Confirm who they are before sharing anything sensitive.
+        </p>
+      ) : null}
       <WorkflowStepper status={c.status} />
 
       <div className="grid gap-5 lg:grid-cols-3">
