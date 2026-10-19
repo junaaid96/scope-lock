@@ -5,6 +5,8 @@
 
 > Open-source SaaS: the shared system of record for client scope, change requests, approvals, and delivery evidence.
 
+**Live:** [scopelock-codejborg.vercel.app](https://scopelock-codejborg.vercel.app) · API: [scopelock-codejborg-api.vercel.app](https://scopelock-codejborg-api.vercel.app/healthz)
+
 ![ScopeLock agency dashboard](docs/screenshots/03-dashboard.png)
 
 ScopeLock answers four questions without searching through email, chat, and meeting notes:
