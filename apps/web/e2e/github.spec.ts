@@ -102,7 +102,7 @@ test("github linking: connect, observe a merged PR, and flag health", async ({ p
   await page.goto(`/projects/${projectId}/health`);
   await expect(page.getByText("Unapproved implementation")).toBeVisible();
   await expect(page.getByText("Unlinked work")).toBeVisible();
-  await expect(page.getByText(/1 change\(s\) implemented or merged without an approval decision/)).toBeVisible();
+  await expect(page.getByText(/1 change implemented or merged without an approval decision/)).toBeVisible();
 
   // Rotate then disconnect from the Integrations tab.
   await page.goto(`/projects/${projectId}`);

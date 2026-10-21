@@ -384,7 +384,7 @@ export function scopeRoutes(ctx: AppContext): Router {
           excludeUserId: auth.user.id,
           type: "SCOPE_PUBLISHED",
           title: `Scope v${next.sequence} published`,
-          body: `${revisions.length} requirement(s) are now the agreed baseline.`,
+          body: revisions.length === 1 ? "1 requirement is now the agreed baseline." : `${revisions.length} requirements are now the agreed baseline.`,
           link: `/projects/${access.project.id}/scope`,
         });
         return { next, superseded: current, requirementCount: revisions.length };

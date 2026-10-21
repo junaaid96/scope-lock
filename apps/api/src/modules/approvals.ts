@@ -327,7 +327,9 @@ export async function invalidateAcceptanceForRequirements(
       organizationId: args.organizationId,
       type: "APPROVAL_INVALIDATED",
       title: "An acceptance package was invalidated",
-      body: `${sent.length} pending acceptance package(s) invalidated: ${args.reason}. Send a fresh package after review.`,
+      body: sent.length === 1
+        ? `1 pending acceptance package invalidated: ${args.reason}. Send a fresh package after review.`
+        : `${sent.length} pending acceptance packages invalidated: ${args.reason}. Send a fresh package after review.`,
       link: `/projects/${args.projectId}/scope`,
     });
   }

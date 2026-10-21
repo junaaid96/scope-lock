@@ -37,7 +37,7 @@ test("change board moves a request between stages", async ({ page }) => {
 
   // Move SUBMITTED → TRIAGING via the card's Move control; the card stays in Triage with the new badge.
   await page.getByLabel(`Move ${change.number} to another status`).selectOption("TRIAGING");
-  await expect(triage.getByText("TRIAGING")).toBeVisible();
+  await expect(triage.getByText("Triaging")).toBeVisible();
 
   // Illegal drops explain themselves instead of failing silently.
   const card = triage.locator("li", { hasText: change.number }).first();

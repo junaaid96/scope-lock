@@ -3,7 +3,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ReviewPackage } from "../lib/types.js";
 import { LocaleProvider, isLocale, useLocale } from "../lib/i18n/index.js";
-import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, statusTone } from "../components/ui.js";
+import { Card, Empty, ErrorBanner, PageTitle, Spinner, StatusBadge } from "../components/ui.js";
 
 interface VerifyData {
   approval: {
@@ -45,7 +45,7 @@ export function VerifyPage(): JSX.Element {
 }
 
 function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Element {
-  const { t } = useLocale();
+  const { t, money, date } = useLocale();
 
   if (verify.isLoading) return <Centered><Spinner /></Centered>;
   if (verify.isError || !verify.data) {
@@ -78,9 +78,9 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
 
         <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
           <dt className="text-slate-500">{t("verify.statusLabel")}</dt>
-          <dd><Badge tone={statusTone(v.approval.status)}>{v.approval.status}</Badge></dd>
+          <dd><StatusBadge status={v.approval.status} /></dd>
           <dt className="text-slate-500">{t("verify.sentLabel")}</dt>
-          <dd>{v.approval.sentAt}</dd>
+          <dd>{date(v.approval.sentAt)}</dd>
           <dt className="text-slate-500">{t("verify.certChecksumLabel")}</dt>
           <dd className="break-all font-mono text-xs">{v.approval.checksum}</dd>
           <dt className="text-slate-500">{t("verify.recomputedLabel")}</dt>
@@ -98,7 +98,7 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
           <section className="mt-4" aria-label={t("verify.impactAria")}>
             <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("verify.impactTitle")}</h2>
             <p className="mt-1 text-sm">
-              {pkg.impact.currency} {((pkg.impact.priceMinor ?? 0) / 100).toFixed(2)} · {t("verify.impactEffort", { effort: pkg.impact.effortDays ?? "—", timeline: pkg.impact.timelineDays ?? "—" })}
+              {money(pkg.impact.priceMinor ?? 0, pkg.impact.currency ?? "USD")} · {t("verify.impactEffort", { effort: pkg.impact.effortDays ?? "—", timeline: pkg.impact.timelineDays ?? "—" })}
             </p>
           </section>
         ) : null}
@@ -108,7 +108,7 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
             <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("verify.optionsLabel")}</h2>
             <ul className="mt-1 list-disc pl-5 text-sm">
               {(pkg.options ?? []).map((o) => (
-                <li key={o.optionId}>{o.label} — {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)}</li>
+                <li key={o.optionId}>{o.label} — {money(o.priceMinor ?? 0, o.currency ?? "USD")}</li>
               ))}
             </ul>
           </section>
@@ -122,10 +122,10 @@ function VerifyBody({ verify }: { verify: UseQueryResult<VerifyData> }): JSX.Ele
             <ul className="mt-1 space-y-1 text-sm">
               {v.decisions.map((d, i) => (
                 <li key={i}>
-                  <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
+                  <StatusBadge status={d.decision} />
                   <span className="ml-2">{d.typedName ?? d.approverEmail ?? t("verify.approverFallback")}</span>
                   {d.optionLabel ? <span className="ml-2 font-medium">{t("verify.decisionOption", { label: d.optionLabel })}</span> : null}
-                  <span className="ml-2 text-slate-500">{d.createdAt}</span>
+                  <span className="ml-2 text-slate-500">{date(d.createdAt)}</span>
                   {d.comment ? <p className="mt-0.5 text-slate-700">{d.comment}</p> : null}
                 </li>
               ))}

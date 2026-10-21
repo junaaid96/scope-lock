@@ -22,3 +22,32 @@ export function formatDateIntl(iso: string | null | undefined, locale = "en"): s
 export function formatNumberIntl(value: number, locale = "en"): string {
   return new Intl.NumberFormat(locale).format(value);
 }
+
+/** "in 3 days" / "2 hours ago" / "yesterday". Null when missing or too far out (caller shows the date). */
+export function formatRelativeIntl(iso: string | null | undefined, locale = "en", nowMs = Date.now()): string | null {
+  if (!iso) return null;
+  const diffMs = new Date(iso).getTime() - nowMs;
+  const abs = Math.abs(diffMs);
+  const minute = 60_000;
+  const hour = 3_600_000;
+  const day = 86_400_000;
+  try {
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    if (abs < 45_000) return locale === "bn" ? "এইমাত্র" : "just now";
+    if (abs < hour) {
+      const m = Math.round(abs / minute);
+      return rtf.format(diffMs < 0 ? -m : m, "minute");
+    }
+    if (abs < 22 * hour) {
+      const h = Math.round(abs / hour);
+      return rtf.format(diffMs < 0 ? -h : h, "hour");
+    }
+    if (abs < 45 * day) {
+      const d = Math.round(abs / day);
+      return rtf.format(diffMs < 0 ? -d : d, "day");
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

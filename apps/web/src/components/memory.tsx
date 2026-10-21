@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Card, ErrorBanner, Input } from "./ui.js";
+import { Badge, Button, Card, ErrorBanner, Input, formatStatus } from "./ui.js";
 
 export interface MemoryHit {
   approvalId: string;
@@ -29,7 +29,7 @@ interface MemoryResponse {
  * conclusions. The server filters by project access before ranking.
  */
 export function MemorySearchPanel({ organizationId }: { organizationId: string }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date } = useLocale();
   const [q, setQ] = useState("");
   const [searched, setSearched] = useState<MemoryResponse | null>(null);
   const [searching, setSearching] = useState(false);
@@ -98,11 +98,11 @@ export function MemorySearchPanel({ organizationId }: { organizationId: string }
                     {hit.title}
                   </Link>
                   <Badge tone={hit.outcome === "APPROVED" ? "green" : hit.outcome === "REJECTED" ? "red" : "slate"}>
-                    {hit.outcome}
+                    {formatStatus(hit.outcome)}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  {hit.projectName} · {t("memory.decided", { date: new Date(hit.decidedAt).toLocaleDateString() })}
+                  {hit.projectName} · {t("memory.decided", { date: date(hit.decidedAt) })}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">{hit.excerpt}</p>
               </li>

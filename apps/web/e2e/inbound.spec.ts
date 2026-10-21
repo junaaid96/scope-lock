@@ -42,5 +42,5 @@ test("inbound mailbox receives simulated email as an unverified change", async (
   await page.goto(`/projects/${projectId}`);
   await page.getByText("Add a booking calendar").click();
   await expect(page.getByText("Unverified submitter")).toBeVisible();
-  await expect(page.getByText("Source: INBOUND_EMAIL")).toBeVisible();
+  await expect(page.getByText("Source: Inbound email")).toBeVisible();
 });

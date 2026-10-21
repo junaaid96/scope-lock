@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { ContractLedger, OrgContractRollup } from "../lib/types.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, statusTone, PageSkeleton } from "./ui.js";
+import { Button, Card, Empty, ErrorBanner, Field, Input, StatusBadge, PageSkeleton } from "./ui.js";
 
 const tableWrap = "overflow-x-auto rounded-xl border border-slate-200 shadow-card";
 const table = "w-full min-w-[560px] border-collapse bg-surface text-sm";
@@ -112,7 +112,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
                         {p.number}: {p.title}
                       </Link>
                     </td>
-                    <td className={td}><Badge tone={statusTone(p.status)}>{p.status}</Badge></td>
+                    <td className={td}><StatusBadge status={p.status} /></td>
                     <td className={`${td} ${num}`}>{money(p.priceMinor, c.currency)}</td>
                   </tr>
                 ))}
@@ -169,7 +169,7 @@ export function ContractTab({ projectId }: { projectId: string }): JSX.Element {
                 {c.byVersion.map((v) => (
                   <tr key={v.scopeVersionId}>
                     <td className={td}>v{v.sequence}{v.title ? ` · ${v.title}` : ""}</td>
-                    <td className={td}><Badge tone={statusTone(v.status)}>{v.status}</Badge></td>
+                    <td className={td}><StatusBadge status={v.status} /></td>
                     <td className={td}>{v.changeNumbers.join(", ") || t("common.notAvailable")}</td>
                     <td className={`${td} ${num}`}>+{money(v.deltaMinor, c.currency)}</td>
                   </tr>

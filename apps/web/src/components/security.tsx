@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Field, Input, Spinner } from "./ui.js";
+import { Badge, Button, Card, ConfirmButton, Empty, ErrorBanner, Field, Input, Spinner, formatStatus } from "./ui.js";
 
 interface OAuthAccount {
   provider: string;
@@ -33,7 +33,6 @@ export function OAuthCard(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const unlink = async (provider: string): Promise<void> => {
-    if (!window.confirm(t("security.unlinkConfirm", { provider }))) return;
     setError(null);
     try {
       await api.delete(`/auth/oauth/accounts/${provider}`);
@@ -61,11 +60,14 @@ export function OAuthCard(): JSX.Element {
           {(accounts.data?.data ?? []).map((a) => (
             <li key={a.provider} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-2 text-sm">
               <span>
-                <Badge>{a.provider}</Badge> <span className="ml-2 text-slate-700">{a.email}</span>
+                <Badge>{formatStatus(a.provider)}</Badge> <span className="ml-2 text-slate-700">{a.email}</span>
               </span>
-              <Button size="sm" variant="secondary" onClick={() => void unlink(a.provider)}>
-                {t("security.unlink")}
-              </Button>
+              <ConfirmButton
+                label={t("security.unlink")}
+                confirmLabel={t("common.confirmUnlink")}
+                cancelLabel={t("common.cancel")}
+                onConfirm={() => void unlink(a.provider)}
+              />
             </li>
           ))}
         </ul>
@@ -95,7 +97,7 @@ export function OAuthCard(): JSX.Element {
 /** Personal card: register and manage passkeys. */
 export function PasskeysCard(): JSX.Element {
   const client = useQueryClient();
-  const { t } = useLocale();
+  const { t, date } = useLocale();
   const passkeys = useQuery({
     queryKey: ["passkeys"],
     queryFn: () => api.get<{ data: Passkey[] }>("/auth/passkeys"),
@@ -127,7 +129,6 @@ export function PasskeysCard(): JSX.Element {
   };
 
   const remove = async (key: Passkey): Promise<void> => {
-    if (!window.confirm(t("security.deletePasskeyConfirm", { name: key.name }))) return;
     setError(null);
     try {
       await api.delete(`/auth/passkeys/${key.id}`);
@@ -155,11 +156,14 @@ export function PasskeysCard(): JSX.Element {
               <span className="font-medium text-slate-900">{k.name}</span>
               <span className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">
-                  {k.lastUsedAt ? t("security.lastUsed", { date: new Date(k.lastUsedAt).toLocaleDateString() }) : t("security.neverUsed")}
+                  {k.lastUsedAt ? t("security.lastUsed", { date: date(k.lastUsedAt) }) : t("security.neverUsed")}
                 </span>
-                <Button size="sm" variant="secondary" onClick={() => void remove(k)}>
-                  {t("security.delete")}
-                </Button>
+                <ConfirmButton
+                  label={t("security.delete")}
+                  confirmLabel={t("common.confirmDelete")}
+                  cancelLabel={t("common.cancel")}
+                  onConfirm={() => void remove(k)}
+                />
               </span>
             </li>
           ))}

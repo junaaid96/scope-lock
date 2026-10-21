@@ -51,7 +51,7 @@ test("scope check advises but never blocks, in intake and in-app", async ({ page
 
   // In-app: the new-change dialog offers the same advisory check.
   await page.goto(`/projects/${projectId}`);
-  await page.getByRole("button", { name: "New change request" }).click();
+  await page.getByRole("button", { name: "New change request" }).first().click();
   await page.getByLabel("Title", { exact: true }).fill("Homepage video");
   await page.getByLabel("Description", { exact: true }).fill("Embed a product video in the homepage hero section below the testimonials.");
   await page.getByRole("button", { name: "Check against agreed scope" }).click();

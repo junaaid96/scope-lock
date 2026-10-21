@@ -161,7 +161,9 @@ export async function invalidateApprovalsForChange(
       organizationId: args.organizationId,
       type: "APPROVAL_INVALIDATED",
       title: "A review package was invalidated",
-      body: `${sent.length} pending approval(s) invalidated: ${args.reason}. Send a fresh package after review.`,
+      body: sent.length === 1
+        ? `1 pending approval invalidated: ${args.reason}. Send a fresh package after review.`
+        : `${sent.length} pending approvals invalidated: ${args.reason}. Send a fresh package after review.`,
       link: `/projects/${args.projectId}/changes/${args.changeId}`,
     });
   }

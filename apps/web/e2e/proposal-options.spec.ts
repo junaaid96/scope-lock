@@ -77,7 +77,7 @@ test("proposal options: author, send, pick one, and park/revive", async ({ page 
   );
   await page.goto(reviewUrl);
   await expect(page.getByRole("heading", { name: "Proposal options — approve exactly one" })).toBeVisible();
-  await expect(page.getByText(/Full · USD 12,?000\.00/).first()).toBeVisible();
+  await expect(page.getByText(/Full · \$12,?000\.00/).first()).toBeVisible();
   await axeClean(page);
   // Approve requires a pick.
   await expect(page.getByRole("button", { name: "Record decision" })).toBeDisabled();
@@ -98,11 +98,11 @@ test("proposal options: author, send, pick one, and park/revive", async ({ page 
   await page.goto(`/projects/${projectId}/changes/${parkedId}`);
   await page.getByLabel("Change status").selectOption("PARKED");
   await page.getByRole("button", { name: "Move", exact: true }).click();
-  await expect(page.getByText("PARKED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Parked", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/revive it into a new submission/)).toBeVisible();
 
   await page.goto(`/projects/${projectId}`);
-  await page.getByRole("button", { name: /Parked \(1\)/ }).click();
+  await page.locator("#changes-status").selectOption("PARKED");
   await expect(page.getByText("Later maybe")).toBeVisible();
   await expect(page.getByText("Tiered rollout")).toHaveCount(0);
   await page.getByRole("tab", { name: "Board" }).click();
@@ -111,5 +111,5 @@ test("proposal options: author, send, pick one, and park/revive", async ({ page 
   await page.goto(`/projects/${projectId}/changes/${parkedId}`);
   await page.getByLabel("Change status").selectOption("SUBMITTED");
   await page.getByRole("button", { name: "Move", exact: true }).click();
-  await expect(page.getByText("SUBMITTED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Submitted", { exact: true }).first()).toBeVisible();
 });

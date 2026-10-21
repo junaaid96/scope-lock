@@ -40,6 +40,7 @@ const EnvSchema = z.object({
   EMAIL_FROM: z.string().default(""),
   INBOUND_EMAIL_DOMAIN: z.string().default("inbound.scopelock.local"),
   INBOUND_EMAIL_WEBHOOK_SECRET: z.string().default(""),
+  EMAIL_HTTP_ENDPOINT: z.string().default(""),
   SMS_API_URL: z.string().default(""),
   SMS_API_KEY: z.string().default(""),
   WHATSAPP_API_URL: z.string().default(""),

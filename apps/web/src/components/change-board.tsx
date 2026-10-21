@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import type { ChangeListItem } from "../lib/types.js";
-import { Badge, Empty, ErrorBanner, formatMoney, statusTone, PageSkeleton } from "./ui.js";
+import { Empty, ErrorBanner, StatusBadge, formatStatus, PageSkeleton } from "./ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 interface Column {
@@ -39,7 +39,7 @@ const MANUAL_MOVES: Record<string, string[]> = {
 
 export function ChangeBoard({ projectId, changes, loading }: { projectId: string; changes: ChangeListItem[]; loading: boolean }): JSX.Element {
   const client = useQueryClient();
-  const { t } = useLocale();
+  const { t, money } = useLocale();
   const columns: Column[] = [
     { id: "triage", title: t("board.colTriage"), statuses: ["DRAFT", "SUBMITTED", "TRIAGING", "NEEDS_CLARIFICATION"], dropTo: "TRIAGING" },
     { id: "estimating", title: t("board.colEstimating"), statuses: ["ESTIMATING"], dropTo: "ESTIMATING" },
@@ -79,7 +79,7 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
       setError(
         col?.hint
           ? t("board.canOnlyReachHint", { number: change.number, title: col.title, hint: col.hint })
-          : t("board.cannotMove", { number: change.number, from: prettyStatus(change.status), to: prettyStatus(to) }),
+          : t("board.cannotMove", { number: change.number, from: formatStatus(change.status), to: formatStatus(to) }),
       );
       return;
     }
@@ -140,9 +140,9 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
                       {c.number}: {c.title}
                     </Link>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                      <Badge tone={statusTone(c.status)}>{c.status}</Badge>
+                      <StatusBadge status={c.status} />
                       {c.impact?.priceMinor !== null && c.impact?.priceMinor !== undefined ? (
-                        <span className="text-xs text-slate-600">{formatMoney(c.impact.priceMinor, c.impact.currency ?? "USD")}</span>
+                        <span className="text-xs text-slate-600">{money(c.impact.priceMinor, c.impact.currency ?? "USD")}</span>
                       ) : null}
                     </div>
                     {(MANUAL_MOVES[c.status] ?? []).length > 0 ? (
@@ -157,7 +157,7 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
                         >
                           <option value="">{t("board.selectPlaceholder")}</option>
                           {(MANUAL_MOVES[c.status] ?? []).map((s) => (
-                            <option key={s} value={s}>{prettyStatus(s)}</option>
+                            <option key={s} value={s}>{formatStatus(s)}</option>
                           ))}
                         </select>
                       </label>
@@ -173,6 +173,4 @@ export function ChangeBoard({ projectId, changes, loading }: { projectId: string
   );
 }
 
-function prettyStatus(status: string): string {
-  return status.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
+

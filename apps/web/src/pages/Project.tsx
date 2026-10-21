@@ -16,11 +16,11 @@ import { IntegrationsTab } from "../components/github.js";
 import { ScopeCheckPanel, type ScopeMatch } from "../components/scope-check.js";
 import { ImportDialog } from "../components/import.js";
 
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, Tabs, Textarea, formatMoney, statusTone, PageSkeleton, SkeletonCards } from "../components/ui.js";
+import { Button, Card, ConfirmButton, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, StatusBadge, Tabs, Textarea, defaultExpiryInput, formatStatus, PageSkeleton, SkeletonCards } from "../components/ui.js";
 import { uploadFile } from "../components/upload.js";
 
 export function ProjectPage(): JSX.Element {
-  const { t } = useLocale();
+  const { t, money } = useLocale();
   const { id } = useParams<{ id: string }>();
   const project = useQuery({ queryKey: ["project", id], queryFn: () => api.get<ProjectDetail>(`/projects/${id}`) });
   const changes = useQuery({
@@ -30,7 +30,6 @@ export function ProjectPage(): JSX.Element {
   const [showChange, setShowChange] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [parkedOnly, setParkedOnly] = useState(false);
   const [tab, setTab] = useState<"changes" | "board" | "contract" | "allowance" | "actuals" | "intake" | "policy" | "integrations" | "members" | "bundles" | "notes">("changes");
 
   if (project.isLoading) return <PageSkeleton />;
@@ -53,10 +52,10 @@ export function ProjectPage(): JSX.Element {
       />
       <ProjectSubnav projectId={p.id} />
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+        <StatusBadge status={p.status} />
         <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.openChanges", { count: p.counts.openChanges })}</span>
         <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.awaitingDecision", { count: p.counts.pendingApprovals })}</span>
-        {p.budgetMinor ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.budget", { amount: formatMoney(p.budgetMinor, p.currency) })}</span> : null}
+        {p.budgetMinor ? <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">{t("project.budget", { amount: money(p.budgetMinor, p.currency) })}</span> : null}
       </div>
 
       <Tabs
@@ -79,39 +78,13 @@ export function ProjectPage(): JSX.Element {
       />
 
       {tab === "changes" ? (
-        changes.isLoading ? <SkeletonCards count={3} /> : (changes.data ?? []).length === 0 ? (
-          <Empty title={t("project.noChanges")} hint={t("project.noChangesHint")} />
-        ) : (
-          <div>
-            {(changes.data ?? []).some((c) => c.status === "PARKED") ? (
-              <div className="mb-3 flex items-center gap-2 text-sm">
-                <Button size="sm" variant={parkedOnly ? "primary" : "secondary"} onClick={() => setParkedOnly((v) => !v)} aria-pressed={parkedOnly}>
-                  {t("project.parked", { count: (changes.data ?? []).filter((c) => c.status === "PARKED").length })}
-                </Button>
-                {parkedOnly ? <span className="text-slate-600">{t("project.shelvedHint")}</span> : null}
-              </div>
-            ) : null}
-            <ul className="space-y-3">
-              {(changes.data ?? []).filter((c) => !parkedOnly || c.status === "PARKED").map((c) => (
-              <li key={c.id}>
-                <Link to={`/projects/${p.id}/changes/${c.id}`} className="lift block rounded-xl border border-slate-200 bg-surface p-4 shadow-card hover:border-teal-600">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-slate-900">{c.number}: {c.title}</span>
-                    <Badge tone={statusTone(c.status)}>{c.status}</Badge>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-4 text-sm text-slate-600">
-                    {c.classification ? <span>{c.classification}</span> : null}
-                    {c.impact?.priceMinor !== null && c.impact?.priceMinor !== undefined ? (
-                      <span className="font-medium tabular-nums text-slate-800">{formatMoney(c.impact.priceMinor, c.impact.currency ?? p.currency)}</span>
-                    ) : null}
-                    <span>{c.linkCount === 1 ? t("project.linkOne", { count: c.linkCount }) : t("project.links", { count: c.linkCount })}</span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-            </ul>
-          </div>
-        )
+        <ChangesTab
+          projectId={p.id}
+          currency={p.currency}
+          changes={changes.data ?? []}
+          loading={changes.isLoading}
+          onNew={() => setShowChange(true)}
+        />
       ) : null}
       {tab === "board" ? <ChangeBoard projectId={p.id} changes={changes.data ?? []} loading={changes.isLoading} /> : null}
       {tab === "contract" ? <ContractTab projectId={p.id} /> : null}
@@ -126,6 +99,84 @@ export function ProjectPage(): JSX.Element {
       {showChange ? <ChangeDialog projectId={p.id} onClose={() => setShowChange(false)} /> : null}
       {showImport ? <ImportDialog projectId={p.id} onClose={() => setShowImport(false)} /> : null}
       {showEdit ? <ProjectEditDialog project={p} onClose={() => setShowEdit(false)} /> : null}
+    </div>
+  );
+}
+
+function ChangesTab({ projectId, currency, changes, loading, onNew }: {
+  projectId: string;
+  currency: string;
+  changes: ChangeListItem[];
+  loading: boolean;
+  onNew: () => void;
+}): JSX.Element {
+  const { t, money } = useLocale();
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  if (loading) return <SkeletonCards count={3} />;
+  if (changes.length === 0) {
+    return (
+      <Empty
+        title={t("project.noChanges")}
+        hint={t("project.noChangesHint")}
+        action={<Button onClick={onNew}>{t("project.newChangeRequest")}</Button>}
+      />
+    );
+  }
+  const statuses = [...new Set(changes.map((c) => c.status))].sort();
+  const q = query.trim().toLowerCase();
+  const visible = changes.filter(
+    (c) =>
+      (statusFilter === "" || c.status === statusFilter) &&
+      (q === "" || c.title.toLowerCase().includes(q) || c.number.toLowerCase().includes(q)),
+  );
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="min-w-52 flex-1">
+          <label htmlFor="changes-search" className="sr-only">{t("project.searchChanges")}</label>
+          <Input
+            id="changes-search"
+            type="search"
+            placeholder={t("project.searchChanges")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="changes-status" className="sr-only">{t("project.statusLabel")}</label>
+          <Select id="changes-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-auto">
+            <option value="">{t("project.allStatuses")}</option>
+            {statuses.map((s) => (
+              <option key={s} value={s}>{formatStatus(s)}</option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      {statusFilter === "PARKED" ? <p className="mb-3 text-sm text-slate-600">{t("project.shelvedHint")}</p> : null}
+      {visible.length === 0 ? (
+        <Empty title={t("project.noMatchingChanges")} hint={t("project.noMatchingHint")} />
+      ) : (
+        <ul className="space-y-3">
+          {visible.map((c) => (
+            <li key={c.id}>
+              <Link to={`/projects/${projectId}/changes/${c.id}`} className="lift block rounded-xl border border-slate-200 bg-surface p-4 shadow-card hover:border-teal-600">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-900">{c.number}: {c.title}</span>
+                  <StatusBadge status={c.status} />
+                </div>
+                <div className="mt-1 flex flex-wrap gap-4 text-sm text-slate-600">
+                  {c.classification ? <span>{formatStatus(c.classification)}</span> : null}
+                  {c.impact?.priceMinor !== null && c.impact?.priceMinor !== undefined ? (
+                    <span className="font-medium tabular-nums text-slate-800">{money(c.impact.priceMinor, c.impact.currency ?? currency)}</span>
+                  ) : null}
+                  <span>{c.linkCount === 1 ? t("project.linkOne", { count: c.linkCount }) : t("project.links", { count: c.linkCount })}</span>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -171,7 +222,7 @@ function ChangeDialog({ projectId, onClose }: { projectId: string; onClose: () =
           <Input id="change-title" {...register("title", { required: t("project.titleRequired") })} />
         </Field>
         <Field label={t("project.descriptionLabel")} error={formState.errors.description?.message} htmlFor="change-description">
-          <Textarea id="change-description" rows={4} {...register("description", { required: t("project.descriptionRequired") })} />
+          <Textarea id="change-description" rows={4} placeholder={t("project.descriptionPlaceholder")} {...register("description", { required: t("project.descriptionRequired") })} />
         </Field>
         <ScopeCheckPanel
           title={watch("title") ?? ""}
@@ -185,11 +236,15 @@ function ChangeDialog({ projectId, onClose }: { projectId: string; onClose: () =
             const aiLinks = res.analysis.status === "SUCCEEDED" ? (res.analysis.output?.links ?? []) : [];
             return {
               deterministic: res.deterministic,
-              aiNote: res.analysis.status === "SUCCEEDED" ? t("project.aiRefinementAgrees", { count: aiLinks.length }) : null,
+              aiNote: res.analysis.status === "SUCCEEDED"
+                ? aiLinks.length === 1
+                  ? t("project.aiRefinementAgreesOne")
+                  : t("project.aiRefinementAgreesOther", { count: aiLinks.length })
+                : null,
             };
           }}
         />
-        <Field label={t("project.sourceLabel")} htmlFor="change-source">
+        <Field label={t("project.sourceLabel")} hint={t("project.sourceHint")} htmlFor="change-source">
           <Select id="change-source" {...register("source")}>
             <option value="CLIENT">{t("project.sourceClient")}</option>
             <option value="AGENCY">{t("project.sourceAgency")}</option>
@@ -203,9 +258,13 @@ function ChangeDialog({ projectId, onClose }: { projectId: string; onClose: () =
             onChange={(e) => setFiles([...(e.target.files ?? [])])}
           />
         </Field>
-        {files.length > 0 ? <p className="text-xs text-slate-500">{t("project.filesWillAttach", { count: files.length })}</p> : null}
+        {files.length > 0 ? (
+          <p className="text-xs text-slate-500">
+            {files.length === 1 ? t("project.filesWillAttachOne") : t("project.filesWillAttachOther", { count: files.length })}
+          </p>
+        ) : null}
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending || uploading} className="w-full">
+        <Button type="submit" loading={save.isPending || uploading} className="w-full">
           {uploading ? t("project.attachingFiles") : t("project.createAsDraft")}
         </Button>
       </form>
@@ -219,7 +278,7 @@ function ProjectEditDialog({ project, onClose }: { project: ProjectDetail; onClo
   const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const { register, handleSubmit } = useForm<{
+  const { register, handleSubmit, formState } = useForm<{
     name: string; status: string; startDate: string; targetDate: string; budget: string;
   }>({
     defaultValues: {
@@ -254,7 +313,7 @@ function ProjectEditDialog({ project, onClose }: { project: ProjectDetail; onClo
         </Field>
         <Field label={t("project.statusLabel")} htmlFor="pe-status">
           <Select id="pe-status" {...register("status")}>
-            {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
           </Select>
         </Field>
         <div className="grid grid-cols-2 gap-4">
@@ -265,11 +324,18 @@ function ProjectEditDialog({ project, onClose }: { project: ProjectDetail; onClo
             <Input id="pe-target" type="date" {...register("targetDate")} />
           </Field>
         </div>
-        <Field label={t("project.budgetCurrency", { currency: project.currency })} htmlFor="pe-budget">
-          <Input id="pe-budget" inputMode="decimal" placeholder={t("project.budgetPlaceholder")} {...register("budget")} />
+        <Field label={t("project.budgetCurrency", { currency: project.currency })} error={formState.errors.budget?.message} htmlFor="pe-budget">
+          <Input
+            id="pe-budget"
+            inputMode="decimal"
+            placeholder={t("project.budgetPlaceholder")}
+            {...register("budget", {
+              validate: (v) => v.trim() === "" || !Number.isNaN(Number(v)) || t("project.budgetNumberError"),
+            })}
+          />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">{t("project.saveProject")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("project.saveProject")}</Button>
       </form>
     </Dialog>
   );
@@ -312,9 +378,14 @@ function MembersTab({ projectId, canManage }: { projectId: string; canManage: bo
             <li key={m.id} className="flex items-center justify-between py-2 text-sm">
               <span>{m.user?.name ?? m.userId} <span className="text-slate-500">({m.user?.email})</span></span>
               <span className="flex items-center gap-2">
-                <Badge>{m.role}</Badge>
+                <StatusBadge status={m.role} />
                 {canManage ? (
-                  <Button variant="ghost" size="sm" onClick={() => remove.mutate(m.userId)}>{t("project.remove")}</Button>
+                  <ConfirmButton
+                    label={t("project.remove")}
+                    confirmLabel={t("project.confirmRemove")}
+                    cancelLabel={t("common.cancel")}
+                    onConfirm={() => remove.mutate(m.userId)}
+                  />
                 ) : null}
               </span>
             </li>
@@ -337,15 +408,13 @@ function MembersTab({ projectId, canManage }: { projectId: string; canManage: bo
           <div>
             <Field label={t("project.roleLabel")} htmlFor="member-role">
               <Select id="member-role" value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="LEAD">LEAD</option>
-                <option value="MEMBER">MEMBER</option>
-                <option value="CLIENT_ADMIN">CLIENT_ADMIN</option>
-                <option value="CLIENT_APPROVER">CLIENT_APPROVER</option>
-                <option value="CLIENT_VIEWER">CLIENT_VIEWER</option>
+                {["LEAD", "MEMBER", "CLIENT_ADMIN", "CLIENT_APPROVER", "CLIENT_VIEWER"].map((r) => (
+                  <option key={r} value={r}>{formatStatus(r)}</option>
+                ))}
               </Select>
             </Field>
           </div>
-          <Button type="submit" disabled={add.isPending}>{t("project.addMember")}</Button>
+          <Button type="submit" loading={add.isPending}>{t("project.addMember")}</Button>
         </form>
       ) : null}
       {error ? <div className="mt-3"><ErrorBanner message={error} /></div> : null}
@@ -364,7 +433,7 @@ interface BundleRow {
 }
 
 function BundlesTab({ projectId, canManage }: { projectId: string; canManage: boolean }): JSX.Element {
-  const { t } = useLocale();
+  const { t, money } = useLocale();
   const client = useQueryClient();
   const bundles = useQuery({ queryKey: ["bundles", projectId], queryFn: () => fetchAll<BundleRow>(`/projects/${projectId}/bundles`) });
   const changes = useQuery({ queryKey: ["changes", projectId], queryFn: () => fetchAll<ChangeListItem>(`/projects/${projectId}/change-requests`) });
@@ -372,7 +441,7 @@ function BundlesTab({ projectId, canManage }: { projectId: string; canManage: bo
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<string | null>(null);
-  const [expiry, setExpiry] = useState("");
+  const [expiry, setExpiry] = useState(() => defaultExpiryInput());
   const create = useMutation({
     mutationFn: () => api.post(`/projects/${projectId}/bundles`, { name, changeRequestIds: selected }),
     onSuccess: () => {
@@ -391,7 +460,7 @@ function BundlesTab({ projectId, canManage }: { projectId: string; canManage: bo
         <Card key={b.id}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium">{b.name}</span>
-            <Badge tone={statusTone(b.status)}>{b.status}</Badge>
+            <StatusBadge status={b.status} />
           </div>
           <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
             {b.members.map((m) => (
@@ -399,7 +468,7 @@ function BundlesTab({ projectId, canManage }: { projectId: string; canManage: bo
             ))}
           </ul>
           <p className="mt-2 text-sm text-slate-600">
-            {t("project.combined", { amount: formatMoney(b.combined.priceMinor, b.combined.currency ?? "USD") })}
+            {t("project.combined", { amount: money(b.combined.priceMinor, b.combined.currency ?? "USD") })}
             {b.combined.missingImpact.length > 0 ? t("project.missingImpact", { items: b.combined.missingImpact.join(", ") }) : ""}
           </p>
           {b.sendBlockers.length > 0 ? (
@@ -434,19 +503,23 @@ function BundlesTab({ projectId, canManage }: { projectId: string; canManage: bo
             </Field>
             <fieldset>
               <legend className="text-sm font-medium">{t("project.bundleMembersLegend")}</legend>
-              {(changes.data ?? []).map((c) => (
-                <label key={c.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(c.id)}
-                    onChange={(e) => setSelected(e.target.checked ? [...selected, c.id] : selected.filter((s) => s !== c.id))}
-                  />
-                  {c.number}: {c.title} ({c.status})
-                </label>
-              ))}
+              {(changes.data ?? []).length === 0 ? (
+                <p className="text-sm text-slate-600">{t("project.noChanges")}</p>
+              ) : (
+                (changes.data ?? []).map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(c.id)}
+                      onChange={(e) => setSelected(e.target.checked ? [...selected, c.id] : selected.filter((s) => s !== c.id))}
+                    />
+                    {c.number}: {c.title} ({formatStatus(c.status)})
+                  </label>
+                ))
+              )}
             </fieldset>
             {error ? <ErrorBanner message={error} /> : null}
-            <Button size="sm" disabled={create.isPending || !name || selected.length === 0} onClick={() => create.mutate()}>
+            <Button size="sm" loading={create.isPending} disabled={!name.trim() || selected.length === 0} onClick={() => create.mutate()}>
               {t("project.createBundle")}
             </Button>
           </div>
@@ -476,35 +549,42 @@ function SendBundleForm({ projectId, bundleId, expiry, setExpiry, onDone }: { pr
     },
     onError: (err) => setError(errorMessage(err)),
   });
+  const eligible = (members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER");
   return (
     <div className="space-y-2 rounded-md border border-slate-200 p-3">
       <p className="text-sm font-medium">{t("project.approvers")}</p>
-      {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
-        <label key={m.userId} className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
-          {m.user?.name} ({m.role})
-        </label>
-      ))}
+      {members.isLoading ? (
+        <Spinner />
+      ) : eligible.length === 0 ? (
+        <p className="text-sm text-slate-600">{t("project.addMembersFirst")}</p>
+      ) : (
+        eligible.map((m) => (
+          <label key={m.userId} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
+            {m.user?.name ?? m.userId} ({formatStatus(m.role)})
+          </label>
+        ))
+      )}
       <Field
         label={t("project.decisionRule")}
         htmlFor={`bundle-policy-${bundleId}`}
         hint={t("project.decisionRuleHint")}
       >
-        <select id={`bundle-policy-${bundleId}`} value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <Select id={`bundle-policy-${bundleId}`} value={policyMode} onChange={(e) => setPolicyMode(e.target.value)}>
           <option value="">{t("project.projectDefault")}</option>
           <option value="ANY">{t("policy.modeANY")}</option>
           <option value="ALL">{t("policy.modeALL")}</option>
           <option value="SEQUENTIAL">{t("policy.modeSEQUENTIAL")}</option>
-        </select>
+        </Select>
       </Field>
-      <Field label={t("project.expiresAt")} htmlFor={`bundle-expiry-${bundleId}`}>
+      <Field label={t("project.expiresAt")} hint={t("project.expiryHint")} htmlFor={`bundle-expiry-${bundleId}`}>
         <Input id={`bundle-expiry-${bundleId}`} type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
       </Field>
       {error ? <ErrorBanner message={error} /> : null}
       {links ? (
         <ul className="text-sm">{links.map((l) => <li key={l}><a className="underline" href={l}>{l}</a></li>)}</ul>
       ) : (
-        <Button size="sm" disabled={send.isPending || approvers.length === 0 || !expiry} onClick={() => send.mutate()}>{t("project.sendBundle")}</Button>
+        <Button size="sm" loading={send.isPending} disabled={approvers.length === 0 || !expiry} onClick={() => send.mutate()}>{t("project.sendBundle")}</Button>
       )}
     </div>
   );
@@ -520,7 +600,7 @@ interface NoteRow {
 }
 
 function NotesTab({ projectId }: { projectId: string }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date } = useLocale();
   const client = useQueryClient();
   const notes = useQuery({ queryKey: ["notes", projectId], queryFn: () => fetchAll<NoteRow>(`/projects/${projectId}/decision-notes`) });
   const [body, setBody] = useState("");
@@ -552,7 +632,7 @@ function NotesTab({ projectId }: { projectId: string }): JSX.Element {
               <div className="space-y-2">
                 <Textarea aria-label={t("project.editNoteLabel")} rows={3} value={editBody} onChange={(e) => setEditBody(e.target.value)} />
                 <span className="flex gap-2">
-                  <Button size="sm" disabled={update.isPending} onClick={() => update.mutate({ id: n.id, note: editBody })}>{t("project.save")}</Button>
+                  <Button size="sm" loading={update.isPending} disabled={!editBody.trim()} onClick={() => update.mutate({ id: n.id, note: editBody })}>{t("project.save")}</Button>
                   <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>{t("project.cancel")}</Button>
                 </span>
               </div>
@@ -560,7 +640,7 @@ function NotesTab({ projectId }: { projectId: string }): JSX.Element {
               <>
                 <p className="text-slate-900">{n.body}</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {n.targetType} · {new Date(n.createdAt).toLocaleString()}
+                  {formatStatus(n.targetType)} · {date(n.createdAt)}
                   {(n.editHistory ?? []).length > 0 ? t("project.editedCount", { count: (n.editHistory ?? []).length }) : ""}
                   {" · "}<button type="button" className="underline" onClick={() => { setEditingId(n.id); setEditBody(n.body); }}>{t("project.edit")}</button>
                 </p>
@@ -575,7 +655,7 @@ function NotesTab({ projectId }: { projectId: string }): JSX.Element {
           <Textarea id="note-body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} required />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button size="sm" type="submit" disabled={save.isPending}>{t("project.saveNote")}</Button>
+        <Button size="sm" type="submit" loading={save.isPending} disabled={!body.trim()}>{t("project.saveNote")}</Button>
       </form>
     </Card>
   );

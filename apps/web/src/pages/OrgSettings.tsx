@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
-import { Badge, Button, Card, ErrorBanner, Field, Input, PageTitle, Select, Spinner, PageSkeleton } from "../components/ui.js";
+import { Badge, Button, Card, ConfirmButton, ErrorBanner, Field, Input, PageTitle, Select, Spinner, formatStatus, PageSkeleton } from "../components/ui.js";
 import { RateCardsCard, TemplatesCard } from "../components/pricing-settings.js";
 import { ApiKeysCard, WebhooksCard } from "../components/integrations-settings.js";
 import { PreferencesCard, SlackCard } from "../components/channels.js";
@@ -64,7 +64,7 @@ export function OrgSettingsPage(): JSX.Element {
     <div>
       <PageTitle
         title={t("orgSettings.title", { name: org.data.name })}
-        subtitle={t("orgSettings.planSubtitle", { plan: org.data.plan })}
+        subtitle={t("orgSettings.planSubtitle", { plan: formatStatus(org.data.plan) })}
         actions={<Link to="/"><Button variant="secondary" size="sm">{t("orgSettings.backToProjects")}</Button></Link>}
       />
       <div className="space-y-5">
@@ -88,7 +88,7 @@ export function OrgSettingsPage(): JSX.Element {
               <ul className="mt-1 space-y-1 text-sm">
                 {(invitations.data ?? []).filter((i) => i.status === "PENDING").map((i) => (
                   <li key={i.id} className="flex items-center justify-between">
-                    <span>{i.email} ({i.role})</span>
+                    <span>{i.email} ({formatStatus(i.role)})</span>
                     <RevokeButton orgId={orgId} inviteId={i.id} onDone={() => void client.invalidateQueries({ queryKey: ["invites", orgId] })} />
                   </li>
                 ))}
@@ -174,10 +174,9 @@ function RolePicker({ orgId, member, onDone }: { orgId: string; member: Member; 
   return (
     <span className="flex items-center gap-2">
       <Select aria-label={t("orgSettings.roleFor", { email: member.user?.email ?? member.userId })} value={member.role} onChange={(e) => save.mutate(e.target.value)} className="w-auto">
-        <option value="OWNER">OWNER</option>
-        <option value="ADMIN">ADMIN</option>
-        <option value="MEMBER">MEMBER</option>
-        <option value="CLIENT">CLIENT</option>
+        {["OWNER", "ADMIN", "MEMBER", "CLIENT"].map((r) => (
+          <option key={r} value={r}>{formatStatus(r)}</option>
+        ))}
       </Select>
       {error ? <Badge tone="red">{error}</Badge> : null}
     </span>
@@ -211,14 +210,13 @@ function InviteForm({ orgId, onDone }: { orgId: string; onDone: () => void }): J
         <div>
           <Field label={t("orgSettings.roleLabel")} htmlFor="invite-role">
             <Select id="invite-role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="ADMIN">ADMIN</option>
-              <option value="MEMBER">MEMBER</option>
-              <option value="CLIENT">CLIENT</option>
-              <option value="OWNER">OWNER</option>
+              {["ADMIN", "MEMBER", "CLIENT", "OWNER"].map((r) => (
+                <option key={r} value={r}>{formatStatus(r)}</option>
+              ))}
             </Select>
           </Field>
         </div>
-        <Button type="submit" disabled={invite.isPending}>{t("orgSettings.sendInvite")}</Button>
+        <Button type="submit" loading={invite.isPending}>{t("orgSettings.sendInvite")}</Button>
       </div>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {link ? <p className="mt-2 text-sm">{t("orgSettings.inviteLinkDevOnly")} <a className="underline" href={link}>{link}</a></p> : null}
@@ -236,18 +234,12 @@ function RemoveMemberButton({ orgId, member, onDone }: { orgId: string; member: 
   });
   return (
     <span className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={remove.isPending}
-        onClick={() => {
-          if (window.confirm(t("orgSettings.removeMemberConfirm", { email: member.user?.email ?? t("orgSettings.thisMember") }))) {
-            remove.mutate();
-          }
-        }}
-      >
-        {t("orgSettings.remove")}
-      </Button>
+      <ConfirmButton
+        label={t("orgSettings.remove")}
+        confirmLabel={t("orgSettings.confirmRemove")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={() => remove.mutate()}
+      />
       {error ? <Badge tone="red">{error}</Badge> : null}
     </span>
   );

@@ -73,11 +73,11 @@ test("delivery acceptance: request on scope, decide on review link", async ({ pa
   await expect(page.getByRole("heading", { name: /Deliverables for acceptance/ })).toBeVisible();
   await expect(page.getByText("Homepage works")).toBeVisible();
   await expect(page.getByText("Demo recording")).toBeVisible();
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByLabel("Comment (optional)").fill("Works as specified.");
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
-  await expect(page.getByText("DECIDED", { exact: true })).toBeVisible();
+  await expect(page.getByText("Decided", { exact: true })).toBeVisible();
   await axeClean(page);
 
   // The delivery is accepted.

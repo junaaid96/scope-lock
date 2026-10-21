@@ -512,7 +512,7 @@ async function deemAcceptance(deps: WorkerDeps, approvalId: string, now: string)
       const req = await tx.findRequirementById(reqId);
       if (req) keys.push(req.stableKey);
     }
-    const summary = keys.length > 0 ? keys.join(", ") : `${accepted.length} requirement(s)`;
+    const summary = keys.length > 0 ? keys.join(", ") : accepted.length === 1 ? "1 requirement" : `${accepted.length} requirements`;
     for (const m of await tx.listProjectMembers(fresh.projectId)) {
       if (m.role !== "LEAD" && m.role !== "MEMBER" && m.role !== "CLIENT_ADMIN" && m.role !== "CLIENT_APPROVER") continue;
       const user = await tx.findUserById(m.userId);

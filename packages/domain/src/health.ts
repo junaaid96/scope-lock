@@ -34,6 +34,11 @@ export interface ScopeHealth {
 
 const DAY_MS = 86_400_000;
 
+/** "1 open request" / "3 open requests" — plain words, no "(s)". */
+function plural(count: number, one: string, other: string): string {
+  return `${count} ${count === 1 ? one : other}`;
+}
+
 export function computeScopeHealth(input: HealthInput): ScopeHealth {
   const threshold = input.agingThresholdDays ?? 7;
   const now = Date.parse(input.nowIso);
@@ -49,7 +54,7 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         aging.length === 0
           ? `No open request is older than ${threshold} days.`
-          : `${aging.length} open request(s) untouched for over ${threshold} days.`,
+          : `${plural(aging.length, "open request", "open requests")} untouched for over ${threshold} days.`,
       itemIds: aging.map((r) => r.id),
     },
     {
@@ -59,7 +64,7 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         input.pendingApprovals.length === 0
           ? "No proposals are waiting on a client decision."
-          : `${input.pendingApprovals.length} proposal(s) awaiting client decision.`,
+          : `${plural(input.pendingApprovals.length, "proposal", "proposals")} awaiting client decision.`,
       itemIds: input.pendingApprovals.map((r) => r.id),
     },
     {
@@ -69,7 +74,7 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         input.expiredApprovals.length === 0
           ? "No approval request has expired."
-          : `${input.expiredApprovals.length} approval(s) expired without a decision — resend or withdraw.`,
+          : `${plural(input.expiredApprovals.length, "approval", "approvals")} expired without a decision — resend or withdraw.`,
       itemIds: input.expiredApprovals.map((r) => r.id),
     },
     {
@@ -79,7 +84,9 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         input.unlinkedRequests.length === 0
           ? "Every request links to baseline requirements."
-          : `${input.unlinkedRequests.length} request(s) have no linked requirement — traceability gap.`,
+          : input.unlinkedRequests.length === 1
+            ? "1 request has no linked requirement — traceability gap."
+            : `${input.unlinkedRequests.length} requests have no linked requirement — traceability gap.`,
       itemIds: input.unlinkedRequests.map((r) => r.id),
     },
     {
@@ -89,7 +96,7 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         input.unapprovedImplementations.length === 0
           ? "No work was marked implemented without approval."
-          : `${input.unapprovedImplementations.length} change(s) implemented or merged without an approval decision.`,
+          : `${plural(input.unapprovedImplementations.length, "change", "changes")} implemented or merged without an approval decision.`,
       itemIds: input.unapprovedImplementations.map((r) => r.id),
     },
     {
@@ -99,7 +106,9 @@ export function computeScopeHealth(input: HealthInput): ScopeHealth {
       detail:
         (input.unlinkedWork ?? []).length === 0
           ? "Every merged external change links to a request."
-          : `${(input.unlinkedWork ?? []).length} merged external change(s) link to no request — work happened outside ScopeLock.`,
+          : (input.unlinkedWork ?? []).length === 1
+            ? "1 merged external change links to no request — work happened outside ScopeLock."
+            : `${(input.unlinkedWork ?? []).length} merged external changes link to no request — work happened outside ScopeLock.`,
       itemIds: (input.unlinkedWork ?? []).map((r) => r.id),
     },
   ];

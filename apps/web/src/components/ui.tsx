@@ -28,10 +28,56 @@ const buttonVariants = cva(
   },
 );
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {}
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  /** Shows a spinner and disables the button while an action is in flight. */
+  loading?: boolean;
+}
 
-export function Button({ variant, size, className, ...props }: ButtonProps): JSX.Element {
-  return <button className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+export function Button({ variant, size, className, loading, disabled, children, ...props }: ButtonProps): JSX.Element {
+  return (
+    <button className={cn(buttonVariants({ variant, size }), className)} disabled={disabled || loading} {...props}>
+      {loading ? <Spinner /> : null}
+      {children}
+    </button>
+  );
+}
+
+/** Two-click inline confirm for destructive actions (replaces window.confirm). */
+export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, variant = "ghost", size = "sm", className }: {
+  label: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  onConfirm: () => void;
+  variant?: ButtonProps["variant"];
+  size?: ButtonProps["size"];
+  className?: string;
+}): JSX.Element {
+  const [arming, setArming] = useState(false);
+  if (!arming) {
+    return (
+      <Button variant={variant} size={size} className={className} onClick={() => setArming(true)}>
+        {label}
+      </Button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Button
+        variant="danger"
+        size="sm"
+        className={className}
+        onClick={() => {
+          setArming(false);
+          onConfirm();
+        }}
+      >
+        {confirmLabel}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setArming(false)}>
+        {cancelLabel}
+      </Button>
+    </span>
+  );
 }
 
 const fieldBase =
@@ -118,6 +164,31 @@ export function statusTone(status: string): keyof typeof badgeTones {
   if (["DRAFT", "SUBMITTED", "TRIAGING", "ESTIMATING", "PENDING_APPROVAL", "PROPOSED", "IN_PROGRESS", "PENDING"].includes(status)) return "amber";
   if (["REJECTED", "EXPIRED", "INVALIDATED", "OUT_OF_SCOPE", "DELETED"].includes(status)) return "red";
   return "blue";
+}
+
+/** Statuses whose plain-English label is not just the enum prettified. */
+const STATUS_LABELS: Record<string, string> = {
+  DEEMED: "Deemed approved",
+  INVALIDATED: "Withdrawn",
+  PREREQ_APPROVED: "Prerequisite approved",
+  PREREQ_IMPLEMENTED: "Prerequisite implemented",
+};
+
+/** Turn a machine status/role/priority enum into a human label: PENDING_APPROVAL → "Pending approval". */
+export function formatStatus(status: string): string {
+  const exact = STATUS_LABELS[status];
+  if (exact) return exact;
+  const words = status.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Status badge with the right tone and a human label. The raw enum stays on data-status for tests. */
+export function StatusBadge({ status }: { status: string }): JSX.Element {
+  return (
+    <Badge tone={statusTone(status)}>
+      <span data-status={status}>{formatStatus(status)}</span>
+    </Badge>
+  );
 }
 
 export function Spinner(): JSX.Element {
@@ -233,7 +304,7 @@ export const ICONS = {
   file: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z", "M14 2v6h6", "M16 13H8", "M16 17H8"],
 } as const;
 
-export function Empty({ title, hint, icon }: { title: string; hint?: string; icon?: keyof typeof ICONS }): JSX.Element {
+export function Empty({ title, hint, icon, action }: { title: string; hint?: string; icon?: keyof typeof ICONS; action?: ReactNode }): JSX.Element {
   return (
     <div className="animate-fade-in rounded-xl border border-dashed border-slate-300 bg-surface px-6 py-12 text-center">
       <span aria-hidden="true" className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-teal-50 text-teal-700 ring-8 ring-teal-50/50">
@@ -241,6 +312,7 @@ export function Empty({ title, hint, icon }: { title: string; hint?: string; ico
       </span>
       <p className="text-sm font-semibold text-slate-900">{title}</p>
       {hint ? <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{hint}</p> : null}
+      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>
   );
 }
@@ -259,11 +331,37 @@ export function Dialog({ title, onClose, children, wide }: { title: string; onCl
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Light focus trap: keep Tab cycling inside the dialog.
+      if (e.key === "Tab" && ref.current) {
+        const focusables = [...ref.current.querySelectorAll<HTMLElement>("button, input, textarea, select, a[href]")].filter(
+          (el) => !el.hasAttribute("disabled") && el.getClientRects().length > 0,
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0] as HTMLElement;
+        const last = focusables[focusables.length - 1] as HTMLElement;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input, textarea, select, button")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
+    // Focus the first form field in the body — never the close button.
+    ref.current?.querySelector<HTMLElement>("[data-dialog-body] input, [data-dialog-body] textarea, [data-dialog-body] select")?.focus();
+    // Lock background scroll while the dialog is open.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose} role="presentation">
@@ -281,20 +379,45 @@ export function Dialog({ title, onClose, children, wide }: { title: string; onCl
             <Icon d={ICONS.close} />
           </button>
         </div>
-        {children}
+        <div data-dialog-body>{children}</div>
       </div>
     </div>
   );
 }
 
+/** Locale-unaware fallbacks for spots without useLocale; prefer money()/date()/relative() there. */
 export function formatMoney(minor: number | null | undefined, currency = "USD"): string {
   if (minor === null || minor === undefined) return "—";
-  return `${currency} ${(minor / 100).toFixed(2)}`;
+  const grouped = new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
+  return `${currency} ${grouped}`;
 }
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+}
+
+export function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(iso));
+}
+
+/** "in 3 days (Nov 21, 2026, …)" for expiry lines; falls back to the plain date. */
+export function expiryLabel(
+  iso: string | null | undefined,
+  date: (v: string | null | undefined) => string,
+  relative: (v: string | null | undefined) => string | null,
+): string {
+  const rel = relative(iso);
+  const abs = date(iso);
+  return rel ? `${rel} (${abs})` : abs;
+}
+
+/** Prefill value for datetime-local expiry inputs: N days from now, local time. */
+export function defaultExpiryInput(days = 7): string {
+  const d = new Date(Date.now() + days * 86_400_000);
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** ScopeLock mark: a rounded square with a padlock-shaped lock-in. */

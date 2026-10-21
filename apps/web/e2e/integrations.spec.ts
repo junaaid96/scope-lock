@@ -88,7 +88,7 @@ test("integrations: API key lifecycle and webhook CRUD on org settings", async (
   const editDialog = page.getByRole("dialog", { name: "Edit webhook" });
   await editDialog.getByText("Enabled", { exact: true }).click();
   await editDialog.getByRole("button", { name: "Save webhook" }).click();
-  await expect(hookItem.getByText("Enabled: off")).toBeVisible();
+  await expect(hookItem.getByText("Disabled")).toBeVisible();
   await hookItem.getByRole("button", { name: "Delete" }).click();
   await hookItem.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("http://127.0.0.1:9/scopelock-events")).toHaveCount(0);

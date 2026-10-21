@@ -110,7 +110,7 @@ export function IntegrationsTab({ project, canManage }: { project: ProjectDetail
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <span className="font-medium text-slate-900">GitHub</span>{" "}
-                {connected.enabled ? <Badge tone="teal">{t("github.connected")}</Badge> : <Badge tone="slate">{t("github.disabled")}</Badge>}
+                {connected.enabled ? <Badge tone="green">{t("github.connected")}</Badge> : <Badge tone="slate">{t("github.disabled")}</Badge>}
                 <div className="text-xs text-slate-500">{t("github.webhookUrlHint")}</div>
               </div>
               {canManage ? (
@@ -164,7 +164,7 @@ export function IntegrationsTab({ project, canManage }: { project: ProjectDetail
                   ) : (
                     <span className="font-medium text-slate-900">{item.externalId}</span>
                   )}{" "}
-                  {item.merged ? <Badge tone="teal">{t("github.merged")}</Badge> : <Badge tone="slate">{t("github.open")}</Badge>}
+                  {item.merged ? <Badge tone="green">{t("github.merged")}</Badge> : <Badge tone="slate">{t("github.open")}</Badge>}
                   <div className="text-slate-600">{item.title ?? "—"}</div>
                   <div className="text-xs text-slate-500">
                     {item.kind} · {item.refs.length > 0 ? item.refs.join(", ") : t("github.noRefs")} · {date(item.observedAt)}

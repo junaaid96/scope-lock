@@ -6,7 +6,12 @@
     "empty": "Nothing here yet",
     "notAvailable": "—",
     "loadingLabel": "Loading",
-    "closeDialog": "Close dialog"
+    "closeDialog": "Close dialog",
+    "cancel": "Cancel",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "confirmDelete": "Yes, delete",
+    "confirmUnlink": "Yes, unlink"
   },
   "contract": {
     "title": "Contract",
@@ -218,7 +223,8 @@
     "delete": "Delete",
     "cancel": "Cancel",
     "close": "Close",
-    "attempts": "attempts"
+    "attempts": "attempts",
+    "webhookDisabled": "Disabled"
   },
   "github": {
     "title": "GitHub linking",
@@ -533,7 +539,6 @@
     "total": "Total"
   },
   "templates": {
-    "deleteConfirm": "Delete template “{name}”? Drafts already created from it are unaffected.",
     "title": "Scope templates",
     "newButton": "New scope template",
     "blurb": "Standard assumptions, exclusions, and requirements per project type. Applying one starts a new draft scope.",
@@ -597,14 +602,12 @@
     "done": "Done"
   },
   "security": {
-    "unlinkConfirm": "Unlink {provider}? You can re-link it any time.",
     "connectedTitle": "Connected accounts",
     "connectedHint": "Link Google or GitHub to sign in with one click. Linking requires the provider's verified email to match this account — mismatches are refused, never merged.",
     "noAccounts": "No connected accounts",
     "unlink": "Unlink",
     "linkGoogle": "Link Google",
     "linkGitHub": "Link GitHub",
-    "deletePasskeyConfirm": "Delete passkey “{name}”?",
     "passkeysTitle": "Passkeys",
     "passkeysHint": "Phishing-resistant sign-in with your device or security key. A passkey verified with biometrics or PIN also satisfies two-factor authentication.",
     "noPasskeys": "No passkeys yet",
@@ -726,7 +729,6 @@
     "runCheck": "Run check",
     "aiStatus": "AI status: {status}",
     "suggestedValue": "· suggested: {value}",
-    "inventedRejected": "· {count} invented reference(s) rejected",
     "aiBadge": "AI",
     "acceptLink": "Accept link",
     "dismiss": "Dismiss",
@@ -743,7 +745,12 @@
     "useAsQuestion": "Use as question",
     "proposalDraftAria": "Proposal draft (editable)",
     "nextSteps": "Next: {steps}",
-    "downloadSummary": "Download summary (JSON)"
+    "downloadSummary": "Download summary (JSON)",
+    "exportFailed": "Export failed — try again.",
+    "autoStatusNote": "This status moves on its own as the review progresses.",
+    "addMembersFirst": "No eligible approvers yet — add project members first.",
+    "inventedRejectedOne": "· 1 invented reference rejected",
+    "inventedRejectedOther": "· {count} invented references rejected"
   },
   "scope": {
     "pageTitle": "Scope ledger",
@@ -765,7 +772,6 @@
     "amendmentHint": "Amendments publish only with a linked approved change — convert or link one first.",
     "assumptions": "Assumptions",
     "exclusions": "Exclusions",
-    "removeConfirm": "Remove {stableKey} from this draft? Published history is untouched.",
     "emptyDraft": "Empty draft",
     "emptyDraftHint": "Add at least one requirement before publishing.",
     "hideEvidence": "Hide evidence",
@@ -837,7 +843,10 @@
     "fieldPriority": "Priority",
     "fieldOrder": "Order",
     "addToDraft": "Add to draft",
-    "editRequirementTitle": "Edit requirement in draft"
+    "editRequirementTitle": "Edit requirement in draft",
+    "orderHint": "Lower numbers list first.",
+    "noFilesHint": "No uploaded files yet — attach files from a change request first.",
+    "confirmRemove": "Yes, remove"
   },
   "review": {
     "policyAny": "Any approver can decide this package.",
@@ -932,7 +941,15 @@
     "typedNameHint": "Recorded with your decision to show who confirmed it.",
     "confirmLabel": "I confirm this decision on the exact package above. I understand recorded decisions are final.",
     "recording": "Recording…",
-    "recordDecision": "Record decision"
+    "recordDecision": "Record decision",
+    "awaitingDecision": "Awaiting decision",
+    "approveHint": "Accept the price, effort, and timeline as proposed.",
+    "rejectHint": "Decline this proposal — your comment tells the agency why.",
+    "reviseHint": "Send it back with the changes you need.",
+    "needOption": "Pick an option above to continue.",
+    "needConfirm": "Tick the confirmation to continue.",
+    "needCode": "Enter the 6-digit code from your email.",
+    "needName": "Type your full name."
   },
   "verify": {
     "notFoundTitle": "Certificate not found",
@@ -1001,8 +1018,8 @@
     "packageLoadError": "Could not load package.",
     "bundledCount": "{count} bundled requests",
     "daysValue": "{days} days",
-    "decidePrefix": "To decide, open the review link from your email, or ",
-    "decideHere": "decide here"
+    "reviewDecide": "Review & decide",
+    "awaitingYou": "Awaiting your decision"
   },
   "dashboard": {
     "noOrgs": "No organizations yet",
@@ -1030,7 +1047,6 @@
     "noClients": "No clients yet",
     "noClientsHint": "Add a client, then create projects under it.",
     "edit": "Edit",
-    "deleteClientConfirm": "Delete client {name}? Clients with projects cannot be deleted.",
     "delete": "Delete",
     "editClient": "Edit client",
     "company": "Company",
@@ -1051,7 +1067,11 @@
     "statProjects": "Projects",
     "statOpen": "Open changes",
     "statAwaiting": "Awaiting decision",
-    "statMine": "Needs your decision"
+    "statMine": "Needs your decision",
+    "budgetNumberError": "Enter a budget number, e.g. 5000",
+    "customCurrency": "Type a currency code",
+    "currencyHint": "3-letter code, e.g. USD, BDT, EUR",
+    "confirmDelete": "Yes, delete"
   },
   "project": {
     "subtitle": "{client} · {currency} · governing baseline: {baseline}",
@@ -1082,7 +1102,6 @@
     "shelvedHint": "Shelved items — open one to revive it into a new submission.",
     "linkOne": "{count} link",
     "links": "{count} links",
-    "aiRefinementAgrees": "AI refinement agrees on {count} link(s).",
     "titleLabel": "Title",
     "titleRequired": "Title is required",
     "descriptionLabel": "Description",
@@ -1092,7 +1111,6 @@
     "sourceAgency": "Agency",
     "attachmentsLabel": "Attachments (optional)",
     "attachmentsHint": "Files are scanned before they become downloadable.",
-    "filesWillAttach": "{count} file(s) will be attached after creation.",
     "attachingFiles": "Attaching files…",
     "createAsDraft": "Create as draft",
     "projectName": "Project name",
@@ -1126,7 +1144,21 @@
     "edit": "Edit",
     "noNotes": "No decision notes yet",
     "recordRationale": "Record rationale",
-    "saveNote": "Save note"
+    "saveNote": "Save note",
+    "searchChanges": "Search changes…",
+    "allStatuses": "All statuses",
+    "noMatchingChanges": "No changes match this filter",
+    "noMatchingHint": "Clear the search or pick another status.",
+    "addMembersFirst": "No eligible approvers yet — add project members first.",
+    "expiryHint": "Defaults to 7 days from now.",
+    "sourceHint": "Who asked for this change?",
+    "descriptionPlaceholder": "What is being asked for, and why?",
+    "budgetNumberError": "Enter a budget number, e.g. 5000",
+    "confirmRemove": "Yes, remove",
+    "aiRefinementAgreesOne": "AI refinement agrees on 1 link.",
+    "aiRefinementAgreesOther": "AI refinement agrees on {count} links.",
+    "filesWillAttachOne": "1 file will be attached after creation.",
+    "filesWillAttachOther": "{count} files will be attached after creation."
   },
   "orgSettings": {
     "title": "{name} settings",
@@ -1151,8 +1183,6 @@
     "roleLabel": "Role",
     "sendInvite": "Send invite",
     "inviteLinkDevOnly": "Invite link (dev only):",
-    "removeMemberConfirm": "Remove {email} from the workspace? They lose project access immediately.",
-    "thisMember": "this member",
     "remove": "Remove",
     "revoke": "Revoke",
     "mfaStatus": "Status:",
@@ -1177,7 +1207,8 @@
     "displayName": "Display name",
     "logoUrl": "Logo URL (https, optional)",
     "primaryColor": "Primary color",
-    "saveBranding": "Save branding"
+    "saveBranding": "Save branding",
+    "confirmRemove": "Yes, remove"
   },
   "auth": {
     "oauthDenied": "The provider sign-in was cancelled. Try again or use your password.",
@@ -1255,7 +1286,9 @@
     "inviteNameLabel": "Name (new accounts)",
     "invitePasswordLabel": "Password (new accounts)",
     "accepting": "Accepting…",
-    "acceptInvite": "Accept invitation"
+    "acceptInvite": "Accept invitation",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "activity": {
     "title": "Activity",

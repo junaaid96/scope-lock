@@ -141,7 +141,7 @@ export function SlackCard({ organizationId, slackConfigured, canManage, onDone }
     <Card>
       <div className="mb-1 flex items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("channels.slackTitle")}</h2>
-        {slackConfigured ? <Badge tone="teal">{t("channels.connected")}</Badge> : <Badge tone="slate">{t("channels.notConnected")}</Badge>}
+        {slackConfigured ? <Badge tone="green">{t("channels.connected")}</Badge> : <Badge tone="slate">{t("channels.notConnected")}</Badge>}
       </div>
       <p className="mb-3 text-sm text-slate-600">{t("channels.slackHint")}</p>
       {error ? <ErrorBanner message={error} /> : null}

@@ -83,17 +83,17 @@ test("approval policies: thresholds, multi-approver votes, and turn order", asyn
   await page.goto(firstUrl as string);
   await expect(page.getByRole("heading", { name: "Approvers" })).toBeVisible();
   await expect(page.getByText("Every approver must approve")).toBeVisible();
-  await expect(page.getByText("WAITING", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Waiting", { exact: true }).first()).toBeVisible();
   await axeClean(page);
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
-  await expect(page.getByText(/You decided.*APPROVED/)).toBeVisible();
+  await expect(page.getByText(/You decided.*Approved/)).toBeVisible();
   await expect(page.getByText("Waiting on the other approvers.")).toBeVisible();
 
   await page.goto(secondUrl as string);
-  await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Decided:")).toBeVisible();
@@ -119,7 +119,7 @@ test("approval policies: thresholds, multi-approver votes, and turn order", asyn
   await expect(page.getByText(/Approvers decide in order/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Record decision" })).toHaveCount(0);
   await page.goto(seqFirst as string);
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Waiting on the other approvers.")).toBeVisible();

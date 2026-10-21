@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ChangeDetail, ChangeListItem, ScopeVersion } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, formatDate, PageSkeleton } from "../components/ui.js";
+import { Badge, Card, Empty, ErrorBanner, PageTitle, Spinner, formatStatus, PageSkeleton } from "../components/ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 type EntryKind = "milestone" | "change" | "approval" | "decision";
@@ -30,7 +30,7 @@ const DOT: Record<Entry["tone"], string> = {
 };
 
 export function TimelinePage(): JSX.Element {
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const { id } = useParams<{ id: string }>();
   const projectId = id as string;
   const [filter, setFilter] = useState<EntryKind | "all">("all");
@@ -97,7 +97,7 @@ export function TimelinePage(): JSX.Element {
         kind: "approval",
         at: a.sentAt as string,
         title: t("timeline.reviewSent", { title: a.title ?? d.number }),
-        detail: t("timeline.expiresAt", { date: formatDate(a.expiresAt) }),
+        detail: t("timeline.expiresAt", { date: date(a.expiresAt) }),
         tone: "amber",
         to: `/projects/${projectId}/changes/${d.id}`,
       });
@@ -108,7 +108,7 @@ export function TimelinePage(): JSX.Element {
         id: `d-${d.id}`,
         kind: "decision",
         at: d.decidedAt,
-        title: t("timeline.changeDecided", { number: d.number, decision: first.decision }),
+        title: t("timeline.changeDecided", { number: d.number, decision: formatStatus(first.decision) }),
         detail: first.approverEmail ? t("timeline.decidedBy", { email: first.approverEmail }) : undefined,
         tone: first.decision === "APPROVED" ? "green" : "red",
         to: `/projects/${projectId}/changes/${d.id}`,
@@ -134,7 +134,7 @@ export function TimelinePage(): JSX.Element {
                   to={m.to}
                   className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-800 hover:border-teal-600"
                 >
-                  {m.title.split(" — ")[0]} · {formatDate(m.at)}
+                  {m.title.split(" — ")[0]} · {date(m.at)}
                 </Link>
               </li>
             ))}
@@ -170,7 +170,7 @@ export function TimelinePage(): JSX.Element {
                   {e.title}
                 </Link>
                 <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span>{formatDate(e.at)}</span>
+                  <span title={date(e.at)}>{relative(e.at) ?? date(e.at)}</span>
                   {e.detail ? <span>· {e.detail}</span> : null}
                   <Badge tone={e.tone === "blue" ? "blue" : e.tone === "amber" ? "amber" : e.tone === "red" ? "red" : e.tone === "green" ? "green" : "slate"}>
                     {KIND_BADGE[e.kind]}

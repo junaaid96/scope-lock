@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { AllowanceDrawDownView, AllowancePoolView } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Textarea, formatDate, formatMoney, statusTone, PageSkeleton } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, StatusBadge, Textarea, formatStatus, PageSkeleton } from "./ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 function drawTone(status: string): "green" | "amber" | "red" | "slate" {
@@ -54,7 +54,7 @@ function PoolCard({ pool, projectId, currency, canManage, canObject, onChanged }
   pool: AllowancePoolView; projectId: string; currency: string; canManage: boolean; canObject: boolean; onChanged: () => void;
 }): JSX.Element {
   const [editing, setEditing] = useState(false);
-  const { t } = useLocale();
+  const { t, money, date } = useLocale();
   const [sending, setSending] = useState(false);
   const [objecting, setObjecting] = useState<AllowanceDrawDownView | null>(null);
   const [resolving, setResolving] = useState<AllowanceDrawDownView | null>(null);
@@ -64,17 +64,17 @@ function PoolCard({ pool, projectId, currency, canManage, canObject, onChanged }
     onSuccess: onChanged,
     onError: (err) => setError(errorMessage(err)),
   });
-  const total = pool.kind === "HOURS" ? `${pool.totalHours}h` : formatMoney(pool.totalMinor, pool.currency ?? currency);
-  const remaining = pool.kind === "HOURS" ? `${pool.balance.remainingHours}h` : formatMoney(pool.balance.remainingMinor, pool.currency ?? currency);
+  const total = pool.kind === "HOURS" ? `${pool.totalHours}h` : money(pool.totalMinor, pool.currency ?? currency);
+  const remaining = pool.kind === "HOURS" ? `${pool.balance.remainingHours}h` : money(pool.balance.remainingMinor, pool.currency ?? currency);
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold tracking-tight">{pool.name}</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={pool.kind === "HOURS" ? "blue" : "slate"}>{pool.kind}</Badge>
-          <Badge tone={statusTone(pool.status)}>{pool.status}</Badge>
-          {!pool.enabled ? <Badge tone="slate">DISABLED</Badge> : null}
-          {pool.balance.exhausted ? <Badge tone="red">EXHAUSTED</Badge> : null}
+          <Badge tone={pool.kind === "HOURS" ? "blue" : "slate"}>{formatStatus(pool.kind)}</Badge>
+          <StatusBadge status={pool.status} />
+          {!pool.enabled ? <Badge tone="slate">{formatStatus("DISABLED")}</Badge> : null}
+          {pool.balance.exhausted ? <Badge tone="red">{formatStatus("EXHAUSTED")}</Badge> : null}
         </div>
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
@@ -114,12 +114,12 @@ function PoolCard({ pool, projectId, currency, canManage, canObject, onChanged }
                 <Link className="font-medium underline" to={`/projects/${projectId}/changes/${d.changeRequestId}`}>
                   {d.changeNumber}: {d.changeTitle}
                 </Link>
-                <Badge tone={drawTone(d.status)}>{d.status.replace(/_/g, " ")}</Badge>
+                <Badge tone={drawTone(d.status)}>{formatStatus(d.status)}</Badge>
               </div>
               <p className="mt-1 text-slate-700">
-                {d.hours !== null && d.hours !== undefined ? `${d.hours}h` : formatMoney(d.amountMinor, pool.currency ?? currency)}
-                {" · "}{t("allowance.notifiedAt", { date: formatDate(d.notifiedAt) })}
-                {d.objectionDeadline ? ` · ${t("allowance.objectBy", { date: formatDate(d.objectionDeadline) })}` : ""}
+                {d.hours !== null && d.hours !== undefined ? `${d.hours}h` : money(d.amountMinor, pool.currency ?? currency)}
+                {" · "}{t("allowance.notifiedAt", { date: date(d.notifiedAt) })}
+                {d.objectionDeadline ? ` · ${t("allowance.objectBy", { date: date(d.objectionDeadline) })}` : ""}
               </p>
               {d.objectionReason ? <p className="mt-1 text-slate-700"><strong>{t("allowance.objectionLabel")}</strong> {d.objectionReason}</p> : null}
               {d.resolutionNote ? <p className="mt-1 text-slate-700"><strong>{t("allowance.resolutionTag")}</strong> {d.resolutionNote}</p> : null}
@@ -249,7 +249,7 @@ function GrantDialog({ pool, projectId, onClose, onDone }: { pool: AllowancePool
       {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
         <label key={m.userId} className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
-          {m.user?.name} ({m.role})
+          {m.user?.name ?? m.userId} ({formatStatus(m.role)})
         </label>
       ))}
       <div className="mt-3">

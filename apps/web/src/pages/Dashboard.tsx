@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useSession } from "../lib/auth.js";
 import type { Client, ProjectListItem } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, ICONS, Icon, Input, PageTitle, Select, Skeleton, SkeletonCards, Spinner, Textarea, cn, statusTone, PageSkeleton } from "../components/ui.js";
+import { Button, Card, ConfirmButton, Dialog, Empty, ErrorBanner, Field, ICONS, Icon, Input, PageTitle, Select, Skeleton, SkeletonCards, Spinner, StatusBadge, Textarea, cn, formatStatus, PageSkeleton } from "../components/ui.js";
 import { OrgContractStrip } from "../components/contract.js";
 import { MemorySearchPanel } from "../components/memory.js";
 
@@ -44,7 +44,7 @@ export function DashboardPage(): JSX.Element {
     <div>
       <PageTitle
         title={t("dashboard.title")}
-        subtitle={t("dashboard.subtitle", { name: activeOrg.name, role: activeOrg.role ?? "" })}
+        subtitle={t("dashboard.subtitle", { name: activeOrg.name, role: activeOrg.role ? formatStatus(activeOrg.role) : "" })}
         actions={
           <>
             <Select aria-label={t("dashboard.orgSelectLabel")} value={activeOrg.id} onChange={(e) => setOrgId(e.target.value)} className="w-auto">
@@ -68,7 +68,11 @@ export function DashboardPage(): JSX.Element {
       ) : projects.isError ? (
         <ErrorBanner message={errorMessage(projects.error)} />
       ) : (projects.data ?? []).length === 0 ? (
-        <Empty title={t("dashboard.noProjects")} hint={t("dashboard.noProjectsHint")} />
+        <Empty
+          title={t("dashboard.noProjects")}
+          hint={t("dashboard.noProjectsHint")}
+          action={<Button onClick={() => setShowProject(true)}>{t("dashboard.newProject")}</Button>}
+        />
       ) : (
         <ProjectGroups projects={projects.data ?? []} clients={clients.data ?? []} />
       )}
@@ -110,7 +114,12 @@ function StatRow({ projects, loading }: { projects: ProjectListItem[]; loading: 
 /** Projects grouped under their client, so a full workspace stays scannable. */
 function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; clients: Client[] }): JSX.Element {
   const { t } = useLocale();
-  const nameOf = new Map(clients.map((c) => [c.id, c.company ? `${c.name} · ${c.company}` : c.name]));
+  const nameOf = new Map(
+    clients.map((c) => [
+      c.id,
+      c.company && c.company.toLowerCase() !== c.name.toLowerCase() ? `${c.name} · ${c.company}` : c.name,
+    ]),
+  );
   const groups = new Map<string, ProjectListItem[]>();
   for (const p of projects) {
     const key = p.clientId;
@@ -139,12 +148,16 @@ function ProjectGroups({ projects, clients }: { projects: ProjectListItem[]; cli
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="truncate text-base font-semibold text-slate-900">{p.name}</span>
-                        <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                        <StatusBadge status={p.status} />
                       </div>
-                      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-                        <span>{p.openChanges === 1 ? t("dashboard.openChangeOne", { count: p.openChanges }) : t("dashboard.openChanges", { count: p.openChanges })}</span>
-                        <span>{t("dashboard.awaitingDecision", { count: p.pendingApprovals })}</span>
-                      </div>
+                      {p.openChanges > 0 || p.pendingApprovals > 0 ? (
+                        <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+                          {p.openChanges > 0 ? (
+                            <span>{p.openChanges === 1 ? t("dashboard.openChangeOne", { count: p.openChanges }) : t("dashboard.openChanges", { count: p.openChanges })}</span>
+                          ) : null}
+                          {p.pendingApprovals > 0 ? <span>{t("dashboard.awaitingDecision", { count: p.pendingApprovals })}</span> : null}
+                        </div>
+                      ) : null}
                       {p.myInbox > 0 ? <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-link-strong ring-1 ring-inset ring-teal-200/70">{p.myInbox === 1 ? t("dashboard.needDecisionOne", { count: p.myInbox }) : t("dashboard.needDecisionOther", { count: p.myInbox })}</p> : null}
                     </div>
                     <Icon d={ICONS.chevron} className="mt-1 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-teal-600" />
@@ -182,7 +195,7 @@ function ClientDialog({ orgId, onClose }: { orgId: string; onClose: () => void }
           <Input id="client-company" {...register("company")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.createClient")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("dashboard.createClient")}</Button>
       </form>
     </Dialog>
   );
@@ -217,16 +230,12 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
               </span>
               <span className="flex gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>{t("dashboard.edit")}</Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={remove.isPending}
-                  onClick={() => {
-                    if (window.confirm(t("dashboard.deleteClientConfirm", { name: c.name }))) remove.mutate(c.id);
-                  }}
-                >
-                  {t("dashboard.delete")}
-                </Button>
+                <ConfirmButton
+                  label={t("dashboard.delete")}
+                  confirmLabel={t("dashboard.confirmDelete")}
+                  cancelLabel={t("common.cancel")}
+                  onConfirm={() => remove.mutate(c.id)}
+                />
               </span>
             </li>
           ))}
@@ -267,26 +276,29 @@ function ClientEditDialog({ orgId, existing, onClose }: { orgId: string; existin
           <Textarea id="client-edit-notes" rows={3} {...register("notes")} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.saveClient")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("dashboard.saveClient")}</Button>
       </form>
     </Dialog>
   );
 }
 
+const COMMON_CURRENCIES = ["USD", "EUR", "GBP", "BDT", "INR", "CAD", "AUD", "SGD", "AED", "SAR"] as const;
+
 function ProjectDialog({ orgId, clients, onClose }: { orgId: string; clients: Client[]; onClose: () => void }): JSX.Element {
   const { t } = useLocale();
   const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const { register, handleSubmit, formState } = useForm<{ clientId: string; name: string; currency: string; startDate: string; targetDate: string; budget: string }>({
-    defaultValues: { currency: "USD" },
+  const { register, handleSubmit, formState, watch } = useForm<{ clientId: string; name: string; currency: string; customCurrency: string; startDate: string; targetDate: string; budget: string }>({
+    defaultValues: { currency: "USD", customCurrency: "" },
   });
+  const currencyChoice = watch("currency");
   const save = useMutation({
-    mutationFn: (values: { clientId: string; name: string; currency: string; startDate: string; targetDate: string; budget: string }) =>
+    mutationFn: (values: { clientId: string; name: string; currency: string; customCurrency: string; startDate: string; targetDate: string; budget: string }) =>
       api.post("/projects", {
         organizationId: orgId,
         clientId: values.clientId,
         name: values.name,
-        currency: values.currency,
+        currency: values.currency === "OTHER" ? values.customCurrency.trim().toUpperCase() : values.currency,
         ...(values.startDate ? { startDate: new Date(values.startDate).toISOString() } : {}),
         ...(values.targetDate ? { targetDate: new Date(values.targetDate).toISOString() } : {}),
         ...(values.budget !== "" ? { budgetMinor: Math.round(Number(values.budget) * 100) } : {}),
@@ -311,9 +323,27 @@ function ProjectDialog({ orgId, clients, onClose }: { orgId: string; clients: Cl
         <Field label={t("dashboard.projectName")} error={formState.errors.name?.message} htmlFor="project-name">
           <Input id="project-name" placeholder={t("dashboard.projectNamePlaceholder")} {...register("name", { required: t("dashboard.nameRequired") })} />
         </Field>
-        <Field label={t("dashboard.currency")} htmlFor="project-currency">
-          <Input id="project-currency" maxLength={3} {...register("currency", { required: true, pattern: /^[A-Z]{3}$/ })} />
+        <Field label={t("dashboard.currency")} hint={t("dashboard.currencyHint")} htmlFor="project-currency">
+          <Select id="project-currency" {...register("currency", { required: true })}>
+            {COMMON_CURRENCIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+            <option value="OTHER">{t("dashboard.customCurrency")}…</option>
+          </Select>
         </Field>
+        {currencyChoice === "OTHER" ? (
+          <Field label={t("dashboard.customCurrency")} error={formState.errors.customCurrency?.message} htmlFor="project-currency-custom">
+            <Input
+              id="project-currency-custom"
+              maxLength={3}
+              placeholder="USD"
+              {...register("customCurrency", {
+                required: t("dashboard.nameRequired"),
+                pattern: { value: /^[A-Za-z]{3}$/, message: t("dashboard.currencyHint") },
+              })}
+            />
+          </Field>
+        ) : null}
         <div className="grid grid-cols-2 gap-4">
           <Field label={t("dashboard.startDate")} htmlFor="project-start">
             <Input id="project-start" type="date" {...register("startDate")} />
@@ -322,11 +352,18 @@ function ProjectDialog({ orgId, clients, onClose }: { orgId: string; clients: Cl
             <Input id="project-target" type="date" {...register("targetDate")} />
           </Field>
         </div>
-        <Field label={t("dashboard.budgetLabel")} htmlFor="project-budget">
-          <Input id="project-budget" inputMode="decimal" placeholder={t("dashboard.budgetPlaceholder")} {...register("budget")} />
+        <Field label={t("dashboard.budgetLabel")} error={formState.errors.budget?.message} htmlFor="project-budget">
+          <Input
+            id="project-budget"
+            inputMode="decimal"
+            placeholder={t("dashboard.budgetPlaceholder")}
+            {...register("budget", {
+              validate: (v) => v.trim() === "" || !Number.isNaN(Number(v)) || t("dashboard.budgetNumberError"),
+            })}
+          />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">{t("dashboard.createProject")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("dashboard.createProject")}</Button>
       </form>
     </Dialog>
   );

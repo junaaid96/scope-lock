@@ -48,11 +48,11 @@ test("full pilot loop: register → baseline → change → approval → decisio
   await page.getByRole("button", { name: "Add to draft" }).click();
   await expect(page.getByText("REQ-001 · Marketing homepage")).toBeVisible();
   await page.getByRole("button", { name: "Publish baseline" }).click();
-  await expect(page.getByText("PUBLISHED").first()).toBeVisible();
+  await expect(page.getByText("Published").first()).toBeVisible();
 
   // Submit a change request through the UI.
   await page.goto(`/projects/${projectId}`);
-  await page.getByRole("button", { name: "New change request" }).click();
+  await page.getByRole("button", { name: "New change request" }).first().click();
   await page.getByLabel("Title").fill("Add testimonials");
   await page.getByLabel("Description").fill("Add a testimonials carousel to the homepage.");
   await page.getByRole("button", { name: "Create as draft" }).click();
@@ -102,9 +102,9 @@ test("full pilot loop: register → baseline → change → approval → decisio
   await page.context().clearCookies();
   await page.goto(`/review/${reviewToken}`);
   await expect(page.getByRole("heading", { name: /Add testimonials/ }).first()).toBeVisible();
-  await expect(page.getByText("USD 1200.00")).toBeVisible();
+  await expect(page.getByText("$1,200.00")).toBeVisible();
   await page.getByLabel(/I confirm this decision/).check();
   await page.getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Decided:")).toBeVisible();
-  await expect(page.getByText("APPROVED").first()).toBeVisible();
+  await expect(page.getByText("Approved").first()).toBeVisible();
 });

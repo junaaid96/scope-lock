@@ -41,7 +41,7 @@ test("allowance pool grants, draws down, and stays visible", async ({ page }) =>
   await page.getByLabel(/Enabled \(disabled pools/).check();
   await page.getByRole("button", { name: "Create pool" }).click();
   await expect(page.getByText("E2E buffer")).toBeVisible();
-  await expect(page.getByText("PROPOSED")).toBeVisible();
+  await expect(page.getByText("Proposed")).toBeVisible();
 
   // Grant the pool: send + decide through the public review link.
   const pools = await page.request.get(`/api/v1/projects/${projectId}/allowance-pools?limit=50`);
@@ -57,16 +57,16 @@ test("allowance pool grants, draws down, and stays visible", async ({ page }) =>
   await expect(page.getByText("Allowance grant terms")).toBeVisible();
   await expect(page.getByText("40 hours")).toBeVisible();
   await axeClean(page);
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByLabel("Comment (optional)").fill("Agreed");
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Decided:")).toBeVisible();
-  await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approved", { exact: true })).toBeVisible();
 
   await page.goto(`/projects/${projectId}`);
   await page.getByRole("tab", { name: "Allowance" }).click();
-  await expect(page.getByText("ACTIVE")).toBeVisible();
+  await expect(page.getByText("Active")).toBeVisible();
 
   // A linked change draws down on approval.
   const created = await page.request.post(`/api/v1/projects/${projectId}/change-requests`, {
@@ -96,7 +96,7 @@ test("allowance pool grants, draws down, and stays visible", async ({ page }) =>
   await page.goto(`/projects/${projectId}`);
   await page.getByRole("tab", { name: "Allowance" }).click();
   await expect(page.getByText("Draw-downs (1)")).toBeVisible();
-  await expect(page.getByText("NOTIFIED", { exact: true })).toBeVisible();
+  await expect(page.getByText("Notified", { exact: true })).toBeVisible();
   await axeClean(page);
 
   await page.goto(`/projects/${projectId}/changes/${createdJson.id}`);

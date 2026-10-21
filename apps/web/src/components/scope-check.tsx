@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, ErrorBanner } from "./ui.js";
+import { Badge, Button, ErrorBanner, formatStatus } from "./ui.js";
 
 export interface ScopeMatch {
   requirementId: string;
@@ -68,7 +68,7 @@ export function ScopeCheckPanel({ title, description, onCheck, onMatches }: {
               {matches.map((m) => (
                 <li key={m.requirementId} className="rounded-md border border-slate-200 bg-surface p-2 text-sm">
                   <p className="font-medium">
-                    {m.stableKey} <Badge tone={m.risk === "HIGH" ? "amber" : "slate"}>{m.risk}</Badge>
+                    {m.stableKey} <Badge tone={m.risk === "HIGH" ? "amber" : "slate"}>{formatStatus(m.risk)}</Badge>
                   </p>
                   <p className="mt-1 text-slate-700">{m.excerpt}</p>
                   <p className="mt-1 text-xs text-slate-500">{t("scopeCheck.matched", { terms: m.matchedTerms.join(", ") })}</p>

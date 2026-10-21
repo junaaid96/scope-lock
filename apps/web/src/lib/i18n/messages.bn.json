@@ -6,7 +6,12 @@
     "empty": "এখানে এখনো কিছু নেই",
     "notAvailable": "—",
     "loadingLabel": "লোড হচ্ছে",
-    "closeDialog": "ডায়ালগ বন্ধ করুন"
+    "closeDialog": "ডায়ালগ বন্ধ করুন",
+    "cancel": "বাতিল",
+    "showMore": "আরও দেখুন",
+    "showLess": "কম দেখুন",
+    "confirmDelete": "হ্যাঁ, মুছুন",
+    "confirmUnlink": "হ্যাঁ, সংযোগ বিচ্ছিন্ন করুন"
   },
   "contract": {
     "title": "চুক্তি",
@@ -218,7 +223,8 @@
     "delete": "মুছুন",
     "cancel": "বাতিল",
     "close": "বন্ধ করুন",
-    "attempts": "প্রচেষ্টা"
+    "attempts": "প্রচেষ্টা",
+    "webhookDisabled": "নিষ্ক্রিয়"
   },
   "github": {
     "title": "GitHub লিংকিং",
@@ -533,7 +539,6 @@
     "total": "মোট"
   },
   "templates": {
-    "deleteConfirm": "টেমপ্লেট “{name}” মুছে ফেলবেন? এটি থেকে আগে তৈরি খসড়াগুলো অপরিবর্তিত থাকবে।",
     "title": "স্কোপ টেমপ্লেট",
     "newButton": "নতুন স্কোপ টেমপ্লেট",
     "blurb": "প্রকল্পের ধরন অনুযায়ী মানসম্মত অনুমান, বর্জন ও আবশ্যকতা। একটি প্রয়োগ করলে নতুন খসড়া স্কোপ শুরু হয়।",
@@ -597,14 +602,12 @@
     "done": "সম্পন্ন"
   },
   "security": {
-    "unlinkConfirm": "{provider} আনলিংক করবেন? যেকোনো সময় আবার লিংক করতে পারবেন।",
     "connectedTitle": "সংযুক্ত অ্যাকাউন্ট",
     "connectedHint": "এক ক্লিকে সাইন ইন করতে Google বা GitHub লিংক করুন। লিংক করতে প্রোভাইডারের যাচাইকৃত ইমেইল এই অ্যাকাউন্টের সঙ্গে মিলতে হবে — অমিল হলে প্রত্যাখ্যান করা হয়, কখনো একত্রীভূত করা হয় না।",
     "noAccounts": "কোনো সংযুক্ত অ্যাকাউন্ট নেই",
     "unlink": "আনলিংক করুন",
     "linkGoogle": "Google লিংক করুন",
     "linkGitHub": "GitHub লিংক করুন",
-    "deletePasskeyConfirm": "পাসকি “{name}” মুছে ফেলবেন?",
     "passkeysTitle": "পাসকি",
     "passkeysHint": "আপনার ডিভাইস বা সিকিউরিটি কি দিয়ে ফিশিং-প্রতিরোধী সাইন-ইন। বায়োমেট্রিক বা PIN দিয়ে যাচাইকৃত পাসকি দ্বি-ধাপ প্রমাণীকরণের শর্তও পূরণ করে।",
     "noPasskeys": "এখনো কোনো পাসকি নেই",
@@ -726,7 +729,6 @@
     "runCheck": "পরীক্ষা চালান",
     "aiStatus": "AI অবস্থা: {status}",
     "suggestedValue": "· প্রস্তাবিত: {value}",
-    "inventedRejected": "· {count}টি উদ্ভাবিত রেফারেন্স বাতিল",
     "aiBadge": "AI",
     "acceptLink": "লিংক গ্রহণ করুন",
     "dismiss": "খারিজ করুন",
@@ -743,7 +745,12 @@
     "useAsQuestion": "প্রশ্ন হিসেবে ব্যবহার করুন",
     "proposalDraftAria": "প্রস্তাবের খসড়া (সম্পাদনাযোগ্য)",
     "nextSteps": "পরবর্তী: {steps}",
-    "downloadSummary": "সারসংক্ষেপ ডাউনলোড করুন (JSON)"
+    "downloadSummary": "সারসংক্ষেপ ডাউনলোড করুন (JSON)",
+    "exportFailed": "এক্সপোর্ট ব্যর্থ — আবার চেষ্টা করুন।",
+    "autoStatusNote": "পর্যালোচনা এগোলে এই অবস্থা নিজে নিজে বদলায়।",
+    "addMembersFirst": "এখনও কোনো যোগ্য অনুমোদক নেই — আগে প্রকল্প সদস্য যোগ করুন।",
+    "inventedRejectedOne": "· ১টি বানানো রেফারেন্স বাতিল",
+    "inventedRejectedOther": "· {count}টি বানানো রেফারেন্স বাতিল"
   },
   "scope": {
     "pageTitle": "স্কোপ লেজার",
@@ -765,7 +772,6 @@
     "amendmentHint": "সংশোধনী শুধুমাত্র সংযুক্ত অনুমোদিত পরিবর্তনসহ প্রকাশ হয় — আগে একটি রূপান্তর বা সংযুক্ত করুন।",
     "assumptions": "অনুমানসমূহ",
     "exclusions": "বর্জনসমূহ",
-    "removeConfirm": "এই খসড়া থেকে {stableKey} সরিয়ে ফেলবেন? প্রকাশিত ইতিহাস অপরিবর্তিত থাকবে।",
     "emptyDraft": "খালি খসড়া",
     "emptyDraftHint": "প্রকাশের আগে অন্তত একটি রিকোয়ারমেন্ট যোগ করুন।",
     "hideEvidence": "প্রমাণ লুকান",
@@ -837,7 +843,10 @@
     "fieldPriority": "অগ্রাধিকার",
     "fieldOrder": "ক্রম",
     "addToDraft": "খসড়ায় যোগ করুন",
-    "editRequirementTitle": "খসড়ায় রিকোয়ারমেন্ট সম্পাদনা করুন"
+    "editRequirementTitle": "খসড়ায় রিকোয়ারমেন্ট সম্পাদনা করুন",
+    "orderHint": "ছোট সংখ্যা আগে দেখায়।",
+    "noFilesHint": "এখনও কোনো ফাইল আপলোড হয়নি — আগে কোনো পরিবর্তন থেকে ফাইল সংযুক্ত করুন।",
+    "confirmRemove": "হ্যাঁ, সরান"
   },
   "review": {
     "policyAny": "যেকোনো অনুমোদনকারী এই প্যাকেজের সিদ্ধান্ত নিতে পারেন।",
@@ -932,7 +941,15 @@
     "typedNameHint": "কে নিশ্চিত করেছে তা দেখাতে আপনার সিদ্ধান্তের সাথে রেকর্ড করা হবে।",
     "confirmLabel": "উপরের প্যাকেজটির ব্যাপারে আমি এই সিদ্ধান্ত নিশ্চিত করছি। আমি বুঝেছি রেকর্ড করা সিদ্ধান্ত চূড়ান্ত।",
     "recording": "রেকর্ড করা হচ্ছে…",
-    "recordDecision": "সিদ্ধান্ত রেকর্ড করুন"
+    "recordDecision": "সিদ্ধান্ত রেকর্ড করুন",
+    "awaitingDecision": "সিদ্ধান্তের অপেক্ষায়",
+    "approveHint": "প্রস্তাবিত মূল্য, পরিশ্রম ও সময়সূচি মেনে নিন।",
+    "rejectHint": "এই প্রস্তাব বাতিল করুন — আপনার মন্তব্যে কারণ জানান।",
+    "reviseHint": "প্রয়োজনীয় পরিবর্তনসহ ফেরত পাঠান।",
+    "needOption": "এগোতে উপরে একটি অপশন বেছে নিন।",
+    "needConfirm": "এগোতে নিশ্চিতকরণে টিক দিন।",
+    "needCode": "ইমেইলের ৬-সংখ্যার কোড দিন।",
+    "needName": "আপনার পুরো নাম লিখুন।"
   },
   "verify": {
     "notFoundTitle": "সার্টিফিকেট পাওয়া যায়নি",
@@ -1001,8 +1018,8 @@
     "packageLoadError": "প্যাকেজ লোড করা যায়নি।",
     "bundledCount": "{count}টি একত্রিত অনুরোধ",
     "daysValue": "{days} দিন",
-    "decidePrefix": "সিদ্ধান্ত নিতে, আপনার ইমেইল থেকে রিভিউ লিংক খুলুন, অথবা ",
-    "decideHere": "এখানে সিদ্ধান্ত নিন"
+    "reviewDecide": "পর্যালোচনা ও সিদ্ধান্ত",
+    "awaitingYou": "আপনার সিদ্ধান্তের অপেক্ষায়"
   },
   "dashboard": {
     "noOrgs": "এখনও কোনো প্রতিষ্ঠান নেই",
@@ -1030,7 +1047,6 @@
     "noClients": "এখনও কোনো ক্লায়েন্ট নেই",
     "noClientsHint": "একটি ক্লায়েন্ট যোগ করুন, তারপর এর অধীনে প্রকল্প তৈরি করুন।",
     "edit": "সম্পাদনা",
-    "deleteClientConfirm": "ক্লায়েন্ট {name} মুছে ফেলবেন? যেসব ক্লায়েন্টের প্রকল্প আছে সেগুলো মুছা যাবে না।",
     "delete": "মুছুন",
     "editClient": "ক্লায়েন্ট সম্পাদনা করুন",
     "company": "কোম্পানি",
@@ -1051,7 +1067,11 @@
     "statProjects": "প্রজেক্ট",
     "statOpen": "খোলা পরিবর্তন",
     "statAwaiting": "সিদ্ধান্তের অপেক্ষায়",
-    "statMine": "আপনার সিদ্ধান্ত দরকার"
+    "statMine": "আপনার সিদ্ধান্ত দরকার",
+    "budgetNumberError": "বাজেট সংখ্যায় লিখুন, যেমন 5000",
+    "customCurrency": "মুদ্রা কোড লিখুন",
+    "currencyHint": "৩-অক্ষরের কোড, যেমন USD, BDT, EUR",
+    "confirmDelete": "হ্যাঁ, মুছুন"
   },
   "project": {
     "subtitle": "{client} · {currency} · কার্যকর বেসলাইন: {baseline}",
@@ -1082,7 +1102,6 @@
     "shelvedHint": "স্থগিত আইটেম — নতুন জমাদানে পুনরুজ্জীবিত করতে একটি খুলুন।",
     "linkOne": "{count}টি লিংক",
     "links": "{count}টি লিংক",
-    "aiRefinementAgrees": "এআই পরিমার্জন {count}টি লিংকে একমত।",
     "titleLabel": "শিরোনাম",
     "titleRequired": "শিরোনাম আবশ্যক",
     "descriptionLabel": "বিবরণ",
@@ -1092,7 +1111,6 @@
     "sourceAgency": "এজেন্সি",
     "attachmentsLabel": "সংযুক্তি (ঐচ্ছিক)",
     "attachmentsHint": "ডাউনলোডযোগ্য হওয়ার আগে ফাইলগুলো স্ক্যান করা হয়।",
-    "filesWillAttach": "তৈরির পর {count}টি ফাইল সংযুক্ত হবে।",
     "attachingFiles": "ফাইল সংযুক্ত হচ্ছে…",
     "createAsDraft": "খসড়া হিসেবে তৈরি করুন",
     "projectName": "প্রকল্পের নাম",
@@ -1126,7 +1144,21 @@
     "edit": "সম্পাদনা",
     "noNotes": "এখনও কোনো সিদ্ধান্ত নোট নেই",
     "recordRationale": "যুক্তি লিপিবদ্ধ করুন",
-    "saveNote": "নোট সংরক্ষণ করুন"
+    "saveNote": "নোট সংরক্ষণ করুন",
+    "searchChanges": "পরিবর্তন খুঁজুন…",
+    "allStatuses": "সব অবস্থা",
+    "noMatchingChanges": "কোনো পরিবর্তন মেলেনি",
+    "noMatchingHint": "অনুসন্ধান মুছুন বা অন্য অবস্থা বেছে নিন।",
+    "addMembersFirst": "এখনও কোনো যোগ্য অনুমোদক নেই — আগে প্রকল্প সদস্য যোগ করুন।",
+    "expiryHint": "ডিফল্ট: এখন থেকে ৭ দিন পর।",
+    "sourceHint": "এই পরিবর্তন কে চেয়েছে?",
+    "descriptionPlaceholder": "কী চাওয়া হচ্ছে এবং কেন?",
+    "budgetNumberError": "বাজেট সংখ্যায় লিখুন, যেমন 5000",
+    "confirmRemove": "হ্যাঁ, সরান",
+    "aiRefinementAgreesOne": "AI পরিমার্জন ১টি লিংকে একমত।",
+    "aiRefinementAgreesOther": "AI পরিমার্জন {count}টি লিংকে একমত।",
+    "filesWillAttachOne": "তৈরির পর ১টি ফাইল সংযুক্ত হবে।",
+    "filesWillAttachOther": "তৈরির পর {count}টি ফাইল সংযুক্ত হবে।"
   },
   "orgSettings": {
     "title": "{name} সেটিংস",
@@ -1151,8 +1183,6 @@
     "roleLabel": "ভূমিকা",
     "sendInvite": "আমন্ত্রণ পাঠান",
     "inviteLinkDevOnly": "আমন্ত্রণ লিংক (শুধু dev):",
-    "removeMemberConfirm": "{email}-কে ওয়ার্কস্পেস থেকে সরাবেন? তারা অবিলম্বে প্রকল্পের অ্যাক্সেস হারাবেন।",
-    "thisMember": "এই সদস্য",
     "remove": "সরান",
     "revoke": "বাতিল",
     "mfaStatus": "অবস্থা:",
@@ -1177,7 +1207,8 @@
     "displayName": "প্রদর্শন নাম",
     "logoUrl": "লোগো URL (https, ঐচ্ছিক)",
     "primaryColor": "প্রাথমিক রং",
-    "saveBranding": "ব্র্যান্ডিং সংরক্ষণ"
+    "saveBranding": "ব্র্যান্ডিং সংরক্ষণ",
+    "confirmRemove": "হ্যাঁ, সরান"
   },
   "auth": {
     "oauthDenied": "প্রোভাইডারের মাধ্যমে সাইন-ইন বাতিল হয়েছে। আবার চেষ্টা করুন অথবা আপনার পাসওয়ার্ড ব্যবহার করুন।",
@@ -1255,7 +1286,9 @@
     "inviteNameLabel": "নাম (নতুন অ্যাকাউন্ট)",
     "invitePasswordLabel": "পাসওয়ার্ড (নতুন অ্যাকাউন্ট)",
     "accepting": "গ্রহণ করা হচ্ছে…",
-    "acceptInvite": "আমন্ত্রণ গ্রহণ করুন"
+    "acceptInvite": "আমন্ত্রণ গ্রহণ করুন",
+    "showPassword": "পাসওয়ার্ড দেখুন",
+    "hidePassword": "পাসওয়ার্ড লুকান"
   },
   "activity": {
     "title": "কার্যক্রম",

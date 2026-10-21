@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
@@ -188,10 +188,10 @@ export function LoginPage(): JSX.Element {
               <form onSubmit={(e) => void onChallenge(e)} className="space-y-4">
                 <p className="text-sm text-slate-600">{t("auth.mfaPrompt")}</p>
                 <Field label={t("auth.mfaCodeLabel")} htmlFor="mfa-code">
-                  <Input id="mfa-code" inputMode="text" autoComplete="one-time-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} />
+                  <Input id="mfa-code" inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} />
                 </Field>
                 {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
-                <Button type="submit" disabled={mfaBusy || !mfaCode} className="w-full">
+                <Button type="submit" loading={mfaBusy} disabled={!mfaCode.trim()} className="w-full">
                   {mfaBusy ? t("auth.verifying") : t("auth.verify")}
                 </Button>
               </form>
@@ -201,10 +201,10 @@ export function LoginPage(): JSX.Element {
                   <Input id="email" type="email" autoComplete="email" {...register("email")} />
                 </Field>
                 <Field label={t("auth.passwordLabel")} error={formState.errors.password?.message} htmlFor="password">
-                  <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
+                  <PasswordInput id="password" autoComplete="current-password" register={register("password")} />
                 </Field>
                 {error ? <ErrorBanner message={error.message} correlationId={error.correlationId} /> : null}
-                <Button type="submit" disabled={formState.isSubmitting} className="w-full">
+                <Button type="submit" loading={formState.isSubmitting} className="w-full">
                   {formState.isSubmitting ? t("auth.loggingIn") : t("auth.login")}
                 </Button>
               </form>
@@ -231,7 +231,7 @@ export function LoginPage(): JSX.Element {
                     )}
                   </div>
                 )}
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-col gap-2 min-[440px]:flex-row">
                   <div className="flex-1">
                     <label htmlFor="pk-email" className="sr-only">{t("auth.passkeyLabel")}</label>
                     <Input
@@ -243,7 +243,7 @@ export function LoginPage(): JSX.Element {
                       onChange={(e) => setPkEmail(e.target.value)}
                     />
                   </div>
-                  <Button type="button" variant="secondary" disabled={pkBusy} onClick={() => void loginWithPasskey()}>
+                  <Button type="button" variant="secondary" loading={pkBusy} onClick={() => void loginWithPasskey()}>
                     {pkBusy ? t("auth.passkeyWaiting") : t("auth.passkeyButton")}
                   </Button>
                 </div>
@@ -284,5 +284,23 @@ export function LoginPage(): JSX.Element {
         </div>
       </main>
     </div>
+  );
+}
+
+function PasswordInput({ id, autoComplete, register }: { id: string; autoComplete?: string; register: UseFormRegisterReturn }): JSX.Element {
+  const { t } = useLocale();
+  const [shown, setShown] = useState(false);
+  return (
+    <span className="relative block">
+      <Input id={id} type={shown ? "text" : "password"} autoComplete={autoComplete} className="pr-24" {...register} />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-pressed={shown}
+        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-link"
+      >
+        {shown ? t("auth.hidePassword") : t("auth.showPassword")}
+      </button>
+    </span>
   );
 }

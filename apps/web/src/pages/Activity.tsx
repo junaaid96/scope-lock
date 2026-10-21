@@ -4,11 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { ActivityEvent, AiAnalysisRow, AuditVerifyResult } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, formatDate, PageSkeleton } from "../components/ui.js";
+import { Badge, Button, Card, Empty, ErrorBanner, Input, PageTitle, Spinner, StatusBadge, formatStatus, PageSkeleton } from "../components/ui.js";
 import { useLocale } from "../lib/i18n/index.js";
 
 export function ActivityPage(): JSX.Element {
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const { id } = useParams<{ id: string }>();
   const projectId = id as string;
   const activity = useQuery({
@@ -37,7 +37,7 @@ export function ActivityPage(): JSX.Element {
                   <span className="font-medium">{prettyAction(e.action)}</span>{" "}
                   <RecordLink projectId={projectId} targetType={e.targetType} targetId={e.targetId} />
                 </p>
-                <p className="text-xs text-slate-500">{e.actorEmail ?? t("activity.systemActor")} · {formatDate(e.createdAt)}</p>
+                <p className="text-xs text-slate-500">{e.actorEmail ?? t("activity.systemActor")} · {relative(e.createdAt) ?? date(e.createdAt)}</p>
                 <Transition before={e.before} after={e.after} />
               </li>
             ))}
@@ -56,7 +56,7 @@ export function ActivityPage(): JSX.Element {
 }
 
 function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date } = useLocale();
   const [asked, setAsked] = useState(false);
   const check = useQuery({
     queryKey: ["audit-verify", projectId],
@@ -90,7 +90,7 @@ function ChainIntegrity({ projectId }: { projectId: string }): JSX.Element {
             {result.chained === 1 ? t("activity.chainedOne", { count: result.chained }) : t("activity.chainedMany", { count: result.chained })}
             {result.legacy > 0 ? t("activity.legacyEvents", { count: result.legacy }) : ""}
             {result.headHash ? t("activity.headHash", { hash: result.headHash.slice(0, 12) }) : t("activity.noChainedYet")}
-            {t("activity.checkedAt", { date: formatDate(result.verifiedAt) })}
+            {t("activity.checkedAt", { date: date(result.verifiedAt) })}
           </p>
         </div>
       ) : null}
@@ -108,7 +108,7 @@ function shortId(id: string): string {
 
 /** Deep-link every event to its primary record where the UI has a page for it. */
 function RecordLink({ projectId, targetType, targetId }: { projectId: string; targetType: string; targetId: string }): JSX.Element {
-  const label = `${targetType} ${shortId(targetId)}`;
+  const label = `${formatStatus(targetType)} ${shortId(targetId)}`;
   const to =
     targetType === "CHANGE"
       ? `/projects/${projectId}/changes/${targetId}`
@@ -134,7 +134,7 @@ interface DecisionHit {
 }
 
 function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
   const results = useQuery({
@@ -153,11 +153,11 @@ function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
         <ul className="mt-3 space-y-2">
           {(results.data ?? []).map((d) => (
             <li key={d.id} className="rounded-md bg-slate-50 p-2 text-sm">
-              <Badge tone={d.decision === "APPROVED" ? "green" : d.decision === "REJECTED" ? "red" : "amber"}>{d.decision}</Badge>
+              <StatusBadge status={d.decision} />
               {" "}{d.approvalTitle ?? t("activity.reviewPackageFallback")}
               {d.comment ? <p className="mt-1 text-slate-700">{d.comment}</p> : null}
               <p className="mt-1 text-xs text-slate-500">
-                {d.approverEmail ?? t("activity.systemActor")} · {formatDate(d.createdAt)}
+                {d.approverEmail ?? t("activity.systemActor")} · {relative(d.createdAt) ?? date(d.createdAt)}
                 {d.changeRequestId ? <> · <Link className="underline" to={`/projects/${projectId}/changes/${d.changeRequestId}`}>{t("activity.openRequest")}</Link></> : null}
               </p>
             </li>
@@ -170,7 +170,7 @@ function DecisionSearch({ projectId }: { projectId: string }): JSX.Element {
 }
 
 function AiLog({ projectId }: { projectId: string }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const client = useQueryClient();
   const log = useQuery({
     queryKey: ["ai-log", projectId],
@@ -194,17 +194,17 @@ function AiLog({ projectId }: { projectId: string }): JSX.Element {
           {(log.data ?? []).slice(0, 20).map((a) => (
             <li key={a.id} className="rounded-md bg-slate-50 p-2 text-sm">
               <p>
-                <Badge>{a.kind}</Badge> <span className="text-xs text-slate-500">{a.model} · {a.status} · {formatDate(a.createdAt)}{a.usage ? t("activity.tokensUsed", { count: a.usage.totalTokens }) : ""}</span>
+                <Badge>{formatStatus(a.kind)}</Badge> <span className="text-xs text-slate-500">{a.model} · {formatStatus(a.status)} · {relative(a.createdAt) ?? date(a.createdAt)}{a.usage ? t("activity.tokensUsed", { count: a.usage.totalTokens }) : ""}</span>
               </p>
               {a.error ? <p className="mt-1 text-xs text-red-700">{a.error}</p> : null}
               <p className="mt-1 text-xs">
                 {a.reviewerDisposition ? (
-                  <span className="text-slate-600">{t("activity.reviewedAs", { d: a.reviewerDisposition })}</span>
+                  <span className="text-slate-600">{t("activity.reviewedAs", { d: formatStatus(a.reviewerDisposition) })}</span>
                 ) : (
                   <span className="flex gap-1">
                     {(["ACCEPTED", "EDITED", "DISMISSED"] as const).map((d) => (
                       <Button key={d} size="sm" variant="ghost" disabled={review.isPending} onClick={() => review.mutate({ id: a.id, disposition: d })}>
-                        {d}
+                        {formatStatus(d)}
                       </Button>
                     ))}
                   </span>
@@ -223,7 +223,8 @@ function Transition({ before, after }: { before?: unknown; after?: unknown }): J
   const a = after as Record<string, unknown> | undefined;
   if (!b && !a) return null;
   if (b?.status !== undefined || a?.status !== undefined) {
-    return <p className="text-xs text-slate-600">{String(b?.status ?? "?")} → {String(a?.status ?? "?")}</p>;
+    const show = (v: unknown): string => (typeof v === "string" ? formatStatus(v) : String(v ?? "?"));
+    return <p className="text-xs text-slate-600">{show(b?.status)} → {show(a?.status)}</p>;
   }
   const keys = [...new Set([...Object.keys(b ?? {}), ...Object.keys(a ?? {})])].slice(0, 4);
   if (keys.length === 0) return null;

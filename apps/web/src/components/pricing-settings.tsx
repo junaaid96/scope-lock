@@ -54,7 +54,7 @@ export function RateCardsCard({ organizationId, canManage }: { organizationId: s
               <div>
                 <span className="font-medium text-slate-900">{card.name}</span>{" "}
                 <span className="text-sm text-slate-600">{card.currency} · {card.rates.length} {t("pricing.roles")}</span>{" "}
-                {card.isDefault ? <Badge tone="teal">{t("pricing.defaultCard")}</Badge> : null}
+                {card.isDefault ? <Badge tone="green">{t("pricing.defaultCard")}</Badge> : null}
                 <ul className="mt-1 text-sm text-slate-600">
                   {card.rates.map((r) => (
                     <li key={r.id}>{r.role} — {money(r.hourlyRateMinor, card.currency)}{t("pricing.perHour")}</li>

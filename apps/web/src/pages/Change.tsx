@@ -6,7 +6,7 @@ import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { AllowancePoolView, ChangeDetail, EstimateTemplate, ProjectDetail, RateCard, RequirementRow } from "../lib/types.js";
 import { ProjectSubnav } from "../components/layout.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Textarea, cn, formatDate, statusTone, PageSkeleton } from "../components/ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, PageTitle, Select, Spinner, StatusBadge, Textarea, cn, defaultExpiryInput, expiryLabel, formatStatus, PageSkeleton } from "../components/ui.js";
 import { DownloadButton, UploadBox } from "../components/upload.js";
 import { OptionsCard } from "../components/options.js";
 import { ActualsCard, PriceSuggestions } from "../components/actuals.js";
@@ -27,7 +27,7 @@ export function ChangePage(): JSX.Element {
   const [showQuestion, setShowQuestion] = useState(false);
   const [showTriage, setShowTriage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { t, money } = useLocale();
+  const { t, money, date, relative } = useLocale();
 
   const refresh = (): void => {
     setError(null);
@@ -71,9 +71,9 @@ export function ChangePage(): JSX.Element {
       <ProjectSubnav projectId={projectId} />
       {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Badge tone={statusTone(c.status)}>{c.status}</Badge>
-        {c.classification ? <Badge>{c.classification}</Badge> : null}
-        <Badge>{t("change.sourceLabel", { source: c.source })}</Badge>
+        <StatusBadge status={c.status} />
+        {c.classification ? <Badge>{formatStatus(c.classification)}</Badge> : null}
+        <Badge>{t("change.sourceLabel", { source: formatStatus(c.source) })}</Badge>
         {c.unverifiedSubmitter ? <Badge tone="amber">{t("change.unverifiedSubmitter")}</Badge> : null}
       </div>
       {c.unverifiedSubmitter ? (
@@ -91,8 +91,8 @@ export function ChangePage(): JSX.Element {
             <h2 className="mb-1 text-[15px] font-semibold tracking-tight text-slate-900">{t("change.request")}</h2>
             <p className="whitespace-pre-wrap text-sm text-slate-800">{c.description}</p>
             {c.classificationRationale ? <p className="mt-2 text-sm text-slate-600">{t("change.classificationText", { rationale: c.classificationRationale })}</p> : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {c.status === "DRAFT" ? <Button size="sm" disabled={submit.isPending} onClick={() => submit.mutate()}>{t("change.submitForTriage")}</Button> : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {c.status === "DRAFT" ? <Button size="sm" loading={submit.isPending} onClick={() => submit.mutate()}>{t("change.submitForTriage")}</Button> : null}
               <StatusPicker current={c.status} onPick={(status) => patch.mutate({ status })} />
               <Button size="sm" variant="secondary" onClick={() => setShowTriage(true)}>{t("change.classify")}</Button>
               <Button size="sm" variant="secondary" onClick={() => setShowQuestion(true)}>{t("change.askClarification")}</Button>
@@ -113,7 +113,7 @@ export function ChangePage(): JSX.Element {
                 <dt className="text-slate-500">{t("change.timeline")}</dt>
                 <dd>{t("change.daysValue", { value: c.impact.timelineDays ?? "—" })}{c.impact.milestoneEffect ? ` · ${c.impact.milestoneEffect}` : ""}</dd>
                 <dt className="text-slate-500">{t("change.confidence")}</dt>
-                <dd>{c.impact.confidence}</dd>
+                <dd>{c.impact.confidence ? formatStatus(c.impact.confidence) : "—"}</dd>
               </dl>
             )}
             {(c.impact?.risks ?? []).length > 0 ? (
@@ -151,8 +151,8 @@ export function ChangePage(): JSX.Element {
                 {c.links.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-2">
                     <span>
-                      <Badge>{l.kind}</Badge> {l.targetTitle ?? l.targetRequirementId ?? l.targetChangeId}
-                      {l.condition ? <span className="text-slate-500">{" "}{t("change.needsCondition", { condition: l.condition })}</span> : null}
+                      <Badge>{formatStatus(l.kind)}</Badge> {l.targetTitle ?? l.targetRequirementId ?? l.targetChangeId}
+                      {l.condition ? <span className="text-slate-500">{" "}{t("change.needsCondition", { condition: formatStatus(l.condition) })}</span> : null}
                       {l.overrideRationale ? <span className="text-slate-500">{" "}{t("change.overrideDetail", { rationale: l.overrideRationale })}</span> : null}
                     </span>
                     <RemoveLink changeId={c.id} linkId={l.id} onDone={refresh} />
@@ -189,7 +189,7 @@ export function ChangePage(): JSX.Element {
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-2">
                     <span>{a.fileName} <span className="text-slate-500">({Math.round(a.sizeBytes / 1024)} KB)</span></span>
                     <span className="flex items-center gap-2">
-                      <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                      <StatusBadge status={a.status} />
                       {a.status === "READY" ? <DownloadButton attachmentId={a.id} fileName={a.fileName} /> : null}
                     </span>
                   </li>
@@ -225,11 +225,18 @@ export function ChangePage(): JSX.Element {
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={c.sendBlockers.length > 0} onClick={() => setShowSend(true)}>{t("change.sendForApproval")}</Button>
+              <Button
+                size="sm"
+                disabled={c.sendBlockers.length > 0}
+                title={c.sendBlockers.length > 0 ? c.sendBlockers[0] : undefined}
+                onClick={() => setShowSend(true)}
+              >
+                {t("change.sendForApproval")}
+              </Button>
               {c.status === "APPROVED" ? (
                 <>
-                  <Button size="sm" variant="secondary" disabled={convert.isPending} onClick={() => convert.mutate()}>{t("change.convertToScope")}</Button>
-                  <Button size="sm" variant="secondary" disabled={implement.isPending} onClick={() => implement.mutate()}>{t("change.markImplemented")}</Button>
+                  <Button size="sm" variant="secondary" loading={convert.isPending} onClick={() => convert.mutate()}>{t("change.convertToScope")}</Button>
+                  <Button size="sm" variant="secondary" loading={implement.isPending} onClick={() => implement.mutate()}>{t("change.markImplemented")}</Button>
                 </>
               ) : null}
             </div>
@@ -238,9 +245,9 @@ export function ChangePage(): JSX.Element {
                 <li key={a.id} className="rounded-md border border-slate-200 p-2">
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{a.title ?? t("change.reviewPackage")}</span>
-                    <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                    <StatusBadge status={a.status} />
                   </span>
-                  <span className="text-xs text-slate-500">{t("change.expiresOn", { date: formatDate(a.expiresAt) })}</span>
+                  <span className="text-xs text-slate-500">{t("change.expiresOn", { date: expiryLabel(a.expiresAt, date, relative) })}</span>
                   {a.invalidatedReason ? <p className="text-xs text-red-700">{t("change.invalidated", { reason: a.invalidatedReason })}</p> : null}
                   {a.chosenOptionId ? <p className="text-xs text-link">{t("change.choseOption", { label: (a.package?.options ?? []).find((o) => o.optionId === a.chosenOptionId)?.label ?? "?" })}</p> : null}
                   {(a.status === "SENT" || a.status === "DECIDED") ? (
@@ -257,11 +264,11 @@ export function ChangePage(): JSX.Element {
               <ul className="mt-2 space-y-2 text-sm">
                 {c.decisions.map((d) => (
                   <li key={d.id} className="rounded-md bg-slate-50 p-2">
-                    <Badge tone={statusTone(d.decision)}>{d.decision}</Badge>
+                    <StatusBadge status={d.decision} />
                     {d.optionLabel ? <span className="ml-2 text-sm font-medium">{t("change.optionChosen", { label: d.optionLabel })}</span> : null}
                     {d.typedName ? <span className="ml-2 text-sm text-slate-600">{t("change.confirmedBy", { name: d.typedName })}</span> : null}
                     <p className="mt-1">{d.comment ?? t("change.noComment")}</p>
-                    <p className="text-xs text-slate-500">{d.approverEmail} · {formatDate(d.createdAt)}</p>
+                    <p className="text-xs text-slate-500">{d.approverEmail} · {date(d.createdAt)}</p>
                   </li>
                 ))}
               </ul>
@@ -306,7 +313,7 @@ function TriageDialog({ change, onClose, onSave }: { change: ChangeDetail; onClo
         </p>
         <Field label={t("change.classificationLabel")} htmlFor="triage-class">
           <Select id="triage-class" value={classification} onChange={(e) => setClassification(e.target.value)}>
-            {CLASSIFICATIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CLASSIFICATIONS.map((c) => <option key={c} value={c}>{formatStatus(c)}</option>)}
           </Select>
         </Field>
         <Field label={t("change.rationaleLabel")} htmlFor="triage-rationale">
@@ -368,13 +375,18 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
   );
 }
 
-function StatusPicker({ current, onPick }: { current: string; onPick: (s: string) => void }): JSX.Element {
+function StatusPicker({ current, onPick }: { current: string; onPick: (s: string) => void }): JSX.Element | null {
   const { t } = useLocale();
   const [value, setValue] = useState(current);
+  // Review-driven states (pending approval, approved, …) move on their own;
+  // showing the picker there displayed the wrong status (no matching option).
+  if (!MANUAL_STATUSES.includes(current)) {
+    return <span className="text-xs text-slate-500">{t("change.autoStatusNote")}</span>;
+  }
   return (
-    <span className="flex items-center gap-2">
-      <Select aria-label={t("change.statusPickerLabel")} value={value} onChange={(e) => setValue(e.target.value)} className="w-auto">
-        {MANUAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+    <span className="flex min-w-0 flex-wrap items-center gap-2">
+      <Select aria-label={t("change.statusPickerLabel")} value={value} onChange={(e) => setValue(e.target.value)} className="w-auto max-w-44">
+        {MANUAL_STATUSES.map((s) => <option key={s} value={s}>{formatStatus(s)}</option>)}
       </Select>
       <Button size="sm" variant="secondary" disabled={value === current} onClick={() => onPick(value)}>{t("change.move")}</Button>
     </span>
@@ -458,8 +470,8 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
   });
   return (
     <Dialog title={t("change.recordImpact")} onClose={onClose} wide>
-      <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v as unknown as Record<string, string>))(e)} className="grid grid-cols-2 gap-4">
-        <fieldset className="col-span-2">
+      <form onSubmit={(e) => void handleSubmit((v) => save.mutate(v as unknown as Record<string, string>))(e)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <fieldset className="col-span-1 sm:col-span-2">
           <legend className="mb-1 text-sm font-medium text-slate-700">{t("change.price")}</legend>
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-1.5">
@@ -477,8 +489,8 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
             <Input id="imp-price" inputMode="decimal" {...register("priceMinor")} />
           </Field>
         ) : (
-          <div className="col-span-2 space-y-3 rounded-lg border border-slate-200 p-3">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-1 space-y-3 rounded-lg border border-slate-200 p-3 sm:col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label={t("pricing.rateCard")} htmlFor="imp-card">
                 <Select id="imp-card" value={effectiveCardId} onChange={(e) => setCardId(e.target.value)}>
                   {matching.map((c) => (
@@ -500,7 +512,7 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
               <legend className="mb-1 text-sm font-medium text-slate-700">{t("pricing.lineLabel")} / {t("pricing.role")} / {t("pricing.hours")}</legend>
               <ul className="space-y-2">
                 {lines.map((line, i) => (
-                  <li key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] items-center gap-2">
+                  <li key={i} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_1fr_5rem_auto]">
                     <Input aria-label={`${t("pricing.lineLabel")} ${i + 1}`} placeholder={t("pricing.lineLabel")} value={line.label} onChange={(e) => setLines(lines.map((row, j) => (j === i ? { ...row, label: e.target.value } : row)))} />
                     <Select aria-label={`${t("pricing.role")} ${i + 1}`} value={line.role} onChange={(e) => setLines(lines.map((row, j) => (j === i ? { ...row, role: e.target.value } : row)))}>
                       <option value="">{t("pricing.role")}</option>
@@ -521,7 +533,7 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
               {t("pricing.overridePrice")}
             </label>
             {overrideOn ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label={t("pricing.overridePriceLabel")} htmlFor="imp-override-price">
                   <Input id="imp-override-price" inputMode="decimal" {...register("overridePrice")} />
                 </Field>
@@ -540,28 +552,26 @@ function ImpactDialog({ change, projectId, onClose, onDone }: { change: ChangeDe
         </Field>
         <Field label={t("change.confidence")} htmlFor="imp-confidence">
           <Select id="imp-confidence" {...register("confidence")}>
-            <option value="LOW">LOW</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="HIGH">HIGH</option>
+            {["LOW", "MEDIUM", "HIGH"].map((c) => <option key={c} value={c}>{formatStatus(c)}</option>)}
           </Select>
         </Field>
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2">
           <Field label={t("options.milestoneEffect")} htmlFor="imp-milestone">
             <Input id="imp-milestone" {...register("milestoneEffect")} />
           </Field>
         </div>
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2">
           <Field label={t("change.risksLabel")} htmlFor="imp-risks">
             <Textarea id="imp-risks" rows={2} {...register("risks")} />
           </Field>
         </div>
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2">
           <Field label={t("options.notes")} htmlFor="imp-notes">
             <Textarea id="imp-notes" rows={2} {...register("notes")} />
           </Field>
         </div>
-        {error ? <div className="col-span-2"><ErrorBanner message={error} /></div> : null}
-        <div className="col-span-2"><Button type="submit" disabled={save.isPending} className="w-full">{t("change.saveImpact")}</Button></div>
+        {error ? <div className="col-span-1 sm:col-span-2"><ErrorBanner message={error} /></div> : null}
+        <div className="col-span-1 sm:col-span-2"><Button type="submit" loading={save.isPending} className="w-full">{t("change.saveImpact")}</Button></div>
       </form>
     </Dialog>
   );
@@ -639,7 +649,7 @@ function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
           <Field label={t("change.requirementWord")} htmlFor="link-req">
             <Select id="link-req" {...register("targetRequirementId")}>
               <option value="">{t("change.selectOption")}</option>
-              {(requirements.data?.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.stableKey} · {(r.published ?? r.draft)?.title ?? r.status}</option>)}
+              {(requirements.data?.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.stableKey} · {(r.published ?? r.draft)?.title ?? formatStatus(r.status)}</option>)}
             </Select>
           </Field>
         ) : (
@@ -652,18 +662,18 @@ function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
         )}
         <Field label={t("change.kindLabel")} htmlFor="link-kind">
           <Select id="link-kind" {...register("kind")}>
-            <option value="AFFECTS">AFFECTS</option>
-            <option value="RELATED">RELATED</option>
-            <option value="DUPLICATE_OF">DUPLICATE_OF</option>
-            <option value="DEPENDS_ON">DEPENDS_ON</option>
+            {["AFFECTS", "RELATED", "DUPLICATE_OF", "DEPENDS_ON"].map((k) => (
+              <option key={k} value={k}>{formatStatus(k)}</option>
+            ))}
           </Select>
         </Field>
         {kind === "DEPENDS_ON" ? (
           <>
             <Field label={t("change.conditionLabel")} htmlFor="link-condition">
               <Select id="link-condition" {...register("condition")}>
-                <option value="PREREQ_APPROVED">PREREQ_APPROVED</option>
-                <option value="PREREQ_IMPLEMENTED">PREREQ_IMPLEMENTED</option>
+                {["PREREQ_APPROVED", "PREREQ_IMPLEMENTED"].map((k) => (
+                  <option key={k} value={k}>{formatStatus(k)}</option>
+                ))}
               </Select>
             </Field>
             <Field label={t("change.overrideRationaleLabel")} htmlFor="link-override">
@@ -672,7 +682,7 @@ function LinkDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
           </>
         ) : null}
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" disabled={save.isPending} className="w-full">{t("change.addLink")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("change.addLink")}</Button>
       </form>
     </Dialog>
   );
@@ -697,7 +707,7 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
   });
   const [approvers, setApprovers] = useState<string[]>([]);
   const [extraEmails, setExtraEmails] = useState("");
-  const [expiry, setExpiry] = useState("");
+  const [expiry, setExpiry] = useState(() => defaultExpiryInput());
   const pools = useQuery({
     queryKey: ["allowance-pools", projectId],
     queryFn: () => fetchAll<AllowancePoolView>(`/projects/${projectId}/allowance-pools`),
@@ -719,17 +729,24 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
     },
     onError: (err) => setError(errorMessage(err)),
   });
+  const eligible = (members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER");
   return (
     <Dialog title={t("change.sendTitle")} onClose={onClose}>
       <p className="mb-3 text-sm text-slate-600">
         {t("change.sendBlurb")}
       </p>
-      {(members.data ?? []).filter((m) => m.role !== "CLIENT_VIEWER").map((m) => (
-        <label key={m.userId} className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
-          {m.user?.name} ({m.role})
-        </label>
-      ))}
+      {members.isLoading ? (
+        <Spinner />
+      ) : eligible.length === 0 ? (
+        <p className="text-sm text-slate-600">{t("change.addMembersFirst")}</p>
+      ) : (
+        eligible.map((m) => (
+          <label key={m.userId} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={approvers.includes(m.userId)} onChange={(e) => setApprovers(e.target.checked ? [...approvers, m.userId] : approvers.filter((a) => a !== m.userId))} />
+            {m.user?.name ?? m.userId} ({formatStatus(m.role)})
+          </label>
+        ))
+      )}
       <div className="mt-3">
         <Field label={t("change.extraEmailsLabel")} htmlFor="send-emails" hint={t("change.extraEmailsHint")}>
           <Input id="send-emails" type="text" inputMode="email" placeholder="client@example.com" value={extraEmails} onChange={(e) => setExtraEmails(e.target.value)} />
@@ -741,12 +758,12 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
           htmlFor="send-pool"
           hint={t("change.poolHint")}
         >
-          <select id="send-pool" value={poolId} onChange={(e) => setPoolId(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+          <Select id="send-pool" value={poolId} onChange={(e) => setPoolId(e.target.value)}>
             <option value="">{t("change.noPool")}</option>
             {(pools.data ?? []).filter((p) => p.enabled && p.status === "ACTIVE").map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.kind.toLowerCase()})</option>
+              <option key={p.id} value={p.id}>{p.name} ({formatStatus(p.kind)})</option>
             ))}
-          </select>
+          </Select>
         </Field>
       </div>
       <div className="mt-3">
@@ -755,16 +772,16 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
           htmlFor="send-policy"
           hint={t("change.decisionRuleHint")}
         >
-          <select id="send-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+          <Select id="send-policy" value={policyMode} onChange={(e) => setPolicyMode(e.target.value)}>
             <option value="">{t("change.projectDefault")}</option>
             <option value="ANY">{t("policy.modeANY")}</option>
             <option value="ALL">{t("policy.modeALL")}</option>
             <option value="SEQUENTIAL">{t("policy.modeSEQUENTIAL")}</option>
-          </select>
+          </Select>
         </Field>
       </div>
       <div className="mt-3">
-        <Field label={t("change.expiresAtLabel")} htmlFor="send-expiry">
+        <Field label={t("change.expiresAtLabel")} hint={t("project.expiryHint")} htmlFor="send-expiry">
           <Input id="send-expiry" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
         </Field>
       </div>
@@ -774,7 +791,7 @@ function SendDialog({ change, projectId, onClose, onDone }: { change: ChangeDeta
           {links.map((l) => <li key={l}><Link className="underline" to={l.replace(/^https?:\/\/[^/]+/, "")}>{t("change.openReviewLink")}</Link></li>)}
         </ul>
       ) : (
-        <Button className="mt-3 w-full" disabled={send.isPending || approvers.length === 0 || !expiry} onClick={() => send.mutate()}>
+        <Button className="mt-3 w-full" loading={send.isPending} disabled={approvers.length === 0 || !expiry} onClick={() => send.mutate()}>
           {t("change.sendPackage")}
         </Button>
       )}
@@ -798,7 +815,7 @@ function QuestionDialog({ changeId, onClose, onDone }: { changeId: string; onClo
           <Textarea id="q-text" rows={3} {...register("question", { required: t("change.questionRequired") })} />
         </Field>
         {error ? <ErrorBanner message={error} /> : null}
-        <Button type="submit" className="w-full">{t("change.sendQuestion")}</Button>
+        <Button type="submit" loading={save.isPending} className="w-full">{t("change.sendQuestion")}</Button>
       </form>
     </Dialog>
   );
@@ -814,7 +831,7 @@ function AnswerBox({ changeId, clarId, onDone }: { changeId: string; clarId: str
   return (
     <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
       <Input aria-label={t("change.answerWord")} value={answer} onChange={(e) => setAnswer(e.target.value)} required />
-      <Button size="sm" type="submit" disabled={save.isPending}>{t("change.answerWord")}</Button>
+      <Button size="sm" type="submit" loading={save.isPending}>{t("change.answerWord")}</Button>
     </form>
   );
 }
@@ -868,9 +885,13 @@ function DriftPanel({ changeId, projectId, onDone }: { changeId: string; project
       {result ? (
         <div className="mt-2 space-y-2 text-sm">
           <p className="text-xs text-slate-500">
-            {t("change.aiStatus", { status: result.status })}
-            {result.output.suggestedClassification ? ` ${t("change.suggestedValue", { value: result.output.suggestedClassification })}` : ""}
-            {(result.output.droppedInventedIds ?? 0) > 0 ? ` ${t("change.inventedRejected", { count: result.output.droppedInventedIds ?? 0 })}` : ""}
+            {t("change.aiStatus", { status: formatStatus(result.status) })}
+            {result.output.suggestedClassification ? ` ${t("change.suggestedValue", { value: formatStatus(result.output.suggestedClassification) })}` : ""}
+            {(result.output.droppedInventedIds ?? 0) === 1
+              ? ` ${t("change.inventedRejectedOne")}`
+              : (result.output.droppedInventedIds ?? 0) > 1
+                ? ` ${t("change.inventedRejectedOther", { count: result.output.droppedInventedIds ?? 0 })}`
+                : ""}
           </p>
           {result.output.note ? <p className="text-xs text-slate-500">{result.output.note}</p> : null}
           {result.output.links.filter((l) => !dismissed.includes(l.requirementId)).map((l) => (
@@ -967,28 +988,33 @@ function AiAssistPanel({ changeId, onDone }: { changeId: string; onDone: () => v
 function ExportButton({ projectId, changeId }: { projectId: string; changeId: string }): JSX.Element {
   const { t } = useLocale();
   const [downloading, setDownloading] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
-    <Button
-      size="sm"
-      variant="secondary"
-      disabled={downloading}
-      onClick={() => {
-        setDownloading(true);
-        api.get<unknown>(`/projects/${projectId}/export/change/${changeId}`)
-          .then((data) => {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `change-export-${changeId}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-          })
-          .catch(() => undefined)
-          .finally(() => setDownloading(false));
-      }}
-    >
-      {t("change.downloadSummary")}
-    </Button>
+    <div>
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={downloading}
+        onClick={() => {
+          setDownloading(true);
+          setFailed(false);
+          api.get<unknown>(`/projects/${projectId}/export/change/${changeId}`)
+            .then((data) => {
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `change-export-${changeId}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            })
+            .catch(() => setFailed(true))
+            .finally(() => setDownloading(false));
+        }}
+      >
+        {t("change.downloadSummary")}
+      </Button>
+      {failed ? <p role="alert" className="mt-2 text-xs text-red-700">{t("change.exportFailed")}</p> : null}
+    </div>
   );
 }

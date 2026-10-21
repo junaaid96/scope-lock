@@ -5,7 +5,7 @@ import { api, errorMessage, ApiError } from "../lib/api.js";
 import { LocaleProvider, isLocale, useLocale } from "../lib/i18n/index.js";
 import type { ReviewPackage } from "../lib/types.js";
 import { LoadingScreen } from "../components/layout.js";
-import { Badge, Button, Card, ErrorBanner, Field, Input, Textarea, formatDate, statusTone } from "../components/ui.js";
+import { Badge, Button, Card, ErrorBanner, Field, Input, StatusBadge, Textarea, expiryLabel, formatStatus } from "../components/ui.js";
 
 interface PolicyState {
   outcome: { state: "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"; deciding: { tokenId: string; approverKey: string; decision: string } | null };
@@ -57,7 +57,7 @@ export function ReviewPage(): JSX.Element {
 
 function ReviewBody({ token, review }: { token: string; review: UseQueryResult<ReviewData> }): JSX.Element {
   const client = useQueryClient();
-  const { t } = useLocale();
+  const { t, money, date, relative } = useLocale();
 
   if (review.isLoading) {
     return <LoadingScreen message={t("review.loadingPackage")} />;
@@ -91,22 +91,26 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
       <Card className="p-6 shadow-lift sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">{r.title ?? t("review.defaultTitle")}</h1>
-          <Badge tone={statusTone(r.status)}>{r.status}</Badge>
+          {r.status === "SENT" ? (
+            <Badge tone="amber">{t("review.awaitingDecision")}</Badge>
+          ) : (
+            <StatusBadge status={r.status} />
+          )}
         </div>
         <p className="mt-1 text-xs text-slate-500">
-          {t("review.sentMeta", { sent: formatDate(pkg.sentAt), expires: formatDate(r.expiresAt), checksum: `${r.checksum.slice(0, 12)}…` })}
+          {t("review.sentMeta", { sent: date(pkg.sentAt), expires: expiryLabel(r.expiresAt, date, relative), checksum: `${r.checksum.slice(0, 12)}…` })}
         </p>
         {r.status !== "SENT" ? (
           <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm">
             {r.status === "DECIDED" && r.decisions.length > 0 ? (
               <div>
-                <p>{t("review.decidedLabel")} <strong>{r.policyState?.outcome.state ?? r.decisions[0]?.decision}</strong>
+                <p>{t("review.decidedLabel")} <strong>{formatStatus(r.policyState?.outcome.state ?? r.decisions[0]?.decision ?? "")}</strong>
                   {r.chosenOptionId ? t("review.chosenOption", { label: (pkg.options ?? []).find((o) => o.optionId === r.chosenOptionId)?.label ?? "?" }) : ""}
                 </p>
                 {r.decisions.length > 1 ? (
                   <ul className="mt-1 list-disc pl-5">
                     {r.decisions.map((d, i) => (
-                      <li key={i}>{d.typedName ?? d.approverEmail ?? t("review.approverFallback")} — {d.decision}{d.optionLabel ? t("review.decisionOption", { label: d.optionLabel }) : ""}{d.comment ? ` — ${d.comment}` : ""}</li>
+                      <li key={i}>{d.typedName ?? d.approverEmail ?? t("review.approverFallback")} — {formatStatus(d.decision)}{d.optionLabel ? t("review.decisionOption", { label: d.optionLabel }) : ""}{d.comment ? ` — ${d.comment}` : ""}</li>
                     ))}
                   </ul>
                 ) : r.decisions[0]?.optionLabel || r.decisions[0]?.comment || r.decisions[0]?.typedName ? (
@@ -130,7 +134,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
         {pkg.request ? (
           <section className="mt-4">
             <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{pkg.request.number}: {pkg.request.title}</h2>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{pkg.request.description}</p>
+            <p className="mt-1 text-sm text-slate-800"><Clamp text={pkg.request.description} /></p>
           </section>
         ) : null}
         {pkg.allowance ? (
@@ -142,7 +146,9 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
             <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
               <dt className="text-slate-500">{t("review.poolLabel")}</dt>
               <dd className="font-medium">
-                {pkg.allowance.kind === "HOURS" ? t("review.hoursValue", { hours: pkg.allowance.totalHours ?? 0 }) : `${pkg.allowance.currency} ${((pkg.allowance.totalMinor ?? 0) / 100).toFixed(2)}`}
+                {pkg.allowance.kind === "HOURS"
+                  ? t("review.hoursValue", { hours: pkg.allowance.totalHours ?? 0 })
+                  : money(pkg.allowance.totalMinor ?? 0, pkg.allowance.currency ?? "USD")}
               </dd>
               <dt className="text-slate-500">{t("review.objectionWindowLabel")}</dt>
               <dd>{t("review.objectionWindowValue", { hours: pkg.allowance.objectionWindowHours })}</dd>
@@ -159,7 +165,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               {pkg.acceptance.requirements.map((q) => (
                 <li key={q.requirementId} className="rounded-md border border-slate-200 p-3">
                   <p className="font-medium">{q.stableKey} · {q.title}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-slate-700">{q.description}</p>
+                  <p className="mt-1 text-slate-700"><Clamp text={q.description} /></p>
                   {q.acceptanceCriteria.length > 0 ? (
                     <div className="mt-2">
                       <p className="font-medium">{t("review.acceptanceCriteria")}</p>
@@ -172,7 +178,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
                       <ul className="mt-1 space-y-1">
                         {q.evidence.map((e) => (
                           <li key={e.evidenceId} className="text-slate-700">
-                            <Badge tone={e.status === "ACCEPTED" ? "green" : e.status === "REVIEWED" ? "blue" : "slate"}>{e.status}</Badge>{" "}
+                            <Badge tone={e.status === "ACCEPTED" ? "green" : e.status === "REVIEWED" ? "blue" : "slate"}>{formatStatus(e.status)}</Badge>{" "}
                             <span className="font-medium">{e.title}</span>{" "}
                             <span className="text-xs text-slate-500">({e.type})</span>
                             {e.url ? <> · <a className="underline" href={e.url} target="_blank" rel="noreferrer">{t("review.openEvidence")}</a></> : null}
@@ -193,7 +199,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               {pkg.members.map((m) => (
                 <li key={m.changeId} className="rounded-md border border-slate-200 p-2 text-sm">
                   <p className="font-medium">{m.number}: {m.title}</p>
-                  <p className="text-slate-700">{m.description}</p>
+                  <p className="text-slate-700"><Clamp text={m.description} /></p>
                 </li>
               ))}
             </ul>
@@ -207,7 +213,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               <dt className="text-slate-500">{t("review.priceLabel")}</dt>
               <dd className="font-medium">
                 {pkg.impact.priceMinor !== null && pkg.impact.priceMinor !== undefined
-                  ? `${pkg.impact.currency} ${(pkg.impact.priceMinor / 100).toFixed(2)}`
+                  ? money(pkg.impact.priceMinor, pkg.impact.currency ?? "USD")
                   : "—"}
               </dd>
               <dt className="text-slate-500">{t("review.effortLabel")}</dt>
@@ -215,7 +221,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               <dt className="text-slate-500">{t("review.timelineLabel")}</dt>
               <dd>{t("review.daysValue", { days: pkg.impact.timelineDays ?? "—" })}{pkg.impact.milestoneEffect ? ` · ${pkg.impact.milestoneEffect}` : ""}</dd>
               <dt className="text-slate-500">{t("review.confidenceLabel")}</dt>
-              <dd>{pkg.impact.confidence}</dd>
+              <dd>{pkg.impact.confidence ? formatStatus(pkg.impact.confidence) : "—"}</dd>
             </dl>
             {pkg.impact.risks.length > 0 ? (
               <div className="mt-2 text-sm"><p className="font-medium">{t("review.risksLabel")}</p><ul className="list-disc pl-5">{pkg.impact.risks.map((x) => <li key={x}>{x}</li>)}</ul></div>
@@ -234,7 +240,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               {(pkg.options ?? []).map((o) => (
                 <li key={o.optionId} className="rounded-md border border-slate-200 p-3">
                   <p className="font-medium">
-                    {o.label} · {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)} · {t("review.optionEffort", { effort: o.effortDays ?? "—", timeline: o.timelineDays ?? "—" })}
+                    {o.label} · {money(o.priceMinor ?? 0, o.currency ?? "USD")} · {t("review.optionEffort", { effort: o.effortDays ?? "—", timeline: o.timelineDays ?? "—" })}
                     {r.chosenOptionId === o.optionId ? t("review.optionChosen") : ""}
                   </p>
                   {o.description ? <p className="mt-1 text-slate-700">{o.description}</p> : null}
@@ -255,7 +261,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               {pkg.requirements.map((q) => (
                 <li key={q.requirementId} className="rounded-md border border-slate-200 p-2">
                   <p className="font-medium">{q.stableKey} · {q.title} {q.versionSequence ? t("review.baselineVersion", { version: q.versionSequence }) : ""}</p>
-                  <p className="text-slate-700">{q.description}</p>
+                  <p className="text-slate-700"><Clamp text={q.description} /></p>
                 </li>
               ))}
             </ul>
@@ -283,7 +289,7 @@ function ReviewBody({ token, review }: { token: string; review: UseQueryResult<R
               {r.policyState.approvers.map((a) => (
                 <li key={a.approverKey} className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-2 py-1.5">
                   <span className="font-medium">{a.email ?? t("review.approverFallback")}{a.turn && r.status === "SENT" ? t("review.decidingNow") : ""}</span>
-                  <Badge tone={a.decision ? statusTone(a.decision) : "slate"}>{a.decision ?? "WAITING"}</Badge>
+                  {a.decision ? <StatusBadge status={a.decision} /> : <Badge>{formatStatus("WAITING")}</Badge>}
                 </li>
               ))}
             </ul>
@@ -346,7 +352,7 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
   stepUp: { otp: boolean; typedName: boolean };
   onDecided: () => void;
 }): JSX.Element {
-  const { t } = useLocale();
+  const { t, money } = useLocale();
   const [decision, setDecision] = useState("APPROVED");
   const [optionId, setOptionId] = useState("");
   const [comment, setComment] = useState("");
@@ -360,13 +366,18 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
   const optionList = options ?? [];
   const needsPick = decision === "APPROVED" && optionList.length > 0;
   const ready = confirm && (!needsPick || optionId) && (!stepUp.otp || /^\d{6}$/.test(otp)) && (!stepUp.typedName || typedName.trim().length >= 2);
+  const missing: string[] = [];
+  if (needsPick && !optionId) missing.push(t("review.needOption"));
+  if (stepUp.otp && !/^\d{6}$/.test(otp)) missing.push(t("review.needCode"));
+  if (stepUp.typedName && typedName.trim().length < 2) missing.push(t("review.needName"));
+  if (!confirm) missing.push(t("review.needConfirm"));
 
   if (policyState?.yourDecision) {
     return (
       <div className="mt-6 border-t border-slate-200 pt-4">
         <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.yourDecision")}</h2>
         <p className="mt-2 rounded-md bg-slate-100 p-3 text-sm">
-          {t("review.youDecidedPrefix")} <strong>{policyState.yourDecision}</strong>. {policyState.outcome.state === "PENDING" ? t("review.waitingOthers") : ""}
+          {t("review.youDecidedPrefix")} <strong>{formatStatus(policyState.yourDecision)}</strong>. {policyState.outcome.state === "PENDING" ? t("review.waitingOthers") : ""}
         </p>
       </div>
     );
@@ -421,15 +432,24 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
     <form onSubmit={(e) => void submit(e)} className="mt-6 border-t border-slate-200 pt-4">
       <h2 className="text-[15px] font-semibold tracking-tight text-slate-900">{t("review.yourDecision")}</h2>
       <div className="mt-2 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t("review.decisionGroupLabel")}>
-        {(["APPROVED", "REJECTED", "CHANGES_REQUESTED"] as const).map((d) => (
+        {(
+          [
+            { value: "APPROVED", label: t("review.decideApprove"), hint: t("review.approveHint") },
+            { value: "REJECTED", label: t("review.decideReject"), hint: t("review.rejectHint") },
+            { value: "CHANGES_REQUESTED", label: t("review.decideRequestChanges"), hint: t("review.reviseHint") },
+          ] as const
+        ).map((d) => (
           <label
-            key={d}
-            className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
-              decision === d ? "border-teal-700 bg-teal-50 text-link-strong" : "border-slate-200 text-slate-700 hover:border-slate-300"
+            key={d.value}
+            className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2.5 text-sm transition-colors ${
+              decision === d.value ? "border-teal-700 bg-teal-50 text-link-strong" : "border-slate-200 text-slate-700 hover:border-slate-300"
             }`}
           >
-            <input type="radio" name="decision" value={d} checked={decision === d} onChange={() => setDecision(d)} className="accent-teal-700" />
-            {d.replace("_", " ")}
+            <input type="radio" name="decision" value={d.value} checked={decision === d.value} onChange={() => setDecision(d.value)} className="mt-0.5 accent-teal-700" />
+            <span>
+              <span className="block font-medium">{d.label}</span>
+              <span className="mt-0.5 block text-xs font-normal opacity-80">{d.hint}</span>
+            </span>
           </label>
         ))}
       </div>
@@ -453,7 +473,7 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
                   required
                   className="accent-teal-700"
                 />
-                {o.label} · {o.currency} {((o.priceMinor ?? 0) / 100).toFixed(2)}
+                {o.label} · {money(o.priceMinor ?? 0, o.currency ?? "USD")}
               </label>
             ))}
           </div>
@@ -511,10 +531,35 @@ function DecisionForm({ refParam, accent, policyState, options, stepUp, onDecide
         {t("review.confirmLabel")}
       </label>
       {error ? <div className="mt-3"><ErrorBanner message={error.message} correlationId={error.correlationId} /></div> : null}
-      <Button type="submit" disabled={saving || !ready} className="mt-3 w-full" style={{ backgroundColor: accent }}>
+      {!ready && !saving && missing.length > 0 ? (
+        <ul className="mt-3 list-disc pl-5 text-xs text-slate-600" aria-live="polite">
+          {missing.map((m) => <li key={m}>{m}</li>)}
+        </ul>
+      ) : null}
+      <Button type="submit" loading={saving} disabled={!ready} className="mt-3 w-full" style={{ backgroundColor: accent }}>
         {saving ? t("review.recording") : t("review.recordDecision")}
       </Button>
     </form>
+  );
+}
+
+/** Long descriptions collapse to 4 lines with an expander, so related scope stays scannable. */
+function Clamp({ text }: { text: string }): JSX.Element {
+  const { t } = useLocale();
+  const [open, setOpen] = useState(false);
+  if (text.length <= 280) return <span className="whitespace-pre-wrap">{text}</span>;
+  return (
+    <span>
+      <span className={open ? "whitespace-pre-wrap" : "line-clamp-4 whitespace-pre-wrap"}>{text}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="mt-1 font-medium text-link underline"
+      >
+        {open ? t("common.showLess") : t("common.showMore")}
+      </button>
+    </span>
   );
 }
 

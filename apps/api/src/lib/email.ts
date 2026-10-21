@@ -22,15 +22,16 @@ class LogEmailDriver implements EmailDriver {
 }
 
 /**
- * Generic transactional HTTP driver. Configure EMAIL_API_KEY/EMAIL_FROM for a
- * provider with an HTTP API; the payload shape follows the common
- * {from,to,subject,text} convention and is documented in docs/OPERATIONS.md.
+ * Generic transactional HTTP driver. Configure EMAIL_API_KEY/EMAIL_FROM plus
+ * EMAIL_HTTP_ENDPOINT for a provider with an HTTP API (Resend by default);
+ * the payload shape follows the common {from,to,subject,text} convention
+ * and is documented in docs/OPERATIONS.md.
  */
 class HttpEmailDriver implements EmailDriver {
   readonly name = "http";
   constructor(private readonly env: Env) {}
   async send(msg: EmailMessage): Promise<void> {
-    const endpoint = process.env.EMAIL_HTTP_ENDPOINT ?? "https://api.transactional.example/v1/send";
+    const endpoint = this.env.EMAIL_HTTP_ENDPOINT || "https://api.transactional.example/v1/send";
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15_000);
     try {

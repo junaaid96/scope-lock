@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import type { Approval } from "../lib/types.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Empty, ErrorBanner, PageTitle, Tabs, formatDate, statusTone, SkeletonCards } from "../components/ui.js";
+import { Badge, Button, Empty, ErrorBanner, PageTitle, Skeleton, SkeletonCards, StatusBadge, Tabs, expiryLabel } from "../components/ui.js";
 
 interface InboxItem extends Approval {
   projectName: string | null;
@@ -22,7 +22,7 @@ interface NotificationItem {
 
 export function InboxPage(): JSX.Element {
   const [tab, setTab] = useState<"decisions" | "notifications">("decisions");
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const inbox = useQuery({ queryKey: ["inbox"], queryFn: () => fetchAll<InboxItem>("/inbox"), refetchInterval: 30_000 });
   const notifications = useQuery({ queryKey: ["notifications"], queryFn: () => fetchAll<NotificationItem>("/notifications") });
 
@@ -54,10 +54,14 @@ export function InboxPage(): JSX.Element {
               <li key={a.id} className="rounded-xl border border-slate-200 bg-surface p-4 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{a.title ?? t("inbox.defaultTitle")}</span>
-                  <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                  {a.status === "SENT" ? (
+                    <Badge tone="amber">{t("inbox.awaitingYou")}</Badge>
+                  ) : (
+                    <StatusBadge status={a.status} />
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
-                  {t("inbox.expiresMeta", { project: a.projectName ?? "", expires: formatDate(a.expiresAt) })}
+                  {t("inbox.expiresMeta", { project: a.projectName ?? "", expires: expiryLabel(a.expiresAt, date, relative) })}
                 </p>
                 <AuthedReviewLink approval={a} />
               </li>
@@ -74,7 +78,7 @@ export function InboxPage(): JSX.Element {
 function NotificationsTab({ notes, loading, failed, failure }: { notes: NotificationItem[]; loading: boolean; failed: boolean; failure: unknown }): JSX.Element {
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const { t } = useLocale();
+  const { t, date, relative } = useLocale();
   const markRead = useMutation({
     mutationFn: (id: string) => api.post(`/notifications/${id}/read`, { read: true }),
     onSuccess: () => {
@@ -101,7 +105,7 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
     <div>
       {unread > 0 ? (
         <div className="mb-3 flex justify-end">
-          <Button variant="secondary" size="sm" disabled={busy} onClick={() => void markAll()}>
+          <Button variant="secondary" size="sm" loading={busy} onClick={() => void markAll()}>
             {busy ? t("inbox.marking") : t("inbox.markAllRead", { count: unread })}
           </Button>
         </div>
@@ -116,7 +120,7 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-900">{n.title}</p>
                 <p className="mt-0.5 text-sm text-slate-600">{n.body}</p>
-                <p className="mt-1 text-xs text-slate-500">{formatDate(n.createdAt)}</p>
+                <p className="mt-1 text-xs text-slate-500">{relative(n.createdAt) ?? date(n.createdAt)}</p>
               </div>
               {!n.readAt ? (
                 <Button variant="ghost" size="sm" disabled={markRead.isPending} onClick={() => markRead.mutate(n.id)}>
@@ -138,13 +142,20 @@ function NotificationsTab({ notes, loading, failed, failure }: { notes: Notifica
 
 /** Authenticated approvers open the package by id (same content as the review link). */
 function AuthedReviewLink({ approval }: { approval: InboxItem }): JSX.Element {
-  const { t } = useLocale();
+  const { t, money } = useLocale();
   const detail = useQuery({
     queryKey: ["approval", approval.id],
     queryFn: () => api.get<Approval & { package: unknown }>(`/approval-requests/${approval.id}`),
   });
-  if (detail.isLoading) return <span className="text-sm text-slate-500">{t("inbox.loadingPackage")}</span>;
-  if (detail.isError || !detail.data?.package) return <span className="text-sm text-red-700">{t("inbox.packageLoadError")}</span>;
+  if (detail.isLoading) {
+    return (
+      <span className="mt-2 block" role="status" aria-label={t("inbox.loadingPackage")}>
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="mt-1.5 h-3.5 w-1/3" />
+      </span>
+    );
+  }
+  if (detail.isError || !detail.data?.package) return <span className="mt-2 block text-sm text-red-700">{t("inbox.packageLoadError")}</span>;
   const pkg = detail.data.package as {
     request: { title: string; description: string } | null;
     members: Array<{ title: string }>;
@@ -152,29 +163,20 @@ function AuthedReviewLink({ approval }: { approval: InboxItem }): JSX.Element {
   };
   return (
     <div className="mt-2 text-sm">
-      <p className="whitespace-pre-wrap text-slate-800">{pkg.request?.description ?? t("inbox.bundledCount", { count: pkg.members.length })}</p>
+      <p className="line-clamp-3 whitespace-pre-wrap text-slate-800">{pkg.request?.description ?? t("inbox.bundledCount", { count: pkg.members.length })}</p>
       {pkg.impact ? (
         <p className="mt-1 text-slate-600">
           {pkg.impact.priceMinor !== null && pkg.impact.priceMinor !== undefined
-            ? `${pkg.impact.currency} ${(pkg.impact.priceMinor / 100).toFixed(2)} · `
+            ? `${money(pkg.impact.priceMinor, pkg.impact.currency ?? "USD")} · `
             : ""}
           {t("inbox.daysValue", { days: pkg.impact.effortDays ?? "—" })}
         </p>
       ) : null}
-      <DecideButtons approvalId={approval.id} />
+      <div className="mt-3">
+        <Link to={`/review/${approval.id}`}>
+          <Button size="sm">{t("inbox.reviewDecide")}</Button>
+        </Link>
+      </div>
     </div>
-  );
-}
-
-function DecideButtons({ approvalId }: { approvalId: string }): JSX.Element {
-  const { t } = useLocale();
-  return (
-    <p className="mt-2 text-sm text-slate-600">
-      {t("inbox.decidePrefix")}
-      <Link className="font-medium text-link underline" to={`/review/${approvalId}`}>
-        {t("inbox.decideHere")}
-      </Link>
-      .
-    </p>
   );
 }

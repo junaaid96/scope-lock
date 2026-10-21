@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { api, errorMessage, fetchAll } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Textarea, formatDate, statusTone, PageSkeleton } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Textarea, formatStatus, PageSkeleton } from "./ui.js";
 
 interface IntakeLinkRow {
   id: string;
@@ -78,7 +78,7 @@ export function IntakeTab({ projectId }: { projectId: string }): JSX.Element {
 }
 
 function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => void }): JSX.Element {
-  const { t } = useLocale();
+  const { t, date } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const revoke = useMutation({
     mutationFn: () => api.post(`/intake-links/${link.id}/revoke`, {}),
@@ -89,17 +89,17 @@ function LinkCard({ link, onChanged }: { link: IntakeLinkRow; onChanged: () => v
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold tracking-tight">{link.name}</h3>
-        <Badge tone={link.revokedAt ? "red" : statusTone("SENT")}>{link.revokedAt ? "REVOKED" : "LIVE"}</Badge>
+        {link.revokedAt ? <Badge tone="red">{formatStatus("REVOKED")}</Badge> : <Badge tone="green">{formatStatus("LIVE")}</Badge>}
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <dt className="text-slate-500">{t("intakeAdmin.submissions")}</dt>
         <dd className="font-medium">{link.submissions}</dd>
         <dt className="text-slate-500">{t("intakeAdmin.lastUsed")}</dt>
-        <dd>{formatDate(link.lastUsedAt)}</dd>
+        <dd>{date(link.lastUsedAt)}</dd>
         <dt className="text-slate-500">{t("intakeAdmin.expires")}</dt>
-        <dd>{formatDate(link.expiresAt)}</dd>
+        <dd>{date(link.expiresAt)}</dd>
         <dt className="text-slate-500">{t("intakeAdmin.created")}</dt>
-        <dd>{formatDate(link.createdAt)}</dd>
+        <dd>{date(link.createdAt)}</dd>
       </dl>
       {error ? <div className="mt-2"><ErrorBanner message={error} /></div> : null}
       {!link.revokedAt ? (

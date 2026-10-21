@@ -60,7 +60,7 @@ test("change order PDF and public decision certificate", async ({ page }) => {
   // Decide through the review page; the PDF link is offered there.
   await page.goto(reviewUrl);
   await expect(page.getByRole("link", { name: "Download change order (PDF)" })).toBeVisible();
-  await page.getByRole("radio", { name: "APPROVED" }).check();
+  await page.getByRole("radio", { name: "Approve" }).check();
   await page.getByRole("checkbox", { name: /I confirm this decision/ }).check();
   await page.getByRole("button", { name: "Record decision" }).click();
   await expect(page.getByText("Decided:")).toBeVisible();
@@ -82,7 +82,7 @@ test("change order PDF and public decision certificate", async ({ page }) => {
   await page.goto(`/verify/${approvalId}`);
   await expect(page.getByText("Checksum match")).toBeVisible();
   await expect(page.getByRole("heading", { name: /Audited upgrade/ })).toBeVisible();
-  await expect(page.getByText("APPROVED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
   await axeClean(page);
 
   // Unknown certificates stay opaque.

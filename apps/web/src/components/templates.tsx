@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Select, Spinner, Textarea } from "./ui.js";
+import { Badge, Button, Card, ConfirmButton, Dialog, Empty, ErrorBanner, Field, Input, Select, Spinner, Textarea } from "./ui.js";
 
 export interface ScopeTemplateItem {
   title: string;
@@ -60,7 +60,6 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
   };
 
   const remove = async (tpl: ScopeTemplate): Promise<void> => {
-    if (!window.confirm(t("templates.deleteConfirm", { name: tpl.name }))) return;
     try {
       await api.delete(`/organizations/${organizationId}/scope-templates/${tpl.id}`);
       refresh();
@@ -94,7 +93,12 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
                   {canManage ? (
                     <>
                       <Button size="sm" variant="secondary" onClick={() => setEditing(tpl)}>{t("templates.edit")}</Button>
-                      <Button size="sm" variant="secondary" onClick={() => void remove(tpl)}>{t("templates.delete")}</Button>
+                      <ConfirmButton
+                        label={t("templates.delete")}
+                        confirmLabel={t("common.confirmDelete")}
+                        cancelLabel={t("common.cancel")}
+                        onConfirm={() => void remove(tpl)}
+                      />
                     </>
                   ) : null}
                 </span>

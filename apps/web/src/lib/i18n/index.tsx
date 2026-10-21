@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import en from "./messages.en.json" with { type: "json" };
 import bn from "./messages.bn.json" with { type: "json" };
-import { formatDateIntl, formatMoneyIntl, formatNumberIntl } from "./format.js";
+import { formatDateIntl, formatMoneyIntl, formatNumberIntl, formatRelativeIntl } from "./format.js";
 import { useSession } from "../auth.js";
 
 export type Messages = typeof en;
@@ -60,6 +60,7 @@ export interface LocaleApi {
   money: (minor: number | null | undefined, currency: string) => string;
   date: (iso: string | null | undefined) => string;
   number: (value: number) => string;
+  relative: (iso: string | null | undefined) => string | null;
 }
 
 export function useLocale(): LocaleApi {
@@ -70,5 +71,6 @@ export function useLocale(): LocaleApi {
     money: (minor, currency) => formatMoneyIntl(minor, currency, locale),
     date: (iso) => formatDateIntl(iso, locale),
     number: (value) => formatNumberIntl(value, locale),
+    relative: (iso) => formatRelativeIntl(iso, locale),
   };
 }

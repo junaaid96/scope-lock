@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api, errorMessage } from "../lib/api.js";
 import { useLocale } from "../lib/i18n/index.js";
 import type { ApiKeyView, WebhookDeliveryView, WebhookView } from "../lib/types.js";
-import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, PageSkeleton } from "./ui.js";
+import { Badge, Button, Card, Dialog, Empty, ErrorBanner, Field, Input, Spinner, StatusBadge, PageSkeleton } from "./ui.js";
 
 function staffOnly(error: unknown): boolean {
   return error instanceof ApiError && error.status === 403;
@@ -100,7 +100,7 @@ export function ApiKeysCard({ organizationId, canManage }: { organizationId: str
               <div className="min-w-0">
                 <span className="font-medium text-slate-900">{key.name}</span>{" "}
                 <code className="rounded bg-slate-100 px-1 text-xs text-slate-700">{key.prefix}…</code>{" "}
-                {key.revokedAt ? <Badge tone="rose">{t("integrations.revoked")}</Badge> : null}
+                {key.revokedAt ? <Badge tone="red">{t("integrations.revoked")}</Badge> : null}
                 <div className="mt-1 text-sm text-slate-600">
                   {key.scopes.join(", ") || "—"}
                 </div>
@@ -256,7 +256,7 @@ export function WebhooksCard({ organizationId, canManage }: { organizationId: st
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="break-all font-medium text-slate-900">{hook.url}</span>{" "}
-                  {hook.enabled ? <Badge tone="teal">{t("integrations.webhookEnabled")}</Badge> : <Badge tone="slate">{t("integrations.webhookEnabled")}: off</Badge>}
+                  {hook.enabled ? <Badge tone="green">{t("integrations.webhookEnabled")}</Badge> : <Badge tone="slate">{t("integrations.webhookDisabled")}</Badge>}
                   <div className="mt-1 text-sm text-slate-600">{hook.events.join(", ")}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -441,7 +441,7 @@ function DeliveryLog({ organizationId, hookId }: { organizationId: string; hookI
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1 text-sm">
               <span>
                 <code className="text-xs">{d.event}</code>{" "}
-                <Badge tone={d.status === "SENT" ? "teal" : d.status === "PENDING" ? "slate" : "rose"}>{d.status}</Badge>{" "}
+                <StatusBadge status={d.status} />{" "}
                 <span className="text-xs text-slate-500">
                   {d.attempts} {t("integrations.attempts")} · {date(d.createdAt)}
                   {d.responseStatus ? ` · HTTP ${d.responseStatus}` : ""}{d.lastError ? ` · ${d.lastError}` : ""}

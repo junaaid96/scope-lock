@@ -60,13 +60,13 @@ test("public intake link accepts submissions and revokes cleanly", async ({ page
   await page.getByText("Add a booking calendar").click();
   await expect(page.getByText("Unverified submitter")).toBeVisible();
   await expect(page.getByText(/Self-declared contact: Pat Visitor · pat@example.com/)).toBeVisible();
-  await expect(page.getByText("SUBMITTED", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Submitted", { exact: true }).first()).toBeVisible();
 
   // Revoking kills the public form.
   await page.goto(`/projects/${projectId}`);
   await page.getByRole("tab", { name: "Intake" }).click();
   await page.getByRole("button", { name: "Revoke" }).click();
-  await expect(page.getByText("REVOKED")).toBeVisible();
+  await expect(page.getByText("Revoked")).toBeVisible();
   const anon2 = await context.newPage();
   await anon2.goto(publicPath);
   await expect(anon2.getByText("Form unavailable")).toBeVisible();
