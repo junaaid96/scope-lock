@@ -47,7 +47,7 @@ export interface Page<T> {
   pagination: { nextCursor: string | null };
 }
 
-/** Fetch all pages of a cursor-paginated list (bounded to 500 items for UI lists). */
+/** Fetch all pages of a cursor-paginated list (bounded to 10 pages x 100 = 1000 items for UI lists). */
 export async function fetchAll<T>(path: string): Promise<T[]> {
   const out: T[] = [];
   let cursor: string | null | undefined;

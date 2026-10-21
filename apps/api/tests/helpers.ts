@@ -106,11 +106,11 @@ export async function agencyFixture(app: Express): Promise<{
     email: "carl@client.test",
     role: "CLIENT",
   });
-  if (invite.status !== 201) throw new Error(`invite failed: ${JSON.stringify(invite.body)}`);
+  if (invite.status !== 201) throw new Error(`invite failed: ${invite.status} ${JSON.stringify(invite.body)}`);
   const accept = await client.agent
     .post(`/api/v1/auth/invitations/${(invite.body as { token: string }).token}/accept`)
     .send({});
-  if (accept.status !== 200) throw new Error(`accept failed: ${JSON.stringify(accept.body)}`);
+  if (accept.status !== 200) throw new Error(`accept failed: ${accept.status} ${JSON.stringify(accept.body)}`);
   const created = await createClient(app, owner.agent, owner.organization.id);
   const project = await createProject(app, owner.agent, { organizationId: owner.organization.id, clientId: created.id });
   const addMember = await owner.agent.post(`/api/v1/projects/${project.id}/members`).send({

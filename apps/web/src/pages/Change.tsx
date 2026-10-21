@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -378,6 +378,9 @@ function WorkflowStepper({ status }: { status: string }): JSX.Element {
 function StatusPicker({ current, onPick }: { current: string; onPick: (s: string) => void }): JSX.Element | null {
   const { t } = useLocale();
   const [value, setValue] = useState(current);
+  // After a move the parent refetches with a new status: follow it instead
+  // of showing the stale pre-move selection with Move wrongly enabled.
+  useEffect(() => setValue(current), [current]);
   // Review-driven states (pending approval, approved, …) move on their own;
   // showing the picker there displayed the wrong status (no matching option).
   if (!MANUAL_STATUSES.includes(current)) {

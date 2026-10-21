@@ -74,6 +74,16 @@ test("inbox badge matches visible decisions and notifications", async ({ page, p
   await page.getByRole("tab", { name: /Notifications/ }).click();
   await expect(page.getByText("Scope v1 published")).toBeVisible();
 
+  // Tabs follow the APG keyboard pattern: arrows move and select.
+  await page.getByRole("tab", { name: /Awaiting decision/ }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: /Notifications/ })).toBeFocused();
+  await expect(page.getByText("Scope v1 published")).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: /Awaiting decision/ })).toBeFocused();
+  await expect(page.getByText("Nothing needs your decision")).toBeVisible();
+  await page.getByRole("tab", { name: /Notifications/ }).click();
+
   // Marking it read clears the badge: nothing counted, nothing hidden.
   await page.getByRole("button", { name: "Mark read" }).click();
   await expect(headerInbox).toHaveCount(0);

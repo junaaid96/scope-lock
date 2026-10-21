@@ -304,6 +304,7 @@ function RevisionList({ projectId, version, onChanged, onEdit, onError }: {
                   label={t("scope.remove")}
                   confirmLabel={t("scope.confirmRemove")}
                   cancelLabel={t("common.cancel")}
+                  pending={busy}
                   onConfirm={() => void remove(r)}
                 />
               </>
@@ -409,10 +410,14 @@ function Assumptions({ title, items }: { title: string; items: string[] }): JSX.
   );
 }
 
-/** Readable diff value: arrays join with "·", long text truncates, nulls show as —. */
+/** Readable diff value: arrays join with "·", objects stringify, long text truncates, nulls show as —. */
 function diffValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
-  const text = Array.isArray(value) ? value.map((v) => String(v)).join(" · ") : String(value);
+  const text = Array.isArray(value)
+    ? value.map((v) => (typeof v === "object" && v !== null ? JSON.stringify(v) : String(v))).join(" · ")
+    : typeof value === "object"
+      ? JSON.stringify(value)
+      : String(value);
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 

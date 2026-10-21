@@ -238,6 +238,7 @@ function RemoveMemberButton({ orgId, member, onDone }: { orgId: string; member: 
         label={t("orgSettings.remove")}
         confirmLabel={t("orgSettings.confirmRemove")}
         cancelLabel={t("common.cancel")}
+        pending={remove.isPending}
         onConfirm={() => remove.mutate()}
       />
       {error ? <Badge tone="red">{error}</Badge> : null}

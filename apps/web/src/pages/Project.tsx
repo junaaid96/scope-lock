@@ -384,6 +384,7 @@ function MembersTab({ projectId, canManage }: { projectId: string; canManage: bo
                     label={t("project.remove")}
                     confirmLabel={t("project.confirmRemove")}
                     cancelLabel={t("common.cancel")}
+                    pending={remove.isPending}
                     onConfirm={() => remove.mutate(m.userId)}
                   />
                 ) : null}

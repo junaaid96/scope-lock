@@ -59,12 +59,17 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
     void client.invalidateQueries({ queryKey: ["scope-templates", organizationId] });
   };
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
   const remove = async (tpl: ScopeTemplate): Promise<void> => {
+    setRemovingId(tpl.id);
     try {
       await api.delete(`/organizations/${organizationId}/scope-templates/${tpl.id}`);
       refresh();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -97,6 +102,7 @@ export function ScopeTemplatesCard({ organizationId, canManage }: { organization
                         label={t("templates.delete")}
                         confirmLabel={t("common.confirmDelete")}
                         cancelLabel={t("common.cancel")}
+                        pending={removingId === tpl.id}
                         onConfirm={() => void remove(tpl)}
                       />
                     </>

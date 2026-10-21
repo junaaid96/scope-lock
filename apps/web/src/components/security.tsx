@@ -31,14 +31,18 @@ export function OAuthCard(): JSX.Element {
     queryFn: () => api.get<{ google: boolean; github: boolean }>("/auth/methods"),
   });
   const [error, setError] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
 
   const unlink = async (provider: string): Promise<void> => {
     setError(null);
+    setUnlinking(provider);
     try {
       await api.delete(`/auth/oauth/accounts/${provider}`);
       void client.invalidateQueries({ queryKey: ["oauth-accounts"] });
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setUnlinking(null);
     }
   };
 
@@ -66,6 +70,7 @@ export function OAuthCard(): JSX.Element {
                 label={t("security.unlink")}
                 confirmLabel={t("common.confirmUnlink")}
                 cancelLabel={t("common.cancel")}
+                pending={unlinking === a.provider}
                 onConfirm={() => void unlink(a.provider)}
               />
             </li>
@@ -128,13 +133,18 @@ export function PasskeysCard(): JSX.Element {
     }
   };
 
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
   const remove = async (key: Passkey): Promise<void> => {
     setError(null);
+    setRemovingId(key.id);
     try {
       await api.delete(`/auth/passkeys/${key.id}`);
       refresh();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -162,6 +172,7 @@ export function PasskeysCard(): JSX.Element {
                   label={t("security.delete")}
                   confirmLabel={t("common.confirmDelete")}
                   cancelLabel={t("common.cancel")}
+                  pending={removingId === k.id}
                   onConfirm={() => void remove(k)}
                 />
               </span>

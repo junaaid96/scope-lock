@@ -44,11 +44,13 @@ export function Button({ variant, size, className, loading, disabled, children, 
 }
 
 /** Two-click inline confirm for destructive actions (replaces window.confirm). */
-export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, variant = "ghost", size = "sm", className }: {
+export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, pending, variant = "ghost", size = "sm", className }: {
   label: string;
   confirmLabel: string;
   cancelLabel: string;
   onConfirm: () => void;
+  /** Disables both steps while the confirmed action is in flight (no double-fire). */
+  pending?: boolean;
   variant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
   className?: string;
@@ -56,7 +58,7 @@ export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, var
   const [arming, setArming] = useState(false);
   if (!arming) {
     return (
-      <Button variant={variant} size={size} className={className} onClick={() => setArming(true)}>
+      <Button variant={variant} size={size} className={className} loading={pending} onClick={() => setArming(true)}>
         {label}
       </Button>
     );
@@ -67,6 +69,7 @@ export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, var
         variant="danger"
         size="sm"
         className={className}
+        loading={pending}
         onClick={() => {
           setArming(false);
           onConfirm();
@@ -74,7 +77,7 @@ export function ConfirmButton({ label, confirmLabel, cancelLabel, onConfirm, var
       >
         {confirmLabel}
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => setArming(false)}>
+      <Button variant="ghost" size="sm" disabled={pending} onClick={() => setArming(false)}>
         {cancelLabel}
       </Button>
     </span>
@@ -206,15 +209,38 @@ export function Tabs<T extends string>({ tabs, active, onChange, label }: {
   onChange: (id: T) => void;
   label: string;
 }): JSX.Element {
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const move = (from: number, delta: number): void => {
+    const next = (from + delta + tabs.length) % tabs.length;
+    onChange(tabs[next].id);
+    refs.current[next]?.focus();
+  };
   return (
     <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100/70 p-1" role="tablist" aria-label={label}>
-      {tabs.map((t) => (
+      {tabs.map((t, i) => (
         <button
           key={t.id}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
           type="button"
           role="tab"
           aria-selected={active === t.id}
+          tabIndex={active === t.id ? 0 : -1}
           onClick={() => onChange(t.id)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowRight") move(i, 1);
+            else if (e.key === "ArrowLeft") move(i, -1);
+            else if (e.key === "Home") {
+              e.preventDefault();
+              onChange(tabs[0].id);
+              refs.current[0]?.focus();
+            } else if (e.key === "End") {
+              e.preventDefault();
+              onChange(tabs[tabs.length - 1].id);
+              refs.current[tabs.length - 1]?.focus();
+            }
+          }}
           className={cn(
             "tap whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium",
             active === t.id ? "bg-surface text-slate-900 shadow-card ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900",
@@ -330,10 +356,14 @@ export function ErrorBanner({ message, correlationId }: { message: string; corre
 export function Dialog({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }): JSX.Element {
   const { t } = useLocale();
   const ref = useRef<HTMLDivElement>(null);
+  // onClose is an inline closure in every caller: read it through a ref so
+  // this mount-only effect never re-runs (and re-steals focus) on re-render.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // Light focus trap: keep Tab cycling inside the dialog.
@@ -363,7 +393,8 @@ export function Dialog({ title, onClose, children, wide }: { title: string; onCl
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+    // Mount-only by design (see onCloseRef above).
+  }, []);
   // Portaled to body: page wrappers carry entrance animations whose transforms
   // would otherwise trap this fixed overlay inside the content box (cropped
   // backdrop, off-center panel). Header stays pinned while the body scrolls.

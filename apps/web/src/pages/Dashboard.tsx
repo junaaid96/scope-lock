@@ -234,6 +234,7 @@ function ClientsCard({ orgId, clients, loading }: { orgId: string; clients: Clie
                   label={t("dashboard.delete")}
                   confirmLabel={t("dashboard.confirmDelete")}
                   cancelLabel={t("common.cancel")}
+                  pending={remove.isPending}
                   onConfirm={() => remove.mutate(c.id)}
                 />
               </span>

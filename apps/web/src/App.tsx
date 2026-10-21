@@ -1,26 +1,30 @@
+import { Suspense, lazy } from "react";
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/query.js";
 import { AuthProvider, useSession } from "./lib/auth.js";
 import { SessionLocaleProvider } from "./lib/i18n/index.js";
 import { Centered, LoadingScreen, Shell } from "./components/layout.js";
-import { LoginPage } from "./pages/Login.js";
-import { LandingPage } from "./pages/Landing.js";
-import { RegisterPage } from "./pages/Register.js";
-import { AcceptInvitePage } from "./pages/AcceptInvite.js";
-import { ResetPasswordPage } from "./pages/ResetPassword.js";
-import { DashboardPage } from "./pages/Dashboard.js";
-import { ProjectPage } from "./pages/Project.js";
-import { ScopePage } from "./pages/Scope.js";
-import { ChangePage } from "./pages/Change.js";
-import { InboxPage } from "./pages/Inbox.js";
-import { TimelinePage } from "./pages/Timeline.js";
-import { ReviewPage } from "./pages/Review.js";
-import { IntakePage } from "./pages/Intake.js";
-import { VerifyPage } from "./pages/Verify.js";
-import { ActivityPage } from "./pages/Activity.js";
-import { HealthPage } from "./pages/Health.js";
-import { OrgSettingsPage } from "./pages/OrgSettings.js";
+
+// Route-level splitting: pages load on demand so the initial bundle stays
+// small (was one 830 kB chunk tripping the size warning).
+const LoginPage = lazy(() => import("./pages/Login.js").then((m) => ({ default: m.LoginPage })));
+const LandingPage = lazy(() => import("./pages/Landing.js").then((m) => ({ default: m.LandingPage })));
+const RegisterPage = lazy(() => import("./pages/Register.js").then((m) => ({ default: m.RegisterPage })));
+const AcceptInvitePage = lazy(() => import("./pages/AcceptInvite.js").then((m) => ({ default: m.AcceptInvitePage })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPassword.js").then((m) => ({ default: m.ResetPasswordPage })));
+const DashboardPage = lazy(() => import("./pages/Dashboard.js").then((m) => ({ default: m.DashboardPage })));
+const ProjectPage = lazy(() => import("./pages/Project.js").then((m) => ({ default: m.ProjectPage })));
+const ScopePage = lazy(() => import("./pages/Scope.js").then((m) => ({ default: m.ScopePage })));
+const ChangePage = lazy(() => import("./pages/Change.js").then((m) => ({ default: m.ChangePage })));
+const InboxPage = lazy(() => import("./pages/Inbox.js").then((m) => ({ default: m.InboxPage })));
+const TimelinePage = lazy(() => import("./pages/Timeline.js").then((m) => ({ default: m.TimelinePage })));
+const ReviewPage = lazy(() => import("./pages/Review.js").then((m) => ({ default: m.ReviewPage })));
+const IntakePage = lazy(() => import("./pages/Intake.js").then((m) => ({ default: m.IntakePage })));
+const VerifyPage = lazy(() => import("./pages/Verify.js").then((m) => ({ default: m.VerifyPage })));
+const ActivityPage = lazy(() => import("./pages/Activity.js").then((m) => ({ default: m.ActivityPage })));
+const HealthPage = lazy(() => import("./pages/Health.js").then((m) => ({ default: m.HealthPage })));
+const OrgSettingsPage = lazy(() => import("./pages/OrgSettings.js").then((m) => ({ default: m.OrgSettingsPage })));
 
 function RequireAuth(): JSX.Element {
   const { session, loading } = useSession();
@@ -67,7 +71,9 @@ export function App(): JSX.Element {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SessionLocaleProvider>
-          <RouterProvider router={router} />
+          <Suspense fallback={<LoadingScreen />}>
+            <RouterProvider router={router} />
+          </Suspense>
         </SessionLocaleProvider>
       </AuthProvider>
     </QueryClientProvider>
