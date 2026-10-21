@@ -9,7 +9,8 @@ name: scopelock
 # WEB_URL/API_URL/AUTH_URL, and terminate TLS in front of the web service.
 services:
   db:
-    image: postgres:16
+    # pgvector build of Postgres 16: migration 0020 creates the vector extension.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: scopelock

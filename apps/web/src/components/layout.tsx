@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, fetchAll } from "../lib/api.js";
@@ -222,7 +222,12 @@ export function Shell(): JSX.Element {
 
         <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-8 sm:px-6">
           <div key={location.pathname} className="animate-fade-up">
-            <Outlet />
+            {/* Local boundary: lazy page chunks suspend inside the shell, so the
+                header, sidebar and command palette stay mounted during navigation
+                instead of being swapped for the app-wide loading screen. */}
+            <Suspense fallback={<PageFallback />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
         <footer className="border-t border-slate-200 bg-surface">
@@ -282,6 +287,15 @@ export function Centered({ children }: { children: React.ReactNode }): JSX.Eleme
 }
 
 /** Full-viewport loading state (auth check, review lookup). No credit line here by design. */
+function PageFallback(): JSX.Element {
+  const { t } = useLocale();
+  return (
+    <div className="flex justify-center py-16">
+      <span role="status" aria-label={t("common.loadingLabel")} className="inline-block h-6 w-6 animate-spin rounded-full border-[3px] border-slate-200 border-t-teal-600 motion-reduce:animate-none" />
+    </div>
+  );
+}
+
 export function LoadingScreen({ message }: { message?: string }): JSX.Element {
   const { t } = useLocale();
   return (
