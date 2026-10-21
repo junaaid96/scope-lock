@@ -41,9 +41,12 @@ export default {
         float: { "0%,100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-6px)" } },
       },
       animation: {
-        "fade-up": "fade-up .35s cubic-bezier(.2,.7,.2,1) both",
-        "fade-in": "fade-in .25s ease-out both",
-        "pop-in": "pop-in .18s cubic-bezier(.2,.8,.2,1) both",
+        // NB: fill mode must stay `backwards`, never `both`: a stuck `to`
+        // transform (even identity) makes the element a containing block
+        // for fixed descendants and traps modals inside the page wrapper.
+        "fade-up": "fade-up .35s cubic-bezier(.2,.7,.2,1) backwards",
+        "fade-in": "fade-in .25s ease-out backwards",
+        "pop-in": "pop-in .18s cubic-bezier(.2,.8,.2,1) backwards",
         float: "float 6s ease-in-out infinite",
       },
     },

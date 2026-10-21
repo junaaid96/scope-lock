@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -363,25 +364,29 @@ export function Dialog({ title, onClose, children, wide }: { title: string; onCl
       document.body.style.overflow = prev;
     };
   }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose} role="presentation">
+  // Portaled to body: page wrappers carry entrance animations whose transforms
+  // would otherwise trap this fixed overlay inside the content box (cropped
+  // backdrop, off-center panel). Header stays pinned while the body scrolls.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm" onClick={onClose} role="presentation">
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn("max-h-[90vh] w-full animate-pop-in overflow-y-auto rounded-2xl border border-slate-200 bg-surface p-6 shadow-pop", wide ? "max-w-3xl" : "max-w-lg")}
+        className={cn("flex max-h-[calc(100vh-2rem)] w-full animate-pop-in flex-col overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-pop", wide ? "max-w-3xl" : "max-w-lg")}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between px-6 pt-5">
           <h2 className="text-lg font-semibold tracking-tight text-slate-900">{title}</h2>
           <button type="button" onClick={onClose} aria-label={t("common.closeDialog")} className="tap rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
             <Icon d={ICONS.close} />
           </button>
         </div>
-        <div data-dialog-body>{children}</div>
+        <div data-dialog-body className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
