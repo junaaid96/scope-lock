@@ -7,6 +7,10 @@ FROM node:22-slim
 ENV NODE_ENV=production
 WORKDIR /srv/scopelock
 
+# Prisma's query engine needs OpenSSL at generate and run time; slim omits it.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 # Manifests first for layer caching (every workspace manifest must exist for `npm ci`).
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
@@ -18,10 +22,13 @@ COPY packages/domain/package.json packages/domain/package.json
 RUN npm ci --include=dev --ignore-scripts
 
 COPY . .
-RUN npm run build -w packages/domain \
+# Generate the Prisma client BEFORE compiling the API: npm ci ran with
+# --ignore-scripts, so @prisma/client is still the empty stub and
+# `tsc` would fail with "has no exported member 'PrismaClient'".
+RUN npm run prisma:generate \
+  && npm run build -w packages/domain \
   && npm run build -w packages/contracts \
-  && npm run build -w apps/api \
-  && npm run prisma:generate
+  && npm run build -w apps/api
 
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
