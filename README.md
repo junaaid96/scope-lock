@@ -406,8 +406,7 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
   or Bangla with Intl money/date/number formatting, persisted to your
   profile. Review links and decision certificates render in the
   project/org default language instead.
-- **Modern SaaS UI** — app shell with sidebar navigation, light/dark theme
-  (follows the OS, one-click toggle), design tokens, skeleton loading states,
+- **Modern SaaS UI** — app shell with sidebar navigation, design tokens, skeleton loading states,
   keyboard-first command palette, and a public landing page at `/welcome`.
 - Fully navigable on mobile and tablet (drawer menu, responsive tables and dialogs).
 
@@ -415,7 +414,7 @@ DATABASE_URL=postgresql://localhost:5432/scopelock AUTH_SECRET=$(openssl rand -h
 
 Every screen below is captured from the portfolio demo seed with
 `npm run screenshots` (1440×900; mobile shots are 390×844). The UI is a
-responsive SaaS shell with a light/dark theme, a command palette (Ctrl/⌘ K),
+responsive SaaS shell with a command palette (Ctrl/⌘ K),
 skeleton loading states and full English + Bangla coverage.
 
 **Public**
@@ -448,13 +447,11 @@ skeleton loading states and full English + Bangla coverage.
 | Workspace settings | Agency inbox |
 | ![Workspace settings](docs/screenshots/21-workspace-settings.png) | ![Inbox](docs/screenshots/22-inbox.png) |
 
-**Themes and languages**
+**Languages**
 
-| Dark mode dashboard | Dark mode change detail |
-| --- | --- |
-| ![Dark dashboard](docs/screenshots/23-dashboard-dark.png) | ![Dark change detail](docs/screenshots/24-change-dark.png) |
-| Bangla UI (scope health) | |
-| ![Bangla health](docs/screenshots/25-health-bangla.png) | |
+| Bangla UI (scope health) |
+| --- |
+| ![Bangla health](docs/screenshots/25-health-bangla.png) |
 
 **Client side (no account needed for the first three)**
 
